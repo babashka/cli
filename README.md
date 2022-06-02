@@ -94,7 +94,7 @@ To alter the parsing behavior, you can alter the metadata of a var using
 `alter-meta!`. For demo purposes we alter the metadata on `prn`:
 
 ``` clojure
-:prn {:main-opts ["-e" "(do (alter-meta! #'prn assoc :babashka/cli {:coerce {:foo parse-long}}) nil)"
+:prn {:main-opts ["-e" "(do (alter-meta! (requiring-resolve 'clojure.core/prn) assoc :babashka/cli {:coerce {:foo parse-long}}) nil)"
                   "-m" "babashka.cli.exec" "clojure.core/prn"]}
 ```
 
@@ -102,6 +102,9 @@ To alter the parsing behavior, you can alter the metadata of a var using
 $ clojure -M:exec:prn :foo 1
 {:foo 1}
 ```
+
+Although we didn't have to use `requiring-resolve` for `prn`, when using
+namespaces outside of clojure, you will.
 
 ## License
 
