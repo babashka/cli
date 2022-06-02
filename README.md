@@ -76,7 +76,7 @@ $ clojure -M:exec my-ns/foo :a foo/bar :b 2 :c vanilla
 Note that any library can add support for babashka CLI without depending on
 babashka CLI.
 
-An example specializes `babashka.cli` usage to a function:
+An example that specializes `babashka.cli` usage to a function:
 
 ``` clojure
 :exec {:deps {org.babashka/cli {:git/url "https://github.com/babashka/cli"
