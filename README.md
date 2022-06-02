@@ -55,7 +55,7 @@ In your `deps.edn` `:aliases` entry, add:
        :main-opts ["-m" "babashka.cli.exec"]}
 ```
 
-There-after you can call any function that accepts a map argument. E.g.:
+Now you can call any function that accepts a map argument. E.g.:
 
 ``` clojure
 $ clojure -M:exec clojure.core/prn :a 1 :b 2
