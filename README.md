@@ -68,13 +68,13 @@ Functions that are annotated with `:babashka/cli` metadata can add coerce option
   (prn m))
 ```
 
-Note that any library can add support for babashka CLI without depending on
-babashka CLI.
-
 ``` clojure
 $ clojure -M:exec my-ns/foo :a foo/bar :b 2 :c vanilla
 {:a foo/bar, :b 2, :c "vanilla"}
 ```
+
+Note that any library can add support for babashka CLI without depending on
+babashka CLI.
 
 ## License
 
