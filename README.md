@@ -20,9 +20,11 @@ See e.g. [neil](https://github.com/babashka/neil):
 Usage: neil <subcommand> <options>
 ```
 
-This library eases that way of command line parsing.
+This library eases that way of command line parsing. It does not convert options
+into EDN automatically, which, arguably, is more convenient for command line
+usage.
 
-Adding support for `babashka.cli` to Clojure functions does not introduce a dependency on `babashka.cli` itself. 
+Adding support for `babashka.cli` to Clojure functions does not introduce a dependency on `babashka.cli` itself.
 It can be done via metadata and core functions.
 
 ## Quickstart
