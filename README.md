@@ -90,7 +90,8 @@ $ clojure -M:exec:prn :foo 1
 {:foo "1"}
 ```
 
-To alter the parsing behavior, you can alter the metadata of a var. I don't recommend doing this with vars you don't own, but for demo purposes:
+To alter the parsing behavior, you can alter the metadata of a var using
+`alter-meta!`. For demo purposes we alter the metadata on `prn`:
 
 ``` clojure
 :prn {:main-opts ["-e" "(do (alter-meta! #'prn assoc :babashka/cli {:coerce {:foo parse-long}}) nil)"
