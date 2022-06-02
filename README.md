@@ -82,7 +82,8 @@ An example that combines `babashka.cli` and another tool:
 :exec {:deps {org.babashka/cli {:git/url "https://github.com/babashka/cli"
                                 :git/sha "<latest-sha>"}}
        :main-opts ["-m" "babashka.cli.exec"]}
-:new {:extra-deps {com.github.seancorfield/clj-new {:mvn/version "1.2.381"}}}
+:new {:extra-deps {com.github.seancorfield/clj-new {:mvn/version "1.2.381"}}
+      :main-opts ["-m" "babashka.cli.exec" "clj-new/create"]}
 ```
 
 ``` clojure

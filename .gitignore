@@ -2,3 +2,4 @@
 .cpcache
 .lsp
 .portal
+.nrepl-port
