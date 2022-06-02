@@ -75,4 +75,4 @@ Parse the command line arguments `args`, a seq of strings in the format `["cmd_1
 
   (-main "my-ns/foo" ":b" "1") ;;=> {:b 1}
   ```
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L4-L21)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L4-L22)</sub>
