@@ -2,8 +2,9 @@
 -  [`babashka.cli`](#babashkacli) 
     -  [`coerce`](#coerce) - Coerce string <code>s</code> using <code>f</code>
     -  [`coerce-vals`](#coerce-vals) - Coerce vals of map <code>m</code> using <code>mapping</code>, a map of keys to functions, using `coerc
-    -  [`exec`](#exec) - Takes a var <code>f</code> with metadata value <code>:babashka.cli</code>, parses <code>args</code>
     -  [`parse-args`](#parse-args) - Parse the command line arguments <code>args</code>, a seq of strings in the format `["cmd_1
+-  [`babashka.cli.exec`](#babashkacliexec) 
+    -  [`-main`](#-main) - <code></code>
 # babashka.cli 
 
 
@@ -28,24 +29,6 @@ Coerce string `s` using `f`. Does not coerce when `s` is not a string.
 
 Coerce vals of map `m` using `mapping`, a map of keys to functions, using [`coerce`](#coerce).
 <br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L11-L17)</sub>
-## `exec`
-``` clojure
-
-(exec f)
-(exec f args)
-(exec f args opts)
-```
-
-
-Takes a var `f` with metadata value `:babashka.cli`, parses `args`
-  and then calls `f` with the parsed `:opts`.
-
-  Example:
-
-  ```
-  (+ 1 2 3)
-  ```
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L47-L64)</sub>
 ## `parse-args`
 ``` clojure
 
@@ -70,3 +53,26 @@ Parse the command line arguments `args`, a seq of strings in the format `["cmd_1
   ```
 
 <br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L19-L45)</sub>
+# babashka.cli.exec 
+
+
+
+
+
+## `-main`
+``` clojure
+
+(-main & [f & args])
+```
+
+
+``
+  (ns my-ns (:require [babashka.cli.exec :refer [-main]]))
+
+  (defn foo
+    {:babashka/cli {:coerce {:b parse-long}}}
+    [{:keys [b]}] {:b b})
+
+  (-main "my-ns/foo" ":b" "1") ;;=> {:b 1}
+  ```
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L4-L21)</sub>

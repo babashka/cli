@@ -15,6 +15,4 @@
   (is (= '{:cmds ("foo"), :opts {:b 1}}
          (cli/parse-args ["foo" ":b" 1] {:coerce {:b parse-long}})))
   (is (= {:b 1} (cli/coerce-vals {:b 1} {:b parse-long})))
-  (is (= {:b 1} (cli/coerce-vals {:b "1"} {:b parse-long})))
-  (is (= {:b 1} (cli/exec #'foo [":b" "1"])))
-  (is (= {:b 1} (cli/exec #'foo {:b 1}))))
+  (is (= {:b 1} (cli/coerce-vals {:b "1"} {:b parse-long}))))

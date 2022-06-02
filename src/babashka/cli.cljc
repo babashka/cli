@@ -43,22 +43,3 @@
                   (let [k (keyword (subs arg-name 1))]
                     [k arg-val])))
           (coerce-vals coerce-opts))})))
-
-(defn exec
-  "Takes a var `f` with metadata value `:babashka.cli`, parses `args`
-  and then calls `f` with the parsed `:opts`.
-
-  Example:
-
-  ```
-  (+ 1 2 3)
-  ```"
-  ([f] (exec f *command-line-args*))
-  ([f args] (exec f args nil))
-  ([f args opts]
-   (let [f (coerce f symbol)
-         opts (or opts (:babashka/cli (meta f)))
-         opts (if (vector? args)
-                (:opts (parse-args args opts))
-                args)]
-     (f opts))))
