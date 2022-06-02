@@ -24,8 +24,9 @@ This library eases that way of command line parsing. It does not convert options
 into EDN automatically which, arguably, is more convenient for command line
 usage.
 
-Adding support for `babashka.cli` to Clojure functions does not introduce a dependency on `babashka.cli` itself.
-It can be done via metadata and core functions.
+Adding support for `babashka.cli` coercions to Clojure functions does not
+introduce a dependency on `babashka.cli` itself.  It can be done via metadata
+and core functions.
 
 ## Quickstart
 
