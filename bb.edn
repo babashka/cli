@@ -2,24 +2,31 @@
  :deps {io.github.borkdude/quickdoc
         #_{:local/root "/Users/borkdude/dev/quickdoc"}
         {:git/sha "ca5893c0d81f26443dd178a747d0851e75d39eca"}}
+ :paths ["src"]
  :tasks
  {:requires ([clojure.edn :as edn]
-             [clojure.string :as str])
-
+             [clojure.string :as str]
+             [babashka.cli :as cli])
+  :init (def cmd-line-opts
+          (:opts (cli/parse-args *command-line-args*
+                                 {:coerce {:toc parse-boolean
+                                           :skip-bump parse-boolean}})))
   test {:doc "Run tests"
         :task (clojure "-X:test")}
 
   quickdoc {:doc "Invoke quickdoc"
             :requires ([quickdoc.api :as api])
-            :task (api/quickdoc {:git/branch "main"
-                                 :github/repo "https://github.com/babashka/cli"
-                                 :toc true
-                                 :var-links true})}
+            :task (api/quickdoc (merge {:git/branch "main"
+                                        :github/repo "https://github.com/babashka/cli"
+                                        :toc true
+                                        :var-links true}
+                                       cmd-line-opts))}
 
   bump-release {:doc "Bump release counter"
                 :task (spit "release_count" (inc (parse-long (str/trim (slurp "release_count")))))}
 
   publish {:doc "Bump release count and publish to clojars"
            :task (do
-                   (run 'bump-release)
+                   (when-not (:skip-bump cmd-line-opts)
+                     (run 'bump-release))
                    (clojure "-T:build deploy"))}}}

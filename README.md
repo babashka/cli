@@ -46,6 +46,24 @@ and `clojure -M` style invocations without writing extra boilerplate.
 ;;=> {:cmds ["server"] :opts {:port 1339}}
 ```
 
+## Usage in babashka tasks
+
+To parse options to your tasks, add `[babashka.cli :as cli]` to
+`:requires`. Then you can parse the options in `:init`:
+
+``` clojure
+:init (def cmd-line-opts
+        (:opts (cli/parse-args *command-line-args*
+          {:coerce {:toc parse-boolean
+                    :skip-bump parse-boolean}})))
+```
+and then use this in any task:
+
+``` clojure
+(when-not (:skip-bump cmd-line-opts)
+  (run 'bump-release))
+```
+
 ## Usage with the clojure CLI
 
 In your `deps.edn` `:aliases` entry, add:
