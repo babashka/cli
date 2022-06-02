@@ -76,6 +76,19 @@ $ clojure -M:exec my-ns/foo :a foo/bar :b 2 :c vanilla
 Note that any library can add support for babashka CLI without depending on
 babashka CLI.
 
+An example that combines `babashka.cli` and another tool:
+
+``` clojure
+:exec {:deps {org.babashka/cli {:git/url "https://github.com/babashka/cli"
+                                :git/sha "<latest-sha>"}}
+       :main-opts ["-m" "babashka.cli.exec"]}
+:new {:extra-deps {com.github.seancorfield/clj-new {:mvn/version "1.2.381"}}}
+```
+
+``` clojure
+$ clojure -M:exec:new :template app :name myname/myapp
+```
+
 ## License
 
 Copyright © 2022 Michiel Borkent
