@@ -27,9 +27,8 @@ coerce strings.
 Adding support for `babashka.cli` coercions to Clojure functions does not
 introduce a dependency on `babashka.cli` itself.  It can be done via metadata
 and core functions. Perhaps doing so will cause less friction with shell usage,
-especially on Windows. You can have support on the same function for both
-`clojure -X` and `clojure -M` style invocations without writing extra
-boilerplate.
+especially on Windows. You can support the same function for both `clojure -X`
+and `clojure -M` style invocations without writing extra boilerplate.
 
 ## Quickstart
 
