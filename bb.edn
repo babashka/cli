@@ -2,11 +2,18 @@
  :deps {io.github.borkdude/quickdoc
         #_{:local/root "/Users/borkdude/dev/quickdoc"}
         {:git/sha "ca5893c0d81f26443dd178a747d0851e75d39eca"}}
- :tasks {test {:doc "Run tests"
-               :task (clojure "-X:test")}
-         quickdoc {:doc "Invoke quickdoc"
-                   :requires ([quickdoc.api :as api])
-                   :task (api/quickdoc {:git/branch "main"
-                                        :github/repo "https://github.com/babashka/cli"
-                                        :toc true
-                                        :var-links true})}}}
+ :tasks
+ {test {:doc "Run tests"
+        :task (clojure "-X:test")}
+  quickdoc {:doc "Invoke quickdoc"
+            :requires ([quickdoc.api :as api])
+            :task (api/quickdoc {:git/branch "main"
+                                 :github/repo "https://github.com/babashka/cli"
+                                 :toc true
+                                 :var-links true})}
+  bump-release {:doc "Bump release counter"
+                :task (spit "release_count" (inc (parse-long (slurp "release_count"))))}
+  publish {:doc "Bump release count and publish to clojars"
+           :task (do
+                   (run 'bump-release)
+                   (clojure "-T:build deploy"))}}}
