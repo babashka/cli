@@ -28,7 +28,7 @@ Adding support for `babashka.cli` coercions to Clojure functions does not
 introduce a dependency on `babashka.cli` itself.  It can be done via metadata
 and core functions. Perhaps doing so will cause less friction with shell usage
 (Windows, etc). You can have support for both `clojure -X` and `clojure -M`
-usage without writing extra boilerplate.
+style invocations without writing extra boilerplate.
 
 ## Quickstart
 
