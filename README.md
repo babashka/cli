@@ -20,9 +20,15 @@ See e.g. [neil](https://github.com/babashka/neil):
 Usage: neil <subcommand> <options>
 ```
 
-This library eases that style of command line parsing. It does not convert
-options into EDN automatically which, arguably, is more convenient for command
-line usage. This library does offer a light-weight way to coerce strings.
+This library eases that style of command line parsing.
+
+This library does not support validation, or everything that you might expect
+from an arg-parse library. I think a lot of these things can be done using spec
+or otherwise, nowadays.
+
+It does not convert options into EDN automatically which, arguably, is more
+convenient for command line usage. This library does offer a light-weight way to
+coerce strings.
 
 Adding support for `babashka.cli` coercions to Clojure functions does not
 introduce a dependency on `babashka.cli` itself.  It can be done via metadata
