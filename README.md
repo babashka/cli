@@ -48,6 +48,8 @@ and `clojure -M` style invocations without writing extra boilerplate.
 
 ## Usage in babashka tasks
 
+For documentation on babashka tasks, go [here](https://book.babashka.org/#tasks).
+
 To parse options to your tasks, add `[babashka.cli :as cli]` to
 `:requires`. Then you can parse the options in `:init`:
 
