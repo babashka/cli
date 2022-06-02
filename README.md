@@ -4,7 +4,7 @@
 
 Easy command line parsing for Clojure.
 
-## API
+## [API](API.md)
 
 ## Installation
 
@@ -13,8 +13,6 @@ Add to your `deps.edn` or `bb.edn` `:deps` entry:
 ``` clojure
 org.babashka/cli {:mvn/version "0.1.1"}
 ```
-
-See [API.md](API.md).
 
 ## Rationale
 
