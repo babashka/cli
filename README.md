@@ -111,7 +111,7 @@ $ clojure -M:exec:prn :foo 1
 {:foo 1}
 ```
 
-Although we didn't have to use `requiring-resolve` for `prn`, when using
+Although we didn't have to use `requiring-resolve` of `prn`, when using
 namespaces outside of clojure, you will.
 
 ## License
