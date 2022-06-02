@@ -1,0 +1,10 @@
+{:pods {clj-kondo/clj-kondo {:version "2022.02.09"}}
+ :deps {io.github.borkdude/quickdoc
+        #_{:local/root "/Users/borkdude/dev/quickdoc"}
+        {:git/sha "ca5893c0d81f26443dd178a747d0851e75d39eca"}}
+ :tasks {quickdoc {:doc "Invoke quickdoc"
+                   :requires ([quickdoc.api :as api])
+                   :task (api/quickdoc {:git/branch "main"
+                                        :github/repo "https://github.com/babashka/cli"
+                                        :toc true
+                                        :var-links true})}}}
