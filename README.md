@@ -6,6 +6,33 @@ Easy command line parsing for Clojure.
 
 See [API.md](API.md).
 
+## Rationale
+
+Parsing command line arguments in clojure and babashka CLIs often are in the form of
+
+``` clojure
+<subcommand> :opt1 v1 :opt2 :v2
+```
+
+See e.g. [neil](https://github.com/babashka/neil):
+
+``` clojure
+Usage: neil <subcommand> <options>
+```
+
+This library eases that way of command line parsing.
+
+Adding support for `babashka.cli` to Clojure functions does not introduce a dependency on `babashka.cli` itself. 
+It can be done via metadata and core functions.
+
+## Quickstart
+
+``` clojure
+(require '[babashka.cli :as cli])
+(cli/parse-args ["server" ":port" "1339"] {:coerce {:port parse-long}})
+;;=> {:cmds ["server"] :opts {:port 1339}}
+```
+
 ## Usage with the clojure CLI
 
 In your `deps.edn` `:aliases` entry, add:
@@ -29,14 +56,23 @@ Functions that are annotated with `:babashka/cli` metadata can add coerce option
 (ns my-ns)
 
 (defn foo
-  {:babashka/cli {:coerce {:b parse-long}}}
+  {:babashka/cli {:coerce {:a symbol :b parse-long}}}
   ;; map argument:
   [m]
   ;; print map argument:
   (prn m))
 ```
 
+Note that any library can add support for babashka CLI without depending on
+babashka CLI.
+
 ``` clojure
-$ clojure -M:exec my-ns/foo :a 1 :b 2
-{:a "1", :b 2}
+$ clojure -M:exec my-ns/foo :a foo/bar :b 2 :c vanilla
+{:a foo/bar, :b 2, :c "vanilla"}
 ```
+
+## License
+
+Copyright © 2022 Michiel Borkent
+
+Distributed under the MIT License. See LICENSE.

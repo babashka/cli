@@ -2,7 +2,9 @@
  :deps {io.github.borkdude/quickdoc
         #_{:local/root "/Users/borkdude/dev/quickdoc"}
         {:git/sha "ca5893c0d81f26443dd178a747d0851e75d39eca"}}
- :tasks {quickdoc {:doc "Invoke quickdoc"
+ :tasks {test {:doc "Run tests"
+               :task (clojure "-X:test")}
+         quickdoc {:doc "Invoke quickdoc"
                    :requires ([quickdoc.api :as api])
                    :task (api/quickdoc {:git/branch "main"
                                         :github/repo "https://github.com/babashka/cli"
