@@ -62,7 +62,7 @@ $ clojure -M:exec clojure.core/prn :a 1 :b 2
 {:a "1", :b "2"}
 ```
 
-Functions that are annotated with `:babashka/cli` metadata can add coerce options:
+Use `:babashka/cli` metadata for coercions:
 
 ``` clojure
 (ns my-ns)
