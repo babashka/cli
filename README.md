@@ -1,8 +1,18 @@
 # babashka.cli
 
+[![Clojars Project](https://img.shields.io/clojars/v/babashka/cli.svg)](https://clojars.org/babashka/cli)
+
 Easy command line parsing for Clojure.
 
 ## API
+
+## Installation
+
+Add to your `deps.edn` or `bb.edn` `:deps` entry:
+
+``` clojure
+org.babashka/cli {:mvn/version "0.1.1"}
+```
 
 See [API.md](API.md).
 
@@ -43,8 +53,7 @@ and `clojure -M` style invocations without writing extra boilerplate.
 In your `deps.edn` `:aliases` entry, add:
 
 ``` clojure
-:exec {:deps {org.babashka/cli {:git/url "https://github.com/babashka/cli"
-                                :git/sha "<latest-sha>"}}
+:exec {:deps {org.babashka/cli {:mvn/version "0.1.1"}
        :main-opts ["-m" "babashka.cli.exec"]}
 ```
 
