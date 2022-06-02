@@ -18,4 +18,5 @@
         f (resolve f)
         opts (:babashka/cli (meta f))
         opts (:opts (parse-args args opts))]
-    (f opts)))
+    (try (f opts)
+         (finally (shutdown-agents)))))

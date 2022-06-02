@@ -10,7 +10,7 @@ See [API.md](API.md).
 
 In your `deps.edn` `:aliases` entry, add:
 
-```
+``` clojure
 :exec {:deps {org.babashka/cli {:git/url "https://github.com/babashka/cli"
                                 :git/sha "<latest-sha>"}}
        :main-opts ["-m" "babashka.cli.exec"]}
@@ -25,15 +25,15 @@ $ clojure -M:exec clojure.core/prn :a 1 :b 2
 
 Functions that are annotated with `:babashka/cli` metadata can add coerce options:
 
-```
+``` clojre
 (ns my-ns)
 
 (defn foo
   {:babashka/cli {:coerce {:b parse-long}}}
   ;; map argument:
   [m]
-  ;; return map argument:
-  m)
+  ;; print map argument:
+  (prn m))
 ```
 
 ``` clojure
