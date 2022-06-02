@@ -76,18 +76,30 @@ $ clojure -M:exec my-ns/foo :a foo/bar :b 2 :c vanilla
 Note that any library can add support for babashka CLI without depending on
 babashka CLI.
 
-An example that combines `babashka.cli` and another tool:
+An example specializes `babashka.cli` usage to a function:
 
 ``` clojure
 :exec {:deps {org.babashka/cli {:git/url "https://github.com/babashka/cli"
                                 :git/sha "<latest-sha>"}}
        :main-opts ["-m" "babashka.cli.exec"]}
-:new {:extra-deps {com.github.seancorfield/clj-new {:mvn/version "1.2.381"}}
-      :main-opts ["-m" "babashka.cli.exec" "clj-new/create"]}
+:prn {:main-opts ["-m" "babashka.cli.exec" "clojure.core/prn"]}
 ```
 
 ``` clojure
-$ clojure -M:exec:new :template app :name myname/myapp
+$ clojure -M:exec:prn :foo 1
+{:foo "1"}
+```
+
+To alter the parsing behavior, you can alter the metadata of a var. I don't recommend doing this with vars you don't own, but for demo purposes:
+
+``` clojure
+:prn {:main-opts ["-e" "(do (alter-meta! #'prn assoc :babashka/cli {:coerce {:foo parse-long}}) nil)"
+                  "-m" "babashka.cli.exec" "clojure.core/prn"]}
+```
+
+``` clojure
+$ clojure -M:exec:prn :foo 1
+{:foo 1}
 ```
 
 ## License
