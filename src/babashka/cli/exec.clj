@@ -2,7 +2,8 @@
   (:require [babashka.cli :refer [coerce parse-args]]))
 
 (defn -main
-  "Main entrypoint that can be called from the command line. Expects a fully qualified symbol and zero or more key value pairs.
+  "Main entrypoint for command line usage.
+  Expects a fully qualified symbol and zero or more key value pairs.
 
   Example when used as a clojure CLI alias: ``` clojure -M:exec
   clojure.core/prn :a 1 :b 2 ```"

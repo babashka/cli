@@ -17,7 +17,8 @@
                  m)) m mapping))
 
 (defn parse-args
-  "Parse the command line arguments `args`, a seq of strings in the format `[\"cmd_1\" ... \"cmd_n\" \":k_1\" \"v_1\" .. \":k_n\" \"v_n\"]`.
+  "Parse the command line arguments `args`, a seq of strings.
+  Expected format: `[\"cmd_1\" ... \"cmd_n\" \":k_1\" \"v_1\" .. \":k_n\" \"v_n\"]`.
 
   Return value: a map of `:cmds` and `:opts`
 
