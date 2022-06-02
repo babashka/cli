@@ -2,15 +2,10 @@
   (:require [babashka.cli :refer [coerce parse-args]]))
 
 (defn -main
-  "``
-  (ns my-ns (:require [babashka.cli.exec :refer [-main]]))
+  "Main entrypoint that can be called from the command line. Expects a fully qualified symbol and zero or more key value pairs.
 
-  (defn foo
-    {:babashka/cli {:coerce {:b parse-long}}}
-    [{:keys [b]}] {:b b})
-
-  (-main \"my-ns/foo\" \":b\" \"1\") ;;=> {:b 1}
-  ```"
+  Example when used as a clojure CLI alias: ``` clojure -M:exec
+  clojure.core/prn :a 1 :b 2 ```"
   [& [f & args]]
   (let [f (coerce f symbol)
         ns (namespace f)
