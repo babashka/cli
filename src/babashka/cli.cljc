@@ -9,7 +9,8 @@
     s))
 
 (defn coerce-vals
-  "Coerce vals of map `m` using `mapping`, a map of keys to functions, using `coerce`."
+  "Coerce vals of map `m` using `mapping`, a map of keys to functions.
+  Uses `coerce` to coerce values."
   [m mapping]
   (reduce-kv (fn [m k f]
                (if-let [v (get m k)]
