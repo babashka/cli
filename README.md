@@ -8,7 +8,7 @@ See [API.md](API.md).
 
 ## Rationale
 
-Parsing command line arguments in clojure and babashka CLIs often are in the form of
+Command line arguments in clojure and babashka CLIs are often in the form:
 
 ``` clojure
 <subcommand> :opt1 v1 :opt2 :v2
