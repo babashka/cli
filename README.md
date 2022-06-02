@@ -1,6 +1,6 @@
 # babashka.cli
 
-[![Clojars Project](https://img.shields.io/clojars/v/babashka/cli.svg)](https://clojars.org/babashka/cli)
+[![Clojars Project](https://img.shields.io/clojars/v/org.babashka/cli.svg)](https://clojars.org/org.babashka/cli)
 
 Easy command line parsing for Clojure.
 
