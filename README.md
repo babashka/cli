@@ -14,12 +14,6 @@ Parsing command line arguments in clojure and babashka CLIs often are in the for
 <subcommand> :opt1 v1 :opt2 :v2
 ```
 
-See e.g. [neil](https://github.com/babashka/neil):
-
-``` clojure
-Usage: neil <subcommand> <options>
-```
-
 This library eases that style of command line parsing.
 
 This library does not support validation, or everything that you might expect
