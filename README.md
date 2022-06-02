@@ -25,7 +25,7 @@ $ clojure -M:exec clojure.core/prn :a 1 :b 2
 
 Functions that are annotated with `:babashka/cli` metadata can add coerce options:
 
-``` clojre
+``` clojure
 (ns my-ns)
 
 (defn foo
