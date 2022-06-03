@@ -254,6 +254,12 @@ $ clj -M:example --lib%sym=org.babashka/cli
 Things to look out for here is if the delimiter works well with bash / zsh /
 cmd.exe and Powershell.
 
+Another option would be to merge default arguments from a file:
+
+``` clojure
+--org.babashka/cli-defaults=foo.edn
+```
+
 ## License
 
 Copyright © 2022 Michiel Borkent
