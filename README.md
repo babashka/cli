@@ -19,14 +19,16 @@ org.babashka/cli {:mvn/version "0.1.1"}
 Command line arguments in clojure and babashka CLIs are often in the form:
 
 ``` clojure
-<subcommand> :opt1 v1 :opt2 :v2
+<subcommand> :opt1 :v1 :opt2 :v2
+```
+
+or the more unixy:
+
+``` clojure
+<subcommand> --long-opt1 v1 -o2 v2
 ```
 
 This library eases that style of command line parsing.
-
-This library does not support validation, or everything that you might expect
-from an arg-parse library. I think a lot of these things can be done using spec
-or otherwise, nowadays.
 
 It does not convert options into EDN automatically which, arguably, is more
 convenient for command line usage. This library does offer a light-weight way to
@@ -42,8 +44,15 @@ and `clojure -M` style invocations without writing extra boilerplate.
 
 ``` clojure
 (require '[babashka.cli :as cli])
+
 (cli/parse-args ["server" ":port" "1339"] {:coerce {:port parse-long}})
 ;;=> {:cmds ["server"] :opts {:port 1339}}
+
+(cli/parse-args ["--port" "1339"] {:coerce {:port :long}})
+;;=> {:cmds [] :opts {:port 1339}}
+
+(cli/parse-args ["-p" "1339"] {:aliases {:p :port} :coerce {:port :long}})
+;;=> {:cmds [] :opts {:port 1339}}
 ```
 
 ## Usage in babashka tasks
