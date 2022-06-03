@@ -34,12 +34,6 @@ It does not convert options into EDN automatically which, arguably, is more
 convenient for command line usage. This library does offer a light-weight way to
 coerce strings.
 
-Adding support for `babashka.cli` coercions to Clojure functions does not
-introduce a dependency on `babashka.cli` itself.  It can be done via metadata
-and core functions. Perhaps doing so will cause less friction with shell usage,
-especially on Windows. You can support the same function for both `clojure -X`
-and `clojure -M` style invocations without writing extra boilerplate.
-
 ## Quickstart
 
 Parse `:port 1339` and coerce port into long:
@@ -106,6 +100,13 @@ $ bb publish --skip-bump
 ```
 
 ## Usage with the clojure CLI
+
+By adding `:babashka.cli` metadata to Clojure functions it will make them
+callable with the clojure CLI. It does not introduce a dependency on
+`babashka.cli` itself. Doing so will cause less friction with shell usage,
+especially on Windows since you need less quoting. You can support the same
+function for both `clojure -X` and `clojure -M` style invocations without
+writing extra boilerplate.
 
 In your `deps.edn` `:aliases` entry, add:
 
