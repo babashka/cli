@@ -117,7 +117,8 @@ $ bb publish --skip-bump
 
 You can control parsing behavior by adding `:org.babashka/cli` metadata to
 Clojure functions. It does not introduce a dependency on `babashka.cli`
-itself. Not adding any metadata will result in values parsed as strings, which in many cases may already be a reasonable default.
+itself. Not adding any metadata will result in string values, which in many
+cases may already be a reasonable default.
 
 Adding support for this library will cause less friction with shell usage,
 especially on Windows since you need less quoting. You can support the same
