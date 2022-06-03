@@ -220,7 +220,7 @@ clj -M:antq --update --skip github-action
 vs.
 
 ``` clojure
-clj -Tantq outdated :upgrade true :skip '["clojure-cli"]'
+clj -Tantq outdated :upgrade true :skip '["github-action"]'
 ```
 
 ### clj-new
