@@ -163,8 +163,7 @@ babashka CLI.
 An example that specializes `babashka.cli` usage to a function:
 
 ``` clojure
-:exec {:deps {org.babashka/cli {:git/url "https://github.com/babashka/cli"
-                                :git/sha "<latest-sha>"}}
+:exec {:deps {org.babashka/cli {:mvn/version "0.2.9"}}
        :main-opts ["-m" "babashka.cli.exec"]}
 :prn {:main-opts ["-m" "babashka.cli.exec" "clojure.core" "prn"]}
 ```
