@@ -25,7 +25,7 @@ $ tool subcommand :opt1 :v1 :opt2 :v2
 or the more Unixy:
 
 ``` clojure
-$ tool subcommand --long-opt1 v1 -o2 v2
+$ tool subcommand --long-opt1 v1 -o v2
 ```
 
 This library eases that style of command line parsing.

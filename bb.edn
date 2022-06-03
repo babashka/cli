@@ -2,11 +2,14 @@
  :deps {io.github.borkdude/quickdoc
         #_{:local/root "/Users/borkdude/dev/quickdoc"}
         {:git/sha "ca5893c0d81f26443dd178a747d0851e75d39eca"}}
- :paths ["src"]
+ :paths ["src" ".build"]
+
  :tasks
  {:requires ([clojure.edn :as edn]
              [clojure.string :as str]
-             [babashka.cli :as cli])
+             [babashka.cli :as cli]
+             [utils])
+
   :init (def cmd-line-opts
           (:opts (cli/parse-args *command-line-args*
                                  {:coerce {:toc parse-boolean
@@ -23,7 +26,10 @@
                                        cmd-line-opts))}
 
   bump-release {:doc "Bump release counter"
-                :task (spit "release_count" (inc (parse-long (str/trim (slurp "release_count")))))}
+                :task (do (utils/bump-version)
+                          (shell "git add version.edn")
+                          (shell "git tag" (str "v" (utils/format-version)))
+                          (shell "git push --tags"))}
 
   publish {:doc "Bump release count and publish to clojars"
            :task (do

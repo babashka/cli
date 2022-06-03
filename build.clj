@@ -1,10 +1,10 @@
 (ns build
   (:require
-   [clojure.edn :as edn]
-   [clojure.tools.build.api :as b]))
+   [clojure.tools.build.api :as b]
+   [utils]))
 
 (def lib 'org.babashka/cli)
-(def version (format "0.1.%s" (edn/read-string (slurp "release_count"))))
+(def version (utils/format-version))
 (def class-dir "target/classes")
 (def basis (b/create-basis {:project "deps.edn"}))
 (def uber-file (format "target/%s-%s-standalone.jar" (name lib) version))
