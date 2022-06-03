@@ -175,7 +175,7 @@ $ clojure -M:exec:prn :foo 1
 ```
 
 To alter the parsing behavior of functions you don't control, you can add
-`:org.babashka/cli` data in the alias:
+`:org.babashka/cli` data in the `deps.edn` alias:
 
 ``` clojure
 :prn {:main-opts ["-m" "babashka.cli.exec" "clojure.core" "prn"]
