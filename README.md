@@ -90,6 +90,10 @@ Long options also support the syntax `--foo=bar`:
 ;;=> {:foo "bar"}
 ```
 
+## Projects using babaskha CLI
+
+- [neil](https://github.com/babashka/neil)
+
 ## Usage in babashka tasks
 
 For documentation on babashka tasks, go [here](https://book.babashka.org/#tasks).
