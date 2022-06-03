@@ -101,7 +101,7 @@ $ bb publish --skip-bump
 
 ## Usage with the clojure CLI
 
-By adding `:babashka.cli` metadata to Clojure functions it will make them
+By adding `:babashka/cli` metadata to Clojure functions it will make them
 callable with the clojure CLI. It does not introduce a dependency on
 `babashka.cli` itself. Doing so will cause less friction with shell usage,
 especially on Windows since you need less quoting. You can support the same
