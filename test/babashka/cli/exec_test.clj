@@ -11,4 +11,6 @@
 
 (deftest parse-args-test
   (is (= {:b 1} (-main "babashka.cli.exec-test/foo" ":b" "1")))
-  (is (= {:a "1" :b 2} (-main "babashka.cli.exec-test/foo" ":a" "1" ":b" "2"))))
+  (is (= {:a "1" :b 2} (-main "babashka.cli.exec-test/foo" ":a" "1" ":b" "2")))
+  (is (= {:b 1} (-main "babashka.cli.exec-test" "foo" ":b" "1")))
+  (is (= {:a "1" :b 2} (-main "babashka.cli.exec-test" "foo" ":a" "1" ":b" "2"))))

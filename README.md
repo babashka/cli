@@ -132,7 +132,7 @@ In your `deps.edn` `:aliases` entry, add:
 Now you can call any function that accepts a map argument. E.g.:
 
 ``` clojure
-$ clojure -M:exec clojure.core/prn :a 1 :b 2
+$ clojure -M:exec clojure.core prn :a 1 :b 2
 {:a "1", :b "2"}
 ```
 
@@ -150,7 +150,7 @@ Use `:org.babashka/cli` metadata for coercions:
 ```
 
 ``` clojure
-$ clojure -M:exec my-ns/foo :a foo/bar :b 2 :c vanilla
+$ clojure -M:exec my-ns foo :a foo/bar :b 2 :c vanilla
 {:a foo/bar, :b 2, :c "vanilla"}
 ```
 
@@ -163,7 +163,7 @@ An example that specializes `babashka.cli` usage to a function:
 :exec {:deps {org.babashka/cli {:git/url "https://github.com/babashka/cli"
                                 :git/sha "<latest-sha>"}}
        :main-opts ["-m" "babashka.cli.exec"]}
-:prn {:main-opts ["-m" "babashka.cli.exec" "clojure.core/prn"]}
+:prn {:main-opts ["-m" "babashka.cli.exec" "clojure.core" "prn"]}
 ```
 
 ``` clojure
@@ -177,7 +177,7 @@ on `prn`:
 
 ``` clojure
 :prn {:main-opts ["-e" "(do (alter-meta! (requiring-resolve 'clojure.core/prn) assoc :org.babashka/cli {:coerce {:foo :long}}) nil)"
-                  "-m" "babashka.cli.exec" "clojure.core/prn"]}
+                  "-m" "babashka.cli.exec" "clojure.core" "prn"]}
 ```
 
 ``` clojure
@@ -190,13 +190,12 @@ namespaces outside of clojure, you will.
 
 ### antq
 
-To use `org.babashka/cli` with [antq](https://github.com/liquidz/antq), create
-an alias in your `~/.clojure/deps.edn`:
+`.clojure/deps.edn` alias:
 
 ``` clojure
 :antq {:deps {org.babashka/cli {:mvn/version "0.1.6"}
               com.github.liquidz/antq {:mvn/version "1.7.798"}}
-       :main-opts ["-m" "babashka.cli.exec" "antq.tool/outdated"]}
+       :main-opts ["-m" "babashka.cli.exec" "antq.tool" "outdated"]}
 ```
 
 On the command line you can now run it with:
@@ -221,6 +220,23 @@ metadata hack shown above. A proper solution that would fix it for all callers:
 (defn outdated
   {:org.babashka/cli {:collect {:skip []}}}
   [...] ...)
+```
+
+### clj-new
+
+`.clojure/deps.edn` alias:
+
+``` clojure
+:new {:deps {org.babashka/cli {:mvn/version "0.1.7"}
+             com.github.seancorfield/clj-new {:mvn/version "1.2.381"}}
+      :main-opts ["-m" "babashka.cli.exec" "clj-new"]}
+```
+
+Usage:
+
+``` clojure
+$ clj -M:new app --name foo/bar
+Generating a project called bar based on the 'app' template.
 ```
 
 ## Future ideas

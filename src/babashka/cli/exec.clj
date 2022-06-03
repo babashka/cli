@@ -10,8 +10,13 @@
   [& [f & args]]
   (let [f (coerce f symbol)
         ns (namespace f)
-        _ (require (symbol ns))
-        f (resolve f)
+        fq? (some? ns)
+        ns (or ns f)
+        ns (coerce ns symbol)
+        [f args] (if fq?
+                    [f args]
+                    [(symbol (str ns) (first args)) (rest args)])
+        f (requiring-resolve f)
         opts (:org.babashka/cli (meta f))
         opts (:opts (parse-args args opts))]
     (try (f opts)
