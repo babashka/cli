@@ -52,14 +52,15 @@ Parse the command line arguments `args`, a seq of strings.
   - `:aliases`: a map of short names to long names.
 
   Examples:
-  ``` clojure
+
+  ```clojure
   (parse-args ["foo" ":bar" "1])
   ;; => {:cmds ["foo"] :opts {:bar "1"}}
   (parse-args [":b" "1] {:aliases {:b :bar} :coerce {:bar parse-long}})
   ;; => {:cmds [] :opts {:bar 1}}
   ```
   
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L74-L132)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L74-L133)</sub>
 # babashka.cli.exec 
 
 

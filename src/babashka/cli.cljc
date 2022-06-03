@@ -83,7 +83,8 @@
   - `:aliases`: a map of short names to long names.
 
   Examples:
-  ``` clojure
+
+  ```clojure
   (parse-args [\"foo\" \":bar\" \"1])
   ;; => {:cmds [\"foo\"] :opts {:bar \"1\"}}
   (parse-args [\":b\" \"1] {:aliases {:b :bar} :coerce {:bar parse-long}})
