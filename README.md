@@ -265,15 +265,6 @@ Merge default arguments from a file so you don't have to write them on the comma
 --org.babashka/cli-defaults=foo.edn
 ```
 
-### Support local and global configuration files
-
-E.g. in `.babashka/cli.edn` (in the project or in the home config), we could add something like:
-
-``` clojure
-{:ns {antq.tool {:collect {:skip []}}
-      clj-new {:coerce {:env :edn}}}}
-```
-
 ## License
 
 Copyright © 2022 Michiel Borkent

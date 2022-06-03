@@ -1,5 +1,9 @@
 Changelog
 
+# v0.1.8
+
+- Support `:exec-args` in alias
+
 # v0.1.7
 
 - Separate namespace and invoked function in `exec`

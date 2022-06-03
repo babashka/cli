@@ -1,4 +1,5 @@
-{:aliases
+{:deps {org.clojure/clojure {:mvn/version "1.11.1"}}
+ :aliases
  {:test ;; added by neil
   {:extra-paths ["test"]
    :extra-deps {io.github.cognitect-labs/test-runner
