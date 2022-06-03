@@ -214,7 +214,7 @@ Note that we added the `:org.babashka/cli {:collect {:skip []}}` data in the
 alias to make sure that `--skip` options get collected into a vector:
 
 ``` clojure
-clj -M:antq --update --skip github-action
+clj -M:antq --upgrade --skip github-action
 ```
 
 vs.
