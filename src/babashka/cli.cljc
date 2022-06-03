@@ -1,6 +1,8 @@
 (ns babashka.cli
   (:require [clojure.string :as str]))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 (defn coerce
   "Coerce string `s` using `f`. Does not coerce when `s` is not a string.
   `f` may be a keyword (`:boolean`, `:int`, `:double`, `:symbol`,
@@ -70,10 +72,18 @@
                                            (str/starts-with? % "-"))) args)]
      {:cmds (vec cmds)
       :opts
-      (-> (into {}
-                (for [[arg-name arg-val] (partition 2 opts)]
-                  (let [arg-name (str/replace arg-name #"^(:|--|-|)" "")
-                        k (keyword arg-name)
-                        k (get aliases k k)]
-                    [k arg-val])))
-          (coerce-vals coerce-opts))})))
+      (-> (reduce (fn [acc ^String arg]
+                    (let [char
+                          (when (pos? (.length arg))
+                            (str (.charAt arg 0)))]
+                      (if (or (= char ":")
+                              (= char "-"))
+                        (assoc acc :--current-opt
+                               (let [k (-> (str/replace arg #"^(:|--|-|)" "")
+                                           keyword)]
+                                 (get aliases k k)))
+                        (assoc acc (:--current-opt acc) arg))))
+                  {}
+                  opts)
+          (coerce-vals coerce-opts)
+          (dissoc :--current-opt))})))
