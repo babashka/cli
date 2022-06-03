@@ -26,7 +26,7 @@
                                        cmd-line-opts))}
 
   bump-release {:doc "Bump release counter"
-                :task (let [old-version "0.1.1" (utils/format-version)]
+                :task (let [old-version (utils/format-version)]
                         (utils/bump-version)
                         (spit "README.md" (str/replace (slurp "README.md")
                                                        old-version
