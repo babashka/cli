@@ -26,11 +26,15 @@
                                        cmd-line-opts))}
 
   bump-release {:doc "Bump release counter"
-                :task (do (utils/bump-version)
-                          (shell "git add version.edn")
-                          (shell "git commit -m" (str "v" (utils/format-version)))
-                          (shell "git tag" (str "v" (utils/format-version)))
-                          (shell "git push --tags"))}
+                :task (let [old-version "0.1.1" (utils/format-version)]
+                        (utils/bump-version)
+                        (spit "README.md" (str/replace (slurp "README.md")
+                                                       old-version
+                                                       (utils/format-version)))
+                        (shell "git add version.edn README.md")
+                        (shell "git commit -m" (str "v" (utils/format-version)))
+                        (shell "git tag" (str "v" (utils/format-version)))
+                        (shell "git push --tags"))}
 
   publish {:doc "Bump release count and publish to clojars"
            :task (do

@@ -11,7 +11,7 @@ Easy command line parsing for Clojure.
 Add to your `deps.edn` or `bb.edn` `:deps` entry:
 
 ``` clojure
-org.babashka/cli {:mvn/version "0.1.1"}
+org.babashka/cli {:mvn/version "0.1.5"}
 ```
 
 ## Rationale
@@ -110,7 +110,7 @@ writing extra boilerplate.
 In your `deps.edn` `:aliases` entry, add:
 
 ``` clojure
-:exec {:deps {org.babashka/cli {:mvn/version "0.1.1"}
+:exec {:deps {org.babashka/cli {:mvn/version "0.1.5"}
        :main-opts ["-m" "babashka.cli.exec"]}
 ```
 
