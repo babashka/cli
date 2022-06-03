@@ -163,14 +163,13 @@ babashka CLI.
 An example that specializes `babashka.cli` usage to a function:
 
 ``` clojure
-:exec {:deps {org.babashka/cli {:mvn/version "0.2.9"}}
-       :main-opts ["-m" "babashka.cli.exec"]}
-:prn {:main-opts ["-m" "babashka.cli.exec" "clojure.core" "prn"]}
+:prn {:deps {org.babashka/cli {:mvn/version "0.2.9"}}
+      :main-opts ["-m" "babashka.cli.exec" "clojure.core" "prn"]}
 ```
 
 ``` clojure
-$ clojure -M:exec:prn :foo 1
-{:foo "1"}
+$ clojure -M:prn --foo=bar --baz
+{:foo "bar" :baz true}
 ```
 
 To alter the parsing behavior of functions you don't control, you can add
@@ -182,7 +181,7 @@ To alter the parsing behavior of functions you don't control, you can add
 ```
 
 ``` clojure
-$ clojure -M:exec:prn :foo 1
+$ clojure -M:exec:prn --foo 1
 {:foo 1}
 ```
 
