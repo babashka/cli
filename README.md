@@ -34,6 +34,8 @@ It does not convert options into EDN automatically which, arguably, is more
 convenient for command line usage. This library does offer a light-weight way to
 coerce strings.
 
+Both `:` and `--` are supported as the initial characters of a named option.
+
 ## Quickstart
 
 Parse `:port 1339` and coerce port into long:
