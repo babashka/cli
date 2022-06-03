@@ -190,7 +190,8 @@ namespaces outside of clojure, you will.
 
 ### antq
 
-To use `org.babashka/cli` with antq, create an alias in your `~/.clojure/deps.edn`:
+To use `org.babashka/cli` with [antq](https://github.com/liquidz/antq), create
+an alias in your `~/.clojure/deps.edn`:
 
 ``` clojure
 :antq {:deps {org.babashka/cli {:mvn/version "0.1.6"}
