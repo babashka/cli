@@ -31,8 +31,8 @@ $ tool subcommand --long-opt1 v1 -o v2
 This library eases that style of command line parsing.
 
 It does not convert options into EDN automatically which, arguably, is more
-convenient for command line usage. This library does offer a light-weight way to
-coerce strings.
+convenient for command line usage, especially on Windows. This library does
+offer a light-weight way to coerce strings.
 
 Both `:` and `--` are supported as the initial characters of a named option.
 
