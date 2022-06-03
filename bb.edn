@@ -28,6 +28,7 @@
   bump-release {:doc "Bump release counter"
                 :task (do (utils/bump-version)
                           (shell "git add version.edn")
+                          (shell "git commit -m" (str "v" (utils/format-version)))
                           (shell "git tag" (str "v" (utils/format-version)))
                           (shell "git push --tags"))}
 
