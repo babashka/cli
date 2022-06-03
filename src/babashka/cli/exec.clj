@@ -8,8 +8,9 @@
   Expects a namespace and var name followed by zero or more key value pair arguments.
 
   Example when used as a clojure CLI alias:
-  ```
+  ``` clojure
   clojure -M:exec clojure.core prn :a 1 :b 2
+  ;;=> {:a \"1\" :b \"2\"}
   ```"
   [& args]
   (let [[f & args] args

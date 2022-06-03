@@ -77,7 +77,8 @@ Main entrypoint for command line usage.
   Expects a namespace and var name followed by zero or more key value pair arguments.
 
   Example when used as a clojure CLI alias:
-  ```
+  ``` clojure
   clojure -M:exec clojure.core prn :a 1 :b 2
+  ;;=> {:a "1" :b "2"}
   ```
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L6-L35)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L6-L36)</sub>
