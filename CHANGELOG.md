@@ -1,5 +1,10 @@
 Changelog
 
+# v0.1.3
+
+- Support `:collect` option for collecting values into collection
+- Support boolean `true` options without explicit boolean value and coercion
+
 # v0.1.2
 
 - Support `:aliases`
