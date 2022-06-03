@@ -90,7 +90,7 @@ Long options also support the syntax `--foo=bar`:
 ;;=> {:foo "bar"}
 ```
 
-## Projects using babaskha CLI
+## Projects using babashka CLI
 
 - [neil](https://github.com/babashka/neil)
 
