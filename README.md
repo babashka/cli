@@ -241,7 +241,10 @@ Generating a project called bar based on the 'app' template.
 
 ## Future ideas
 
-Perhaps this library can consider a command line syntax for `:coerce` and `:collect`, e.g.:
+### Command line syntax for `:coerce` and `:collect`
+
+Perhaps this library can consider a command line syntax for `:coerce` and
+`:collect`, e.g.:
 
 ``` clojure
 $ clj -M:example --skip.0=github-actions --skip.1=clojure-cli
@@ -254,10 +257,21 @@ $ clj -M:example --lib%sym=org.babashka/cli
 Things to look out for here is if the delimiter works well with bash / zsh /
 cmd.exe and Powershell.
 
-Another option would be to merge default arguments from a file:
+### Merge args from a file
+
+Merge default arguments from a file so you don't have to write them on the command line:
 
 ``` clojure
 --org.babashka/cli-defaults=foo.edn
+```
+
+### Support local and global configuration files
+
+E.g. in `.babashka/cli.edn` (in the project or in the home config), we could add something like:
+
+``` clojure
+{:ns {antq.tool {:collect {:skip []}}
+      clj-new {:coerce {:env :edn}}}}
 ```
 
 ## License
