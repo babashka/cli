@@ -11,7 +11,7 @@ Easy command line parsing for Clojure.
 Add to your `deps.edn` or `bb.edn` `:deps` entry:
 
 ``` clojure
-org.babashka/cli {:mvn/version "0.1.7"}
+org.babashka/cli {:mvn/version "0.1.8"}
 ```
 
 ## Rationale
@@ -125,7 +125,7 @@ writing extra boilerplate.
 In your `deps.edn` `:aliases` entry, add:
 
 ``` clojure
-:exec {:deps {org.babashka/cli {:mvn/version "0.1.7"}
+:exec {:deps {org.babashka/cli {:mvn/version "0.1.8"}
        :main-opts ["-m" "babashka.cli.exec"]}
 ```
 
@@ -193,7 +193,7 @@ namespaces outside of clojure, you will.
 `.clojure/deps.edn` alias:
 
 ``` clojure
-:antq {:deps {org.babashka/cli {:mvn/version "0.1.7"}
+:antq {:deps {org.babashka/cli {:mvn/version "0.1.8"}
               com.github.liquidz/antq {:mvn/version "1.7.798"}}
        :main-opts ["-m" "babashka.cli.exec" "antq.tool" "outdated"]}
 ```
@@ -227,7 +227,7 @@ metadata hack shown above. A proper solution that would fix it for all callers:
 `.clojure/deps.edn` alias:
 
 ``` clojure
-:new {:deps {org.babashka/cli {:mvn/version "0.1.7"}
+:new {:deps {org.babashka/cli {:mvn/version "0.1.8"}
              com.github.seancorfield/clj-new {:mvn/version "1.2.381"}}
       :main-opts ["-m" "babashka.cli.exec" "clj-new"]}
 ```
