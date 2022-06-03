@@ -3,7 +3,7 @@
             [clojure.test :refer [deftest is]]))
 
 (defn foo
-  {:babashka/cli {:coerce {:b parse-long}}}
+  {:org.babashka/cli {:coerce {:b parse-long}}}
   ;; map argument:
   [m]
   ;; return map argument:

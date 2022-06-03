@@ -100,7 +100,7 @@ $ bb publish --skip-bump
 
 ## Usage with the clojure CLI
 
-By adding `:babashka/cli` metadata to Clojure functions it will make them
+By adding `:org.babashka/cli` metadata to Clojure functions it will make them
 callable with the clojure CLI. It does not introduce a dependency on
 `babashka.cli` itself. Doing so will cause less friction with shell usage,
 especially on Windows since you need less quoting. You can support the same
@@ -121,13 +121,13 @@ $ clojure -M:exec clojure.core/prn :a 1 :b 2
 {:a "1", :b "2"}
 ```
 
-Use `:babashka/cli` metadata for coercions:
+Use `:org.babashka/cli` metadata for coercions:
 
 ``` clojure
 (ns my-ns)
 
 (defn foo
-  {:babashka/cli {:coerce {:a :symbol :b :long}}}
+  {:org.babashka/cli {:coerce {:a :symbol :b :long}}}
   ;; map argument:
   [m]
   ;; print map argument:
@@ -161,7 +161,7 @@ metadata of a var using `alter-meta!`. For demo purposes we alter the metadata
 on `prn`:
 
 ``` clojure
-:prn {:main-opts ["-e" "(do (alter-meta! (requiring-resolve 'clojure.core/prn) assoc :babashka/cli {:coerce {:foo :long}}) nil)"
+:prn {:main-opts ["-e" "(do (alter-meta! (requiring-resolve 'clojure.core/prn) assoc :org.babashka/cli {:coerce {:foo :long}}) nil)"
                   "-m" "babashka.cli.exec" "clojure.core/prn"]}
 ```
 

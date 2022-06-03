@@ -12,7 +12,7 @@
         ns (namespace f)
         _ (require (symbol ns))
         f (resolve f)
-        opts (:babashka/cli (meta f))
+        opts (:org.babashka/cli (meta f))
         opts (:opts (parse-args args opts))]
     (try (f opts)
          (finally (shutdown-agents)))))
