@@ -67,6 +67,10 @@ Collect values into a collection:
 
 (:opts (cli/parse-args ["--paths" "src" "test"] {:collect {:paths []}}))
 ;;=> {:paths ["src" "test"]}
+
+(:opts (cli/parse-args ["-v" "-v" "-v"] {:aliases {:v :verbose}
+                                                  :collect {:verbose []}}))
+;;=> {:verbose [true true true]}
 ```
 
 Booleans need no explicit `true` value and `:coerce` option:

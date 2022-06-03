@@ -1,5 +1,9 @@
 Changelog
 
+# v0.1.4
+
+- Allow implicit boolean options to be collected
+
 # v0.1.3
 
 - Support `:collect` option for collecting values into collection

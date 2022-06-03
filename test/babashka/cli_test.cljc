@@ -30,4 +30,7 @@
   (is (= '{:cmds [], :opts {:paths ["src" "test"]}}
          (cli/parse-args [":paths" "src" "test"] {:collect {:paths []}})))
   (is (= {:paths #{"src" "test"}}
-         (:opts (cli/parse-args [":paths" "src" "test"] {:collect {:paths #{}}})))))
+         (:opts (cli/parse-args [":paths" "src" "test"] {:collect {:paths #{}}}))))
+  (is (= {:verbose [true true true]}
+         (:opts (cli/parse-args ["-v" "-v" "-v"] {:aliases {:v :verbose}
+                                                  :collect {:verbose []}})))))
