@@ -76,7 +76,7 @@ Booleans need no explicit `true` value and `:coerce` option:
 ;;=> {:verbose true}
 
 (:opts (cli/parse-args ["-v" "-v" "-v"] {:aliases {:v :verbose}
-                                                  :collect {:verbose []}}))
+                                                   :collect {:verbose []}}))
 ;;=> {:verbose [true true true]}
 ```
 
