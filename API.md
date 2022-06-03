@@ -19,7 +19,10 @@
 
 
 Coerce string `s` using `f`. Does not coerce when `s` is not a string.
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L4-L9)</sub>
+  `f` may be a keyword (`:boolean`, `:int`, `:double`, `:symbol`,
+  `:keyword`) or a function. When `f` return `nil`, this is
+  interpreted as a parse failure and throws.
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L6-L33)</sub>
 ## `coerce-vals`
 ``` clojure
 
@@ -29,7 +32,7 @@ Coerce string `s` using `f`. Does not coerce when `s` is not a string.
 
 Coerce vals of map `m` using `mapping`, a map of keys to functions.
   Uses [`coerce`](#coerce) to coerce values.
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L11-L18)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L35-L42)</sub>
 ## `parse-args`
 ``` clojure
 
@@ -40,21 +43,23 @@ Coerce vals of map `m` using `mapping`, a map of keys to functions.
 
 Parse the command line arguments `args`, a seq of strings.
   Expected format: `["cmd_1" ... "cmd_n" ":k_1" "v_1" .. ":k_n" "v_n"]`.
+  Instead of a leading `:` either `--` or `-` may be used as well.
 
   Return value: a map of `:cmds` and `:opts`
 
   Supported options:
   - `:coerce`: a map of keys to coercion functions that will be applied to parsed `:opts`. See [`coerce-vals`](#coerce-vals).
+  - `:aliases`: a map of short names to long names.
 
   Examples:
   ``` clojure
   (parse-args ["foo" ":bar" "1])
   ;; => {:cmds ["foo"] :opts {:bar "1"}}
-  (parse-args ["foo" ":bar" "1] {:coerce {:b parse-long}})
-  ;; => {:cmds ["foo"] :opts {:bar 1}}
+  (parse-args [":b" "1] {:aliases {:b :bar} :coerce {:bar parse-long}})
+  ;; => {:cmds [] :opts {:bar 1}}
   ```
-
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L20-L47)</sub>
+  
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L68-L122)</sub>
 # babashka.cli.exec 
 
 
