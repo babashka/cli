@@ -64,6 +64,14 @@ Collect values into a collection:
 ;;=> {:paths ["src" "test"]}
 ```
 
+<!-- To support passing a vector to functions that have no `:org.babashka/cli` -->
+<!-- metadata, use an explicit index: -->
+
+<!-- ``` clojure -->
+<!-- (:opts (cli/parse-args ["--paths.0" "src" "--paths.1 "test"])) -->
+<!-- ;;=> {:paths ["src" "test"]} -->
+<!-- ``` -->
+
 Booleans need no explicit `true` value and `:coerce` option:
 
 ``` clojure
@@ -73,6 +81,13 @@ Booleans need no explicit `true` value and `:coerce` option:
 (:opts (cli/parse-args ["-v" "-v" "-v"] {:aliases {:v :verbose}
                                          :collect {:verbose []}}))
 ;;=> {:verbose [true true true]}
+```
+
+Long options also support the syntax `--foo=bar`:
+
+``` clojure
+(:opts (cli/parse-args ["--foo=bar"]))
+;;=> {:foo "bar"}
 ```
 
 ## Usage in babashka tasks
@@ -172,6 +187,34 @@ $ clojure -M:exec:prn :foo 1
 
 Although we didn't have to use `requiring-resolve` of `prn`, when using
 namespaces outside of clojure, you will.
+
+### antq
+
+To use `org.babashka/cli` with antq, create an alias in your `~/.clojure/deps.edn`:
+
+``` clojure
+:antq {:deps {org.babashka/cli {:mvn/version "0.1.5"}
+              com.github.liquidz/antq {:mvn/version "1.7.798"}}
+       :main-opts ["-m" "babashka.cli.exec" "antq.tool/outdated"]}
+```
+
+On the command line you can now run it with:
+
+``` clojure
+$ clj -M:antq --upgrade
+```
+
+Note that we are calling the same `outdated` function that you normally call
+with `-T`:
+
+``` clojure
+$ clj -Tantq outdated :upgrade true
+```
+
+even though antq has its own `-main` function. However since antq expects a
+vector of strings for e.g. `--skip`, this library currently has no way of
+expressing that on the command line, but you can hack around that with the
+metadata hack shown above..
 
 ## License
 

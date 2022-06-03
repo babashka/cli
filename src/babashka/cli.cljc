@@ -65,6 +65,12 @@
                                   curr-val))))
     acc))
 
+(defn- add-val [acc current-opt collect-fn arg]
+  (-> (if collect-fn
+        (update acc current-opt collect-fn arg)
+        (assoc acc current-opt arg))
+      (assoc :--added current-opt)))
+
 (defn parse-args
   "Parse the command line arguments `args`, a seq of strings.
   Expected format: `[\"cmd_1\" ... \"cmd_n\" \":k_1\" \"v_1\" .. \":k_n\" \"v_n\"]`.
@@ -103,16 +109,20 @@
                                   (str (.charAt arg 0)))]
                             (if (or (= char ":")
                                     (= char "-"))
-                              (let [k (let [k (-> (str/replace arg #"^(:|--|-|)" "")
-                                                  keyword)]
-                                        (get aliases k k))]
-                                (-> (assoc acc :--current-opt k)
-                                    (process-previous current-opt collect-fn)
-                                    (dissoc :--added)))
-                              (-> (if collect-fn
-                                    (update acc current-opt collect-fn arg)
-                                    (assoc acc current-opt arg))
-                                  (assoc :--added current-opt)))))
+                              (let [long-opt? (str/starts-with? arg "--")
+                                    kname (if long-opt?
+                                            (subs arg 2)
+                                            (str/replace arg #"^(:|-|)" ""))
+                                    [kname arg] (if long-opt?
+                                                  (str/split kname #"=")
+                                                  [kname])
+                                    k (keyword kname)
+                                    k (get aliases k k)]
+                                (cond-> (-> (assoc acc :--current-opt k)
+                                            (process-previous current-opt collect-fn)
+                                            (dissoc :--added))
+                                  arg (add-val k collect-fn arg)))
+                              (add-val acc current-opt collect-fn arg))))
                         {}
                         opts)
                 (coerce-vals coerce-opts))

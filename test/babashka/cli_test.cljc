@@ -17,6 +17,9 @@
   (is (= '{:cmds ("foo"), :opts {:boo 1}}
          (cli/parse-args ["foo" ":b" "1"] {:aliases {:b :boo}
                                            :coerce {:boo parse-long}})))
+  (is (= '{:boo 1 :foo true}
+         (:opts (cli/parse-args ["--boo=1" "--foo"]
+                                {:coerce {:boo parse-long}}))))
   (is (try (cli/parse-args [":b" "dude"] {:coerce {:b :long}})
            false
            (catch Exception e
