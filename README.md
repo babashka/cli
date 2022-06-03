@@ -41,13 +41,6 @@ Parse `:port 1339` and coerce port into long:
 ``` clojure
 (require '[babashka.cli :as cli])
 
-(cli/parse-args ["server" ":port" "1339"] {:coerce {:port parse-long}})
-;;=> {:cmds ["server"] :opts {:port 1339}}
-```
-
-or use the convience keyword notation:
-
-``` clojure
 (cli/parse-args ["--port" "1339"] {:coerce {:port :long}})
 ;;=> {:cmds [] :opts {:port 1339}}
 ```
