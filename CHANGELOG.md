@@ -1,5 +1,9 @@
 Changelog
 
+# v0.1.7
+
+- Separate namespace and invoked function in `exec`
+
 # v0.1.6
 
 - Support `--foo=bar` syntax
