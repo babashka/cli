@@ -235,7 +235,7 @@ metadata hack shown above. A proper solution that would fix it for all callers:
 Usage:
 
 ``` clojure
-$ clj -M:new app --name foo/bar
+$ clj -M:new app --name foo/bar --force --version 1.2.3
 Generating a project called bar based on the 'app' template.
 ```
 
