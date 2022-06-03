@@ -215,8 +215,7 @@ $ clj -Tantq outdated :upgrade true
 even though antq has its own `-main` function. However since antq expects a
 vector of strings for e.g. `--skip`, this library currently has no way of
 expressing that on the command line, but you can hack around that with the
-metadata hack shown above. Another solution would be if `outdated` added the
-following metadata:
+metadata hack shown above. A proper solution that would fix it for all callers:
 
 ``` clojure
 (defn outdated
