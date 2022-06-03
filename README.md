@@ -125,7 +125,7 @@ Use `:babashka/cli` metadata for coercions:
 (ns my-ns)
 
 (defn foo
-  {:babashka/cli {:coerce {:a symbol :b parse-long}}}
+  {:babashka/cli {:coerce {:a :symbol :b :long}}}
   ;; map argument:
   [m]
   ;; print map argument:
@@ -159,7 +159,7 @@ metadata of a var using `alter-meta!`. For demo purposes we alter the metadata
 on `prn`:
 
 ``` clojure
-:prn {:main-opts ["-e" "(do (alter-meta! (requiring-resolve 'clojure.core/prn) assoc :babashka/cli {:coerce {:foo parse-long}}) nil)"
+:prn {:main-opts ["-e" "(do (alter-meta! (requiring-resolve 'clojure.core/prn) assoc :babashka/cli {:coerce {:foo :long}}) nil)"
                   "-m" "babashka.cli.exec" "clojure.core/prn"]}
 ```
 
