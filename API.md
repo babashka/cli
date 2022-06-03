@@ -59,7 +59,7 @@ Parse the command line arguments `args`, a seq of strings.
   ;; => {:cmds [] :opts {:bar 1}}
   ```
   
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L68-L122)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L74-L132)</sub>
 # babashka.cli.exec 
 
 
@@ -69,13 +69,15 @@ Parse the command line arguments `args`, a seq of strings.
 ## `-main`
 ``` clojure
 
-(-main & [f & args])
+(-main & args)
 ```
 
 
 Main entrypoint for command line usage.
-  Expects a fully qualified symbol and zero or more key value pairs.
+  Expects a namespace and var name followed by zero or more key value pair arguments.
 
-  Example when used as a clojure CLI alias: ``` clojure -M:exec
-  clojure.core/prn :a 1 :b 2 ```
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L4-L18)</sub>
+  Example when used as a clojure CLI alias:
+  ```
+  clojure -M:exec clojure.core prn :a 1 :b 2
+  ```
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L6-L35)</sub>

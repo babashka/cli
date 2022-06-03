@@ -5,12 +5,15 @@
 
 (defn -main
   "Main entrypoint for command line usage.
-  Expects a fully qualified symbol and zero or more key value pairs.
+  Expects a namespace and var name followed by zero or more key value pair arguments.
 
-  Example when used as a clojure CLI alias: ``` clojure -M:exec
-  clojure.core/prn :a 1 :b 2 ```"
-  [& [f & args]]
-  (let [basis (some-> (System/getProperty "clojure.basis")
+  Example when used as a clojure CLI alias:
+  ```
+  clojure -M:exec clojure.core prn :a 1 :b 2
+  ```"
+  [& args]
+  (let [[f & args] args
+        basis (some-> (System/getProperty "clojure.basis")
                       slurp
                       edn/read-string)
         resolve-args (:resolve-args basis)
@@ -21,8 +24,8 @@
         ns (or ns f)
         ns (coerce ns symbol)
         [f args] (if fq?
-                    [f args]
-                    [(symbol (str ns) (first args)) (rest args)])
+                   [f args]
+                   [(symbol (str ns) (first args)) (rest args)])
         f (requiring-resolve f)
         opts (:org.babashka/cli (meta f))
         opts (merge opts (:org.babashka/cli resolve-args))
