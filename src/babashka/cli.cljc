@@ -68,21 +68,30 @@
   ([args opts]
    (let [coerce-opts (:coerce opts)
          aliases (:aliases opts)
+         collect (:collect opts)
          [cmds opts] (split-with #(not (or (str/starts-with? % ":")
                                            (str/starts-with? % "-"))) args)]
      {:cmds (vec cmds)
       :opts
       (-> (reduce (fn [acc ^String arg]
                     (let [char
-                          (when (pos? (.length arg))
+                          (when (pos? #?(:clj (.length arg)
+                                         :cljs (.-length arg)))
                             (str (.charAt arg 0)))]
                       (if (or (= char ":")
                               (= char "-"))
-                        (assoc acc :--current-opt
-                               (let [k (-> (str/replace arg #"^(:|--|-|)" "")
-                                           keyword)]
-                                 (get aliases k k)))
-                        (assoc acc (:--current-opt acc) arg))))
+                        (let [k (let [k (-> (str/replace arg #"^(:|--|-|)" "")
+                                            keyword)]
+                                  (get aliases k k))]
+                          (assoc acc :--current-opt
+                                 k
+                                 k true))
+                        (let [k (:--current-opt acc)]
+                          (if-let [collect-fn (get collect k)]
+                            (if (coll? collect-fn)
+                              (update acc k (fnil conj collect-fn) arg)
+                              (update acc k collect-fn arg))
+                            (assoc acc k arg))))))
                   {}
                   opts)
           (coerce-vals coerce-opts)

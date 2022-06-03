@@ -42,17 +42,44 @@ and `clojure -M` style invocations without writing extra boilerplate.
 
 ## Quickstart
 
+Parse `:port 1339` and coerce port into long:
+
 ``` clojure
 (require '[babashka.cli :as cli])
 
 (cli/parse-args ["server" ":port" "1339"] {:coerce {:port parse-long}})
 ;;=> {:cmds ["server"] :opts {:port 1339}}
+```
 
+or use the convience keyword notation:
+
+``` clojure
 (cli/parse-args ["--port" "1339"] {:coerce {:port :long}})
 ;;=> {:cmds [] :opts {:port 1339}}
+```
 
-(cli/parse-args ["-p" "1339"] {:aliases {:p :port} :coerce {:port :long}})
-;;=> {:cmds [] :opts {:port 1339}}
+Use an alias (short option):
+
+``` clojure
+(:opts (cli/parse-args ["-p" "1339"] {:aliases {:p :port} :coerce {:port :long}}))
+;; {:port 1339}
+```
+
+Collect values into a collection:
+
+``` clojure
+(:opts (cli/parse-args ["--paths" "src" "--paths" "test"] {:collect {:paths []}}))
+;;=> {:paths ["src" "test"]}
+
+(:opts (cli/parse-args ["--paths" "src" "test"] {:collect {:paths []}}))
+;;=> {:paths ["src" "test"]}
+```
+
+Booleans need no explicit `true` value and `:coerce` option:
+
+``` clojure
+(:opts (cli/parse-args ["--verbose"]))
+;;=> {:verbose true}
 ```
 
 ## Usage in babashka tasks
