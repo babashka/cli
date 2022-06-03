@@ -22,7 +22,7 @@ Command line arguments in clojure and babashka CLIs are often in the form:
 $ tool subcommand :opt1 :v1 :opt2 :v2
 ```
 
-or the more unixy:
+or the more Unixy:
 
 ``` clojure
 $ tool subcommand --long-opt1 v1 -o2 v2
