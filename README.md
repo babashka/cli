@@ -239,6 +239,25 @@ $ clj -M:new app --name foo/bar --force --version 1.2.3
 Generating a project called bar based on the 'app' template.
 ```
 
+## Leiningen
+
+This tool may make it possible to use clojure exec functions with [lein](https://leiningen.org/).
+
+In `~/.lein/profiles.clj` put:
+
+``` clojure
+{:user {:dependencies [[org.clojure/clojure "1.11.1"]
+                       [org.babashka/cli "0.1.8"]
+                       [com.github.seancorfield/clj-new "1.2.381"]]
+        :aliases {"exec" ["run" "-m" "babashka.cli.exec"]}}}
+```
+
+After that you can use `lein exec` to call an exec function:
+
+``` clojure
+$ lein exec clj-new app --name foo/bar
+```
+
 ## Future ideas
 
 ### Command line syntax for `:coerce` and `:collect`
