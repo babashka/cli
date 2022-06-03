@@ -11,7 +11,7 @@ Easy command line parsing for Clojure.
 Add to your `deps.edn` or `bb.edn` `:deps` entry:
 
 ``` clojure
-org.babashka/cli {:mvn/version "0.1.5"}
+org.babashka/cli {:mvn/version "0.1.6"}
 ```
 
 ## Rationale
@@ -125,7 +125,7 @@ writing extra boilerplate.
 In your `deps.edn` `:aliases` entry, add:
 
 ``` clojure
-:exec {:deps {org.babashka/cli {:mvn/version "0.1.5"}
+:exec {:deps {org.babashka/cli {:mvn/version "0.1.6"}
        :main-opts ["-m" "babashka.cli.exec"]}
 ```
 
@@ -193,7 +193,7 @@ namespaces outside of clojure, you will.
 To use `org.babashka/cli` with antq, create an alias in your `~/.clojure/deps.edn`:
 
 ``` clojure
-:antq {:deps {org.babashka/cli {:mvn/version "0.1.5"}
+:antq {:deps {org.babashka/cli {:mvn/version "0.1.6"}
               com.github.liquidz/antq {:mvn/version "1.7.798"}}
        :main-opts ["-m" "babashka.cli.exec" "antq.tool/outdated"]}
 ```
