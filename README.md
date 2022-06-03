@@ -171,22 +171,18 @@ $ clojure -M:exec:prn :foo 1
 {:foo "1"}
 ```
 
-To alter the parsing behavior of functions you don't control, you can alter the
-metadata of a var using `alter-meta!`. For demo purposes we alter the metadata
-on `prn`:
+To alter the parsing behavior of functions you don't control, you can add
+`:org.babashka/cli` data in the alias:
 
 ``` clojure
-:prn {:main-opts ["-e" "(do (alter-meta! (requiring-resolve 'clojure.core/prn) assoc :org.babashka/cli {:coerce {:foo :long}}) nil)"
-                  "-m" "babashka.cli.exec" "clojure.core" "prn"]}
+:prn {:main-opts ["-m" "babashka.cli.exec" "clojure.core/prn"]
+      :org.babashka/cli {:coerce {:foo :long}}}
 ```
 
 ``` clojure
 $ clojure -M:exec:prn :foo 1
 {:foo 1}
 ```
-
-Although we didn't have to use `requiring-resolve` of `prn`, when using
-namespaces outside of clojure, you will.
 
 ### antq
 
@@ -195,7 +191,8 @@ namespaces outside of clojure, you will.
 ``` clojure
 :antq {:deps {org.babashka/cli {:mvn/version "0.1.8"}
               com.github.liquidz/antq {:mvn/version "1.7.798"}}
-       :main-opts ["-m" "babashka.cli.exec" "antq.tool" "outdated"]}
+       :main-opts ["-m" "babashka.cli.exec" "antq.tool" "outdated"]
+       :org.babashka/cli {:collect {:skip []}}}
 ```
 
 On the command line you can now run it with:
@@ -210,17 +207,10 @@ with `-T`:
 ``` clojure
 $ clj -Tantq outdated :upgrade true
 ```
+even though antq has its own `-main` function.
 
-even though antq has its own `-main` function. However since antq expects a
-vector of strings for e.g. `--skip`, this library currently has no way of
-expressing that on the command line, but you can hack around that with the
-metadata hack shown above. A proper solution that would fix it for all callers:
-
-``` clojure
-(defn outdated
-  {:org.babashka/cli {:collect {:skip []}}}
-  [...] ...)
-```
+Note that we added the `:org.babashka/cli {:collect {:skip []}}` data in the
+alias to make sure that `--skip` options get collected into a vector.
 
 ### clj-new
 
@@ -258,31 +248,31 @@ After that you can use `lein exec` to call an exec function:
 $ lein exec clj-new app --name foo/bar
 ```
 
-## Future ideas
+<!-- ## Future ideas -->
 
-### Command line syntax for `:coerce` and `:collect`
+<!-- ### Command line syntax for `:coerce` and `:collect` -->
 
-Perhaps this library can consider a command line syntax for `:coerce` and
-`:collect`, e.g.:
+<!-- Perhaps this library can consider a command line syntax for `:coerce` and -->
+<!-- `:collect`, e.g.: -->
 
-``` clojure
-$ clj -M:example --skip.0=github-actions --skip.1=clojure-cli
-```
+<!-- ``` clojure -->
+<!-- $ clj -M:example --skip.0=github-actions --skip.1=clojure-cli -->
+<!-- ``` -->
 
-``` clojure
-$ clj -M:example --lib%sym=org.babashka/cli
-```
+<!-- ``` clojure -->
+<!-- $ clj -M:example --lib%sym=org.babashka/cli -->
+<!-- ``` -->
 
-Things to look out for here is if the delimiter works well with bash / zsh /
-cmd.exe and Powershell.
+<!-- Things to look out for here is if the delimiter works well with bash / zsh / -->
+<!-- cmd.exe and Powershell. -->
 
-### Merge args from a file
+<!-- ### Merge args from a file -->
 
-Merge default arguments from a file so you don't have to write them on the command line:
+<!-- Merge default arguments from a file so you don't have to write them on the command line: -->
 
-``` clojure
---org.babashka/cli-defaults=foo.edn
-```
+<!-- ``` clojure -->
+<!-- --org.babashka/cli-defaults=foo.edn -->
+<!-- ``` -->
 
 ## License
 

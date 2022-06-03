@@ -25,6 +25,7 @@
                     [(symbol (str ns) (first args)) (rest args)])
         f (requiring-resolve f)
         opts (:org.babashka/cli (meta f))
+        opts (merge opts (:org.babashka/cli resolve-args))
         opts (:opts (parse-args args opts))
         opts (merge exec-args opts)]
     (try (f opts)

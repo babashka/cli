@@ -1,5 +1,9 @@
 Changelog
 
+# v0.2.9
+
+- Support `:org.babashka/cli` options in `deps.edn` aliases.
+
 # v0.1.8
 
 - Support `:exec-args` in alias
