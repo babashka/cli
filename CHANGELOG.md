@@ -1,5 +1,9 @@
 Changelog
 
+# v0.1.5
+
+- Move metadata to `org.babashka/cli`
+
 # v0.1.4
 
 - Allow implicit boolean options to be collected
