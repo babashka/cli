@@ -38,7 +38,7 @@ Both `:` and `--` are supported as the initial characters of a named option.
 
 ## Quickstart
 
-Parse `:port 1339` and coerce port into long:
+Parse `{:port 1339}` from command line arguments:
 
 ``` clojure
 (require '[babashka.cli :as cli])
