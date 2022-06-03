@@ -211,7 +211,17 @@ $ clj -Tantq outdated :upgrade true
 even though antq has its own `-main` function.
 
 Note that we added the `:org.babashka/cli {:collect {:skip []}}` data in the
-alias to make sure that `--skip` options get collected into a vector.
+alias to make sure that `--skip` options get collected into a vector:
+
+``` clojure
+clj -M:antq --update --skip github-action
+```
+
+vs.
+
+``` clojure
+clj -Tantq outdated :upgrade true :skip '["clojure-cli"]'
+```
 
 ### clj-new
 
