@@ -1,5 +1,9 @@
 Changelog
 
+# v0.1.6
+
+- Support `--foo=bar` syntax
+
 # v0.1.5
 
 - Move metadata to `org.babashka/cli`
