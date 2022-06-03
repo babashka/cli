@@ -90,8 +90,7 @@ To parse options to your tasks, add `[babashka.cli :as cli]` to
 `:requires`. Then you can parse the options in `:init`:
 
 ``` clojure
-:init (def cmd-line-opts
-        (:opts (cli/parse-args *command-line-args*)))
+:init (def cmd-line-opts (:opts (cli/parse-args *command-line-args*)))
 ```
 and then use this in any task:
 
