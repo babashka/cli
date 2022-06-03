@@ -91,8 +91,7 @@ To parse options to your tasks, add `[babashka.cli :as cli]` to
 
 ``` clojure
 :init (def cmd-line-opts
-        (:opts (cli/parse-args *command-line-args*
-          {:coerce {:skip-bump parse-boolean}})))
+        (:opts (cli/parse-args *command-line-args*)))
 ```
 and then use this in any task:
 
@@ -104,7 +103,7 @@ and then use this in any task:
 and your tasks can then be called with options:
 
 ``` clojure
-$ bb publish :skip-bump true
+$ bb publish --skip-bump
 ```
 
 ## Usage with the clojure CLI
