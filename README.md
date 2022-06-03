@@ -181,7 +181,7 @@ To alter the parsing behavior of functions you don't control, you can add
 ```
 
 ``` clojure
-$ clojure -M:exec:prn --foo 1
+$ clojure -M:prn --foo=1
 {:foo 1}
 ```
 
