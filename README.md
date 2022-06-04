@@ -2,7 +2,7 @@
 
 [![Clojars Project](https://img.shields.io/clojars/v/org.babashka/cli.svg)](https://clojars.org/org.babashka/cli)
 
-Easy command line parsing for Clojure.
+Turn Clojure functions into CLIs!
 
 ## [API](API.md)
 
