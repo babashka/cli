@@ -1,6 +1,6 @@
 # Changelog
 
-For breaking changes, check [here](#breaking-changes)
+For breaking changes, check [here](#breaking-changes).
 
 ## v0.2.9
 

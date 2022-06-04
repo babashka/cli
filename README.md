@@ -9,7 +9,8 @@ Easy command line parsing for Clojure.
 ## Status
 
 This library is still in design phase and may still undergo breaking changes.
-Check the [CHANGELOG.md](CHANGELOG.md) for changes before upgrading.
+Check [breaking changes](CHANGELOG.md#breaking-changes) for changes before
+upgrading!
 
 ## Installation
 
