@@ -245,6 +245,8 @@ Generating a project called bar based on the 'app' template.
 
 This tool can be used to run clojure exec functions with [lein](https://leiningen.org/).
 
+An example with `clj-new`:
+
 In `~/.lein/profiles.clj` put:
 
 ``` clojure
@@ -260,7 +262,7 @@ In `~/.lein/profiles.clj` put:
                              "clj-new"]}}}
 ```
 
-After that you can use `lein clj-new app` to call an exec function:
+After that you can use `lein clj-new app` to create a new app:
 
 ``` clojure
 $ lein clj-new app --name foobar/baz --verbose 3 -f
