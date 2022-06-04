@@ -4,3 +4,5 @@
 .portal
 .nrepl-port
 target
+.lein-failures
+.lein-repl-history
