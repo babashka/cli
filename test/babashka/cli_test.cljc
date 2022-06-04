@@ -23,11 +23,9 @@
   (is (try (cli/parse-args [":b" "dude"] {:coerce {:b :long}})
            false
            (catch Exception e
-             (= {:input "dude", :coerce-fn :long} (ex-data e))))))
-
-(deftest coerce-test
-  (is (= {:b 1} (cli/coerce-vals {:b 1} {:b parse-long})))
-  (is (= {:b 1} (cli/coerce-vals {:b "1"} {:b parse-long}))))
+             (= {:input "dude", :coerce-fn :long} (ex-data e)))))
+  (is (= {:a [1 1]}
+         (:opts (cli/parse-args ["-a" "1" "-a" "1"] {:collect {:a []} :coerce {:a :long}})))))
 
 (deftest parse-args-collect-test
   (is (= '{:cmds [], :opts {:paths ["src" "test"]}}

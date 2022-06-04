@@ -32,15 +32,6 @@
           v))
       s)))
 
-(defn coerce-vals
-  "Coerce vals of map `m` using `mapping`, a map of keys to functions.
-  Uses `coerce` to coerce values."
-  [m mapping]
-  (reduce-kv (fn [m k f]
-               (if-let [v (get m k)]
-                 (assoc m k (coerce v f))
-                 m)) m mapping))
-
 #_{:aliases {:f :foo} ;; representing like this takes care of potential conflicts
    :coerce {:f :boolean}
    :collect {:f []}}
@@ -65,11 +56,13 @@
                                   curr-val))))
     acc))
 
-(defn- add-val [acc current-opt collect-fn arg]
-  (-> (if collect-fn
-        (update acc current-opt collect-fn arg)
-        (assoc acc current-opt arg))
-      (assoc :--added current-opt)))
+(defn- add-val [acc current-opt collect-fn coerce-fn arg]
+  (let [arg (if coerce-fn (coerce arg coerce-fn)
+                arg)]
+    (-> (if collect-fn
+          (update acc current-opt collect-fn arg)
+          (assoc acc current-opt arg))
+        (assoc :--added current-opt))))
 
 (defn parse-args
   "Parse the command line arguments `args`, a seq of strings.
@@ -101,32 +94,31 @@
      {:cmds (vec cmds)
       :opts
       (let [opts
-            (-> (reduce (fn [acc ^String arg]
-                          (let [current-opt (:--current-opt acc)
-                                collect-fn (coerce-collect-fn collect current-opt)
-                                char
-                                (when (pos? #?(:clj (.length arg)
-                                               :cljs (.-length arg)))
-                                  (str (.charAt arg 0)))]
-                            (if (or (= char ":")
-                                    (= char "-"))
-                              (let [long-opt? (str/starts-with? arg "--")
-                                    kname (if long-opt?
-                                            (subs arg 2)
-                                            (str/replace arg #"^(:|-|)" ""))
-                                    [kname arg] (if long-opt?
-                                                  (str/split kname #"=")
-                                                  [kname])
-                                    k (keyword kname)
-                                    k (get aliases k k)]
-                                (cond-> (-> (assoc acc :--current-opt k)
-                                            (process-previous current-opt collect-fn)
-                                            (dissoc :--added))
-                                  arg (add-val k collect-fn arg)))
-                              (add-val acc current-opt collect-fn arg))))
-                        {}
-                        opts)
-                (coerce-vals coerce-opts))
+            (reduce (fn [acc ^String arg]
+                      (let [current-opt (:--current-opt acc)
+                            collect-fn (coerce-collect-fn collect current-opt)
+                            char
+                            (when (pos? #?(:clj (.length arg)
+                                           :cljs (.-length arg)))
+                              (str (.charAt arg 0)))]
+                        (if (or (= char ":")
+                                (= char "-"))
+                          (let [long-opt? (str/starts-with? arg "--")
+                                kname (if long-opt?
+                                        (subs arg 2)
+                                        (str/replace arg #"^(:|-|)" ""))
+                                [kname arg] (if long-opt?
+                                              (str/split kname #"=")
+                                              [kname])
+                                k (keyword kname)
+                                k (get aliases k k)]
+                            (cond-> (-> (assoc acc :--current-opt k)
+                                        (process-previous current-opt collect-fn)
+                                        (dissoc :--added))
+                              arg (add-val k collect-fn (get coerce-opts k) arg)))
+                          (add-val acc current-opt collect-fn (get coerce-opts current-opt) arg))))
+                    {}
+                    opts)
             last-opt (get opts :--current-opt)
             collect-fn (coerce-collect-fn collect last-opt)]
         (-> (process-previous opts last-opt collect-fn)
