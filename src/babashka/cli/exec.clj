@@ -22,9 +22,9 @@
 (defn -main
   "Main entrypoint for command line usage.
   Expects a namespace and var name followed by zero or more key value
-  pair arguments.  If the first argument is map-shaped, it is read as
-  an EDN map containing a `:org.babashka/cli` key with parse
-  instructions.
+  pair arguments that will be parsed and passed to the var. If the
+  first argument is map-shaped, it is read as an EDN map containing
+  parse instructions.
 
   Example when used as a clojure CLI alias:
   ``` clojure
