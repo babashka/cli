@@ -130,7 +130,7 @@
                    (if the-end?
                      (let [nargs (next args)]
                        [(cond-> acc
-                          nargs (vary-meta assoc-in [:org.babashka/cli :remaining] (vec nargs)))
+                          nargs (vary-meta assoc-in [:org.babashka/cli :rest-args] (vec nargs)))
                         current-opt added])
                      (let [kname (if long-opt?
                                    (subs arg 2)
@@ -156,19 +156,64 @@
 
 (defn parse-args
   "Same as `parse-opts` but separates parsed opts into `:opts` and adds
-  `:cmds` and `:remaining` on the top level instead of metadata."
+  `:cmds` and `:rest-args` on the top level instead of metadata."
   ([args] (parse-args args {}))
   ([args opts]
    (let [opts (parse-opts args opts)
          cli-opts (-> opts meta :org.babashka/cli)]
      (assoc cli-opts :opts (dissoc opts :org.babashka/cli)))))
 
-(defn commands
+#_(defn commands
   "Returns commands, i.e. non-option arguments passed before the first option argument."
   [parsed-opts]
   (-> parsed-opts meta :org.babashka/cli :cmds))
 
-(defn remaining
+#_(defn remaining
   "Returns remaining arguments, i.e. arguments after `--`"
   [parsed-opts]
-  (-> parsed-opts meta :org.babashka/cli :remaining))
+  (-> parsed-opts meta :org.babashka/cli :rest-args))
+
+(defn- split [a b]
+  (let [[prefix suffix] (split-at (count a) b)]
+    (when (= prefix a)
+      suffix)))
+
+#_[["dep" "add"] f
+   ["dep" "search"] g]
+
+(defn dispatch
+  "Subcommand dispatcher.
+
+  Dispatches on first matching command entry in `table`.
+  Command entries are vectors of strings.
+
+  Table is in the form:
+
+  ```clojure
+  [[\"sub_1\" .. \"sub_n\"] f
+   ... g
+   :else h]
+  ```
+
+  When a match is found, the right hand side function is called with a map of:
+  * `parse-args` results: `:cmds`, `:opts`, `:rest-args`
+  * `:dispatch` - the matching commands
+  * `:rest-cmds` - any remaining cmds
+
+  `:else` represents an always matching entry.
+  "
+
+  ([table args] (dispatch table args nil))
+  ([table args opts]
+   (let [{:keys [cmds opts remaining]} (parse-args args opts)
+         table (partition-all 2 table)]
+     (reduce (fn [_ [dispatch f]]
+               (if (= :else dispatch)
+                 (reduced (f {:cmds cmds :opts opts :rest-args remaining}))
+                 (when-let [suffix (split dispatch cmds)]
+                   (reduced (f {:dispatch dispatch
+                                :cmds cmds
+                                :rest-cmds (some-> suffix seq vec)
+                                :opts opts
+                                :rest-args remaining})))))
+             nil table))))

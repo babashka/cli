@@ -38,7 +38,7 @@
   (let [res (cli/parse-opts ["foo" ":b" "1"])]
     (is (submap? '{:b "1"} res))
     (is (submap? {:org.babashka/cli {:cmds ["foo"]}} (meta res)))
-    (is (submap? ["foo"] (cli/commands res))))
+    #_(is (submap? ["foo"] (cli/commands res))))
   (is (submap? '{:b 1}
          (cli/parse-opts ["foo" ":b" "1"] {:coerce {:b parse-long}})))
   (is (submap? '{:b 1}
@@ -65,9 +65,25 @@
                (cli/parse-opts ["-v" "-v" "-v"] {:aliases {:v :verbose}
                                                  :collect {:verbose []}}))))
 
-(deftest parse-opts-remaining-test
+(deftest parse-opts-rest-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "--"])))
   (let [res (cli/parse-opts ["--foo" "--" "a"])]
     (is (submap? {:foo true} res))
-    (is (submap? {:org.babashka/cli {:remaining ["a"]}} (meta res)))
-    (is (submap? ["a"] (cli/remaining res)))))
+    (is (submap? {:org.babashka/cli {:rest-args ["a"]}} (meta res)))
+    #_(is (submap? ["a"] (cli/remaining res)))))
+
+(deftest dispatch-test
+  (let [f (fn [m]
+            m)
+        g (constantly :rest)
+        disp-table [["add" "dep"] f
+                    ["dep" "add"] f
+                    ["dep" "search"] f
+                    :else g]]
+    (is (submap?
+         {:rest-cmds ["cheshire/cheshire"], :opts {}}
+         (cli/dispatch disp-table ["add" "dep" "cheshire/cheshire"])))
+    (is (submap?
+         {:cmds ["dep" "search" "cheshire"]
+          :rest-cmds ["cheshire"], :opts {}}
+         (cli/dispatch disp-table ["dep" "search" "cheshire"])))))
