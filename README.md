@@ -6,6 +6,11 @@ Easy command line parsing for Clojure.
 
 ## [API](API.md)
 
+## Status
+
+This library is still in design phase and may still undergo breaking changes.
+Check the [CHANGELOG.md](CHANGELOG.md) for changes before upgrading.
+
 ## Installation
 
 Add to your `deps.edn` or `bb.edn` `:deps` entry:

@@ -1,5 +1,7 @@
 Changelog
 
+For breaking changes, check [here](#breakingchanges)
+
 # v0.2.9
 
 - Support `:org.babashka/cli` options in `deps.edn` aliases.
@@ -38,3 +40,5 @@ Changelog
 # v0.1.1
 
 Initial release
+
+# Breaking changes
