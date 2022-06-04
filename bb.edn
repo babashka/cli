@@ -11,9 +11,10 @@
              [utils])
 
   :init (def cmd-line-opts
-          (:opts (cli/parse-args *command-line-args*
-                                 {:coerce {:toc parse-boolean
-                                           :skip-bump parse-boolean}})))
+          (cli/parse-opts *command-line-args*
+                          {:coerce {:toc parse-boolean
+                                    :skip-bump parse-boolean}}))
+
   test {:doc "Run tests"
         :task (clojure "-X:test")}
 
