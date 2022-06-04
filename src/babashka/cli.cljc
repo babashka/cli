@@ -156,7 +156,7 @@
 
 (defn parse-args
   "Same as `parse-opts` but separates parsed opts into `:opts` and adds
-  `:cmds` and `:remaining` on the top level."
+  `:cmds` and `:remaining` on the top level instead of metadata."
   ([args] (parse-args args {}))
   ([args opts]
    (let [opts (parse-opts args opts)

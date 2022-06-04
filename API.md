@@ -1,7 +1,10 @@
 # Table of contents
 -  [`babashka.cli`](#babashkacli) 
     -  [`coerce`](#coerce) - Coerce string <code>s</code> using <code>f</code>
+    -  [`commands`](#commands) - Returns commands, i.e
+    -  [`parse-args`](#parse-args) - Same as <code>parse-opts</code> but separates parsed opts into <code>:opts</code> and adds
     -  [`parse-opts`](#parse-opts) - Parse the command line arguments <code>args</code>, a seq of strings.
+    -  [`remaining`](#remaining) - Returns remaining arguments, i.e
 -  [`babashka.cli.exec`](#babashkacliexec) 
     -  [`-main`](#-main) - Main entrypoint for command line usage.
 # babashka.cli 
@@ -22,6 +25,26 @@ Coerce string `s` using `f`. Does not coerce when `s` is not a string.
   `:keyword`) or a function. When `f` return `nil`, this is
   interpreted as a parse failure and throws.
 <br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L6-L33)</sub>
+## `commands`
+``` clojure
+
+(commands parsed-opts)
+```
+
+
+Returns commands, i.e. non-option arguments passed before the first option argument.
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L166-L169)</sub>
+## `parse-args`
+``` clojure
+
+(parse-args args)
+(parse-args args opts)
+```
+
+
+Same as [`parse-opts`](#parse-opts) but separates parsed opts into `:opts` and adds
+  `:cmds` and `:remaining` on the top level instead of metadata.
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L157-L164)</sub>
 ## `parse-opts`
 ``` clojure
 
@@ -51,7 +74,16 @@ Parse the command line arguments `args`, a seq of strings.
   ;; => {:bar 1}
   ```
   
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L76-L148)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L83-L155)</sub>
+## `remaining`
+``` clojure
+
+(remaining parsed-opts)
+```
+
+
+Returns remaining arguments, i.e. arguments after `--`
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L171-L174)</sub>
 # babashka.cli.exec 
 
 
