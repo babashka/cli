@@ -46,6 +46,13 @@
    :org.babashka/cli {:aliases {:s :syms}
                       :other :options}}
 
+;; but note in neil we have this:
+#_{:coerce {:deps-deploy parse-boolean
+            :as symbol
+            :alias keyword
+            :limit parse-long}}
+;; which confirms my belief that this is the optimal format for common use cases!
+
 (defn- coerce-collect-fn [collect-opts opt]
   (let [collect-fn (get collect-opts opt)
         collect-fn (when collect-fn
