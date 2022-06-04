@@ -54,8 +54,8 @@
                        collect-fn))]
     collect-fn))
 
-(defn- process-previous [acc current-opt collect-fn]
-  (if (not= current-opt (:--added acc))
+(defn- process-previous [acc current-opt added collect-fn]
+  (if (not= current-opt added)
     (update acc current-opt (fn [curr-val]
                               (if (nil? curr-val)
                                 (if collect-fn
@@ -69,17 +69,18 @@
 (defn- add-val [acc current-opt collect-fn coerce-fn arg]
   (let [arg (if coerce-fn (coerce arg coerce-fn)
                 arg)]
-    (-> (if collect-fn
-          (update acc current-opt collect-fn arg)
-          (assoc acc current-opt arg))
-        (assoc :--added current-opt))))
+    (if collect-fn
+      (update acc current-opt collect-fn arg)
+      (assoc acc current-opt arg))))
 
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.
   Expected format: `[\"cmd_1\" ... \"cmd_n\" \":k_1\" \"v_1\" .. \":k_n\" \"v_n\"]`.
   Instead of a leading `:` either `--` or `-` may be used as well.
 
-  Return value: a map of `:cmds` and `:opts`
+  Return value: a map with parsed opts. Additional data such as
+  initial subcommands and remaining args after `--` are available
+  under the `:org.babashka/cli` key in the metadata.
 
   Supported options:
   - `:coerce`: a map of keys to coercion functions that will be applied to parsed `:opts`. See `coerce-vals`.
@@ -88,10 +89,10 @@
   Examples:
 
   ```clojure
-  (parse-args [\"foo\" \":bar\" \"1])
-  ;; => {:cmds [\"foo\"] :opts {:bar \"1\"}}
+  (parse-opts [\"foo\" \":bar\" \"1])
+  ;; => {:bar \"1\", :org.babashka/cli {:cmds [\"foo\"]}}
   (parse-args [\":b\" \"1] {:aliases {:b :bar} :coerce {:bar parse-long}})
-  ;; => {:cmds [] :opts {:bar 1}}
+  ;; => {:bar 1}
   ```
   "
   ([args] (parse-opts args {}))
@@ -102,44 +103,56 @@
          [cmds opts] (split-with #(not (or (str/starts-with? % ":")
                                            (str/starts-with? % "-"))) args)
          cmds (some-> (seq cmds) vec)
-         opts
-           (reduce (fn [acc ^String arg]
-                     (let [current-opt (:--current-opt acc)
-                           collect-fn (coerce-collect-fn collect current-opt)
-                           char
-                           (when (pos? #?(:clj (.length arg)
-                                          :cljs (.-length arg)))
-                             (str (.charAt arg 0)))]
-                       (if (or (= char ":")
-                               (= char "-"))
-                         (let [long-opt? (str/starts-with? arg "--")
-                               kname (if long-opt?
-                                       (subs arg 2)
-                                       (str/replace arg #"^(:|-|)" ""))
-                               [kname arg] (if long-opt?
-                                             (str/split kname #"=")
-                                             [kname])
-                               k (keyword kname)
-                               k (get aliases k k)]
-                           (cond-> (-> (assoc acc :--current-opt k)
-                                       (process-previous current-opt collect-fn)
-                                       (dissoc :--added))
-                             arg (add-val k collect-fn (get coerce-opts k) arg)))
-                         (add-val acc current-opt collect-fn (get coerce-opts current-opt) arg))))
-                   {}
-                   opts)
-         last-opt (get opts :--current-opt)
+         [opts last-opt added]
+         (loop [acc {}
+                current-opt nil
+                added nil
+                args (seq opts)]
+           (if-not args
+             [acc current-opt added]
+             (let [^String arg (first args)
+                   collect-fn (coerce-collect-fn collect current-opt)
+                   char
+                   (when (pos? #?(:clj (.length arg)
+                                  :cljs (.-length arg)))
+                     (str (.charAt arg 0)))]
+               (if (or (= char ":")
+                       (= char "-"))
+                 (let [long-opt? (str/starts-with? arg "--")
+                       the-end? (and long-opt? (= "--" arg))]
+                   (if the-end?
+                     (let [nargs (next args)]
+                       [(cond-> acc
+                          nargs (vary-meta assoc-in [:org.babashka/cli :remaining] (vec nargs)))
+                         current-opt added])
+                     (let [kname (if long-opt?
+                                   (subs arg 2)
+                                   (str/replace arg #"^(:|-|)" ""))
+                           [kname arg] (if long-opt?
+                                         (str/split kname #"=")
+                                         [kname])
+                           k (keyword kname)
+                           k (get aliases k k)]
+                       (recur (cond-> (process-previous acc current-opt added collect-fn)
+                                arg (add-val k collect-fn (get coerce-opts k) arg))
+                              k
+                              (if arg k added)
+                              (next args)))))
+                 (recur (add-val acc current-opt collect-fn (get coerce-opts current-opt) arg)
+                        current-opt
+                        current-opt
+                        (next args))))))
          collect-fn (coerce-collect-fn collect last-opt)]
-     (-> (process-previous opts last-opt collect-fn)
-         (dissoc :--current-opt :--added)
+     (-> (process-previous opts last-opt added collect-fn)
          (cond->
-             cmds (assoc :org.babashka/cli {:cmds cmds}))))))
+             cmds (vary-meta assoc :org.babashka/cli {:cmds cmds}))))))
 
 (defn parse-args
-  "Here for backwards compatibility, will be removed in 1.0.0."
+  "Same as `parse-opts` but separates parsed opts into `:opts` and adds
+  `:cmds` and `:remaining` on the top level."
   {:no-doc true}
   ([args] (parse-args args {}))
   ([args opts]
-   (let [opts (parse-opts args opts)]
-     {:cmds (-> opts :org.babashka/cli :cmds vec)
-      :opts (dissoc opts :org.babashka/cli)})))
+   (let [opts (parse-opts args opts)
+         cli-opts (-> opts meta :org.babashka/cli)]
+     (assoc cli-opts :opts (dissoc opts :org.babashka/cli)))))
