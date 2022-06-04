@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.2.10
+
+- Introduce `parse-opts` which replaces `parse-args` and returns a single map.
+
 ## v0.2.9
 
 - Support `:org.babashka/cli` options in `deps.edn` aliases.

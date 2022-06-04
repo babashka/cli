@@ -1,11 +1,18 @@
 (ns babashka.cli.exec
   (:require
-   [babashka.cli :refer [coerce parse-args]]
-   [clojure.edn :as edn]))
+   [babashka.cli :refer [coerce parse-opts]]
+   [clojure.edn :as edn]
+   [clojure.string :as str]))
+
+(defn merge-opts [m & ms]
+  (reduce #(merge-with merge %1 %2) m ms))
 
 (defn -main
   "Main entrypoint for command line usage.
-  Expects a namespace and var name followed by zero or more key value pair arguments.
+  Expects a namespace and var name followed by zero or more key value
+  pair arguments.  If the first argument is map-shaped, it is read as
+  an EDN map containing a `:org.babashka/cli` key with parse
+  instructions.
 
   Example when used as a clojure CLI alias:
   ``` clojure
@@ -14,11 +21,17 @@
   ```"
   [& args]
   (let [[f & args] args
+        [opts f args] (if (str/starts-with? f "{")
+                        [(edn/read-string f) (first args) (rest args)]
+                        [nil f args])
+        cli-opts (get opts :org.babashka/cli)
         basis (some-> (System/getProperty "clojure.basis")
                       slurp
                       edn/read-string)
         resolve-args (:resolve-args basis)
-        exec-args (:exec-args resolve-args)
+        exec-args (merge-opts
+                   (:exec-args cli-opts)
+                   (:exec-args resolve-args))
         f (coerce f symbol)
         ns (namespace f)
         fq? (some? ns)
@@ -29,8 +42,8 @@
                    [(symbol (str ns) (first args)) (rest args)])
         f (requiring-resolve f)
         opts (:org.babashka/cli (meta f))
-        opts (merge opts (:org.babashka/cli resolve-args))
-        opts (:opts (parse-args args opts))
-        opts (merge exec-args opts)]
+        opts (merge-opts opts cli-opts (:org.babashka/cli resolve-args))
+        opts (parse-opts args opts)
+        opts (merge-opts exec-args opts)]
     (try (f opts)
          (finally (shutdown-agents)))))

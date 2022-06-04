@@ -48,50 +48,42 @@ Parse `{:port 1339}` from command line arguments:
 ``` clojure
 (require '[babashka.cli :as cli])
 
-(cli/parse-args ["--port" "1339"] {:coerce {:port :long}})
-;;=> {:cmds [] :opts {:port 1339}}
+(cli/parse-opts ["--port" "1339"] {:coerce {:port :long}})
+;;=> {:port 1339}
 ```
 
 Use an alias (short option):
 
 ``` clojure
-(:opts (cli/parse-args ["-p" "1339"] {:aliases {:p :port} :coerce {:port :long}}))
+(cli/parse-opts ["-p" "1339"] {:aliases {:p :port} :coerce {:port :long}})
 ;; {:port 1339}
 ```
 
 Collect values into a collection:
 
 ``` clojure
-(:opts (cli/parse-args ["--paths" "src" "--paths" "test"] {:collect {:paths []}}))
+(cli/parse-opts ["--paths" "src" "--paths" "test"] {:collect {:paths []}})
 ;;=> {:paths ["src" "test"]}
 
-(:opts (cli/parse-args ["--paths" "src" "test"] {:collect {:paths []}}))
+(cli/parse-opts ["--paths" "src" "test"] {:collect {:paths []}})
 ;;=> {:paths ["src" "test"]}
 ```
-
-<!-- To support passing a vector to functions that have no `:org.babashka/cli` -->
-<!-- metadata, use an explicit index: -->
-
-<!-- ``` clojure -->
-<!-- (:opts (cli/parse-args ["--paths.0" "src" "--paths.1 "test"])) -->
-<!-- ;;=> {:paths ["src" "test"]} -->
-<!-- ``` -->
 
 Booleans need no explicit `true` value and `:coerce` option:
 
 ``` clojure
-(:opts (cli/parse-args ["--verbose"]))
+(cli/parse-opts ["--verbose"])
 ;;=> {:verbose true}
 
-(:opts (cli/parse-args ["-v" "-v" "-v"] {:aliases {:v :verbose}
-                                         :collect {:verbose []}}))
+(cli/parse-opts ["-v" "-v" "-v"] {:aliases {:v :verbose}
+                                         :collect {:verbose []}})
 ;;=> {:verbose [true true true]}
 ```
 
 Long options also support the syntax `--foo=bar`:
 
 ``` clojure
-(:opts (cli/parse-args ["--foo=bar"]))
+(cli/parse-opts ["--foo=bar"])
 ;;=> {:foo "bar"}
 ```
 
@@ -107,7 +99,7 @@ To parse options to your tasks, add `[babashka.cli :as cli]` to
 `:requires`. Then you can parse the options in `:init`:
 
 ``` clojure
-:init (def cmd-line-opts (:opts (cli/parse-args *command-line-args*)))
+:init (def cmd-line-opts (cli/parse-opts *command-line-args*)))
 ```
 and then use this in any task:
 
@@ -251,21 +243,27 @@ Generating a project called bar based on the 'app' template.
 
 ## Leiningen
 
-This tool may make it possible to use clojure exec functions with [lein](https://leiningen.org/).
+This tool can be used to run clojure exec functions with [lein](https://leiningen.org/).
 
 In `~/.lein/profiles.clj` put:
 
 ``` clojure
-{:user {:dependencies [[org.clojure/clojure "1.11.1"]
-                       [org.babashka/cli "0.2.9"]
-                       [com.github.seancorfield/clj-new "1.2.381"]]
-        :aliases {"exec" ["run" "-m" "babashka.cli.exec"]}}}
+{:clj-1.11 {:dependencies [^:displace [org.clojure/clojure "1.11.1"]]}
+ :clj-new {:dependencies [[org.babashka/cli "0.2.9"]
+                          [com.github.seancorfield/clj-new "1.2.381"]]}
+ :user {:aliases {"clj-new" ["with-profiles" "+clj-1.11,+clj-new"
+                             "run" "-m" "babashka.cli.exec"
+                             {:org.babashka/cli {:exec-args {:env {:description "My project"}}
+                                                 :coerce {:verbose :long}
+                                                 :collect {:args []}
+                                                 :aliases {:f :force}}}
+                             "clj-new"]}}}
 ```
 
-After that you can use `lein exec` to call an exec function:
+After that you can use `lein clj-new app` to call an exec function:
 
 ``` clojure
-$ lein exec clj-new app --name foo/bar
+$ lein clj-new app --name foobar/baz --verbose 3 -f
 ```
 
 <!-- ## Future ideas -->

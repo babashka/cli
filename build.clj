@@ -35,6 +35,14 @@
            :uber-file uber-file
            :basis basis}))
 
+(defn install [_]
+  (jar {})
+  (b/install {:basis basis
+              :lib lib
+              :version version
+              :jar-file jar-file
+              :class-dir class-dir}))
+
 (defn deploy [opts]
   (jar opts)
   ((requiring-resolve 'deps-deploy.deps-deploy/deploy)
