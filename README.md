@@ -249,14 +249,14 @@ In `~/.lein/profiles.clj` put:
 
 ``` clojure
 {:clj-1.11 {:dependencies [^:displace [org.clojure/clojure "1.11.1"]]}
- :clj-new {:dependencies [[org.babashka/cli "0.2.10"]
+ :clj-new {:dependencies [[org.babashka/cli "0.2.9"]
                           [com.github.seancorfield/clj-new "1.2.381"]]}
  :user {:aliases {"clj-new" ["with-profiles" "+clj-1.11,+clj-new"
                              "run" "-m" "babashka.cli.exec"
-                             {:org.babashka/cli {:exec-args {:env {:description "My project"}}
-                                                 :coerce {:verbose :long}
-                                                 :collect {:args []}
-                                                 :aliases {:f :force}}}
+                             {:exec-args {:env {:description "My project"}}
+                              :coerce {:verbose :long}
+                              :collect {:args []}
+                              :aliases {:f :force}}
                              "clj-new"]}}}
 ```
 

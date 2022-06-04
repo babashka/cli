@@ -21,10 +21,9 @@
   ```"
   [& args]
   (let [[f & args] args
-        [opts f args] (if (str/starts-with? f "{")
+        [cli-opts f args] (if (str/starts-with? f "{")
                         [(edn/read-string f) (first args) (rest args)]
                         [nil f args])
-        cli-opts (get opts :org.babashka/cli)
         basis (some-> (System/getProperty "clojure.basis")
                       slurp
                       edn/read-string)

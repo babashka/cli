@@ -17,5 +17,5 @@
   (is (submap? {:b 1} (-main "babashka.cli.exec-test" "foo" ":b" "1")))
   (is (submap? {:a "1" :b 2} (-main "babashka.cli.exec-test" "foo" ":a" "1" ":b" "2")))
   (is (submap? {:a 1 :b 2} (-main
-                            "{:org.babashka/cli {:coerce {:a :long}}}"
+                            "{:coerce {:a :long}}"
                             "babashka.cli.exec-test" "foo" ":a" "1" ":b" "2"))))
