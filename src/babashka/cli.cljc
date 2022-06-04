@@ -131,7 +131,7 @@
                      (let [nargs (next args)]
                        [(cond-> acc
                           nargs (vary-meta assoc-in [:org.babashka/cli :remaining] (vec nargs)))
-                         current-opt added])
+                        current-opt added])
                      (let [kname (if long-opt?
                                    (subs arg 2)
                                    (str/replace arg #"^(:|-|)" ""))
@@ -157,9 +157,18 @@
 (defn parse-args
   "Same as `parse-opts` but separates parsed opts into `:opts` and adds
   `:cmds` and `:remaining` on the top level."
-  {:no-doc true}
   ([args] (parse-args args {}))
   ([args opts]
    (let [opts (parse-opts args opts)
          cli-opts (-> opts meta :org.babashka/cli)]
      (assoc cli-opts :opts (dissoc opts :org.babashka/cli)))))
+
+(defn commands
+  "Returns commands, i.e. non-option arguments passed before the first option argument."
+  [parsed-opts]
+  (-> parsed-opts meta :org.babashka/cli :cmds))
+
+(defn remaining
+  "Returns remaining arguments, i.e. arguments after `--`"
+  [parsed-opts]
+  (-> parsed-opts meta :org.babashka/cli :remaining))
