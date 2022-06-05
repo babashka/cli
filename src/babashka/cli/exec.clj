@@ -5,6 +5,9 @@
    [clojure.edn :as edn]
    [clojure.string :as str]))
 
+#_:clj-kondo/ignore
+(def ^:private ^:dynamic *basis* "For testing" nil)
+
 (defn -main
   "Main entrypoint for command line usage.
   Expects a namespace and var name followed by zero or more key value
@@ -18,14 +21,18 @@
   ;;=> {:a \"1\" :b \"2\"}
   ```"
   [& args]
-  (let [[f & args] args
-        [cli-opts f args] (if (str/starts-with? f "{")
-                        [(edn/read-string f) (first args) (rest args)]
-                        [nil f args])
-        basis (some-> (System/getProperty "clojure.basis")
-                      slurp
-                      edn/read-string)
+  (let [basis (or *basis* (some-> (System/getProperty "clojure.basis")
+                                  slurp
+                                  edn/read-string))
         resolve-args (:resolve-args basis)
+        exec-fn (:exec-fn resolve-args)
+        [f & args] args
+        [cli-opts f args] (if (str/starts-with? f "{")
+                            [(edn/read-string f) (first args) (rest args)]
+                            [nil f args])
+        [f args] (if exec-fn
+                   [(str exec-fn) (cons f args)]
+                   [f args])
         f (coerce f symbol)
         ns (namespace f)
         fq? (some? ns)
