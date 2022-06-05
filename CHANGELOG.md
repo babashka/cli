@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.2.13
+
+- Support `exec-args` on ns metadata
+
 ## v0.2.12
 
 - Support `:exec-args` in parse options to provide defaults
