@@ -41,10 +41,15 @@ offer a light-weight way to coerce strings.
 
 Both `:` and `--` are supported as the initial characters of a named option.
 
+## Projects using babashka CLI
+
+- [neil](https://github.com/babashka/neil)
+
 ## TOC
 
 - [Options](#options)
 - [Subcommands](#subcommands)
+- [Babashka tasks](#babashka-tasks)
 - [Clojure CLI](#clojure-cli)
 - [Leiningen](#leiningen)
 
@@ -157,11 +162,7 @@ When running `bb -m example delete the-file --depth 3`, `dispatch` calls `delete
 See [neil](https://github.com/babashka/neil) for a real world example of a CLI
 that uses subcommands.
 
-## Projects using babashka CLI
-
-- [neil](https://github.com/babashka/neil)
-
-## Usage in babashka tasks
+## Babashka tasks
 
 For documentation on babashka tasks, go [here](https://book.babashka.org/#tasks).
 
