@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.2.11
+
+- Add support for [subcommands](https://github.com/babashka/cli#subcommands)
+
 ## v0.2.10
 
 - Introduce `parse-opts` which replaces `parse-args` and returns a single map.
@@ -46,3 +50,5 @@ For breaking changes, check [here](#breaking-changes).
 Initial release
 
 ## Breaking changes
+
+None yet.
