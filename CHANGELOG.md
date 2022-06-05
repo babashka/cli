@@ -2,13 +2,17 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.2.15
+
+- Support `:ns-default` in deps alias
+
 ## v0.2.14
 
-- Support `exec-fn` in deps alias
+- Support `:exec-fn` in deps alias
 
 ## v0.2.13
 
-- Support `exec-args` on ns metadata
+- Support `:exec-args` on ns metadata
 
 ## v0.2.12
 
