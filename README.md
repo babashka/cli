@@ -136,7 +136,7 @@ The last entry in the `dispatch-table` always matches and calls the help functio
 When running `bb -m example --help`, `dispatch` calls `help` which returns:
 
 ``` clojure
-{:opts {:help true}, :rest-cmds nil, :dispatch [], :fn :help}
+{:opts {:help true}, :dispatch [], :fn :help}
 ```
 
 When running `bb -m example copy the-file --dry-run`, `dispatch` calls `copy`,
@@ -144,14 +144,14 @@ which returns:
 
 ``` clojure
 {:cmds ["copy" "the-file"], :opts {:file "the-file" :dry-run true},
- :rest-cmds (), :dispatch ["copy"], :fn :copy}
+ :dispatch ["copy"], :fn :copy}
 ```
 
 When running `bb -m example delete the-file --depth 3`, `dispatch` calls `delete` which returns:
 
 ``` clojure
 {:cmds ["delete" "the-file"], :opts {:depth 3, :file "the-file"},
- :rest-cmds (), :dispatch ["delete"], :fn :delete}
+ :dispatch ["delete"], :fn :delete}
 ```
 
 See [neil](https://github.com/babashka/neil) for a real world example of a CLI
