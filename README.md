@@ -130,7 +130,7 @@ This can be accomplished by doing the following:
   (cli/dispatch dispatch-table args {:coerce {:depth :long}}))
 ```
 
-Calling the `scratch` namespace's `-main` function can be done using `clojure -M -m example` or `bb -m example`.
+Calling the `example` namespace's `-main` function can be done using `clojure -M -m example` or `bb -m example`.
 The last entry in the `dispatch-table` always matches and calls the help function.
 
 When running `bb -m example --help`, `dispatch` calls `help` which returns:
