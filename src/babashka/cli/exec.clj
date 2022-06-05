@@ -1,23 +1,9 @@
 (ns babashka.cli.exec
   (:require
    [babashka.cli :refer [coerce parse-opts]]
+   [babashka.cli.internal :refer [merge-opts]]
    [clojure.edn :as edn]
    [clojure.string :as str]))
-
-(defn- into-able? [x]
-  (and (coll? x)
-       (or (sequential? x)
-           (set? x))))
-
-(defn- merge* [x y]
-  (cond (and (map? x) (map? y)) (merge x y)
-        (and (into-able? x)
-             (into-able? y))
-        (into x y)
-        :else y))
-
-(defn- merge-opts [m & ms]
-  (reduce #(merge-with merge* %1 %2) m ms))
 
 (defn -main
   "Main entrypoint for command line usage.

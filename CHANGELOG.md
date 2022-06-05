@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.2.12
+
+- Support `:exec-args` in parse options to provide defaults
+
 ## v0.2.11
 
 - Add support for [subcommands](https://github.com/babashka/cli#subcommands)

@@ -54,7 +54,10 @@
            (catch Exception e
              (= {:input "dude", :coerce-fn :long} (ex-data e)))))
   (is (submap? {:a [1 1]}
-               (cli/parse-opts ["-a" "1" "-a" "1"] {:collect {:a []} :coerce {:a :long}}))))
+               (cli/parse-opts ["-a" "1" "-a" "1"] {:collect {:a []} :coerce {:a :long}})))
+  (is (submap? {:foo :bar
+                :skip true}
+               (cli/parse-opts ["--skip"] {:exec-args {:foo :bar}}))))
 
 (deftest parse-opts-collect-test
   (is (submap? '{:paths ["src" "test"]}

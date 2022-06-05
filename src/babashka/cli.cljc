@@ -1,5 +1,6 @@
 (ns babashka.cli
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [babashka.cli.internal :refer [merge-opts]]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -107,11 +108,12 @@
    (let [coerce-opts (:coerce opts)
          aliases (:aliases opts)
          collect (:collect opts)
+         exec-args (:exec-args opts)
          [cmds opts] (split-with #(not (or (str/starts-with? % ":")
                                            (str/starts-with? % "-"))) args)
          cmds (some-> (seq cmds) vec)
          [opts last-opt added]
-         (loop [acc {}
+         (loop [acc (or exec-args {})
                 current-opt nil
                 added nil
                 args (seq opts)]
