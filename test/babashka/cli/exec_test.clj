@@ -1,4 +1,5 @@
 (ns babashka.cli.exec-test
+  {:org.babashka/cli {:exec-args {:foo :bar}}}
   (:require
    [babashka.cli-test :refer [submap?]]
    [babashka.cli.exec :refer [-main]]
@@ -12,7 +13,7 @@
   m)
 
 (deftest parse-opts-test
-  (is (submap? {:b 1} (-main "babashka.cli.exec-test/foo" ":b" "1")))
+  (is (submap? {:foo :bar :b 1} (-main "babashka.cli.exec-test/foo" ":b" "1")))
   (is (submap? {:a "1" :b 2} (-main "babashka.cli.exec-test/foo" ":a" "1" ":b" "2")))
   (is (submap? {:b 1} (-main "babashka.cli.exec-test" "foo" ":b" "1")))
   (is (submap? {:a "1" :b 2} (-main "babashka.cli.exec-test" "foo" ":a" "1" ":b" "2")))

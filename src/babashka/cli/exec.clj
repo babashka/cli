@@ -26,9 +26,6 @@
                       slurp
                       edn/read-string)
         resolve-args (:resolve-args basis)
-        exec-args (merge-opts
-                   (:exec-args cli-opts)
-                   (:exec-args resolve-args))
         f (coerce f symbol)
         ns (namespace f)
         fq? (some? ns)
@@ -38,9 +35,16 @@
                    [f args]
                    [(symbol (str ns) (first args)) (rest args)])
         f (requiring-resolve f)
-        opts (:org.babashka/cli (meta f))
-        opts (merge-opts opts cli-opts (:org.babashka/cli resolve-args))
-        opts (parse-opts args opts)
-        opts (merge-opts exec-args opts)]
+        ns-opts (:org.babashka/cli (meta (find-ns ns)))
+        fn-opts (:org.babashka/cli (meta f))
+        exec-args (merge-opts
+                   (:exec-args cli-opts)
+                   (:exec-args resolve-args))
+        opts (merge-opts ns-opts
+                         fn-opts
+                         cli-opts
+                         (:org.babashka/cli resolve-args)
+                         (when exec-args {:exec-args exec-args}))
+        opts (parse-opts args opts)]
     (try (f opts)
          (finally (shutdown-agents)))))
