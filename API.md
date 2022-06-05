@@ -1,10 +1,9 @@
 # Table of contents
 -  [`babashka.cli`](#babashkacli) 
     -  [`coerce`](#coerce) - Coerce string <code>s</code> using <code>f</code>
-    -  [`commands`](#commands) - Returns commands, i.e
+    -  [`dispatch`](#dispatch) - Subcommand dispatcher.
     -  [`parse-args`](#parse-args) - Same as <code>parse-opts</code> but separates parsed opts into <code>:opts</code> and adds
     -  [`parse-opts`](#parse-opts) - Parse the command line arguments <code>args</code>, a seq of strings.
-    -  [`remaining`](#remaining) - Returns remaining arguments, i.e
 -  [`babashka.cli.exec`](#babashkacliexec) 
     -  [`-main`](#-main) - Main entrypoint for command line usage.
 # babashka.cli 
@@ -25,15 +24,39 @@ Coerce string `s` using `f`. Does not coerce when `s` is not a string.
   `:keyword`) or a function. When `f` return `nil`, this is
   interpreted as a parse failure and throws.
 <br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L6-L33)</sub>
-## `commands`
+## `dispatch`
 ``` clojure
 
-(commands parsed-opts)
+(dispatch table args)
+(dispatch table args opts)
 ```
 
 
-Returns commands, i.e. non-option arguments passed before the first option argument.
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L166-L169)</sub>
+Subcommand dispatcher.
+
+  Dispatches on first matching command entry in `table`. A match is
+  determines by whether `:cmds`, a vector of strings, is a subsequence
+  (matching from the start) of the invoked commands.
+
+  Table is in the form:
+
+  ```clojure
+  [{:cmds ["sub_1" .. "sub_n"] :fn f :cmds-opts [:lib]}
+   ...
+   {:cmds [] :fn f}]
+  ```
+
+  When a match is found, `:fn` called with the return value of
+  [`parse-args`](#parse-args) applied to `args` enhanced with:
+
+  * `:dispatch` - the matching commands
+  * `:rest-cmds` - any remaining cmds
+
+  Any trailing commands can be matched as options using `:cmds-opts`.
+
+  This function does not throw. Use an empty `:cmds` vector to always match.
+  
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L181-L227)</sub>
 ## `parse-args`
 ``` clojure
 
@@ -43,7 +66,7 @@ Returns commands, i.e. non-option arguments passed before the first option argum
 
 
 Same as [`parse-opts`](#parse-opts) but separates parsed opts into `:opts` and adds
-  `:cmds` and `:remaining` on the top level instead of metadata.
+  `:cmds` and `:rest-args` on the top level instead of metadata.
 <br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L157-L164)</sub>
 ## `parse-opts`
 ``` clojure
@@ -75,15 +98,6 @@ Parse the command line arguments `args`, a seq of strings.
   ```
   
 <br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L83-L155)</sub>
-## `remaining`
-``` clojure
-
-(remaining parsed-opts)
-```
-
-
-Returns remaining arguments, i.e. arguments after `--`
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L171-L174)</sub>
 # babashka.cli.exec 
 
 

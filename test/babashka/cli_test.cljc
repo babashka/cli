@@ -78,12 +78,12 @@
         g (constantly :rest)
         disp-table [{:cmds ["add" "dep"] :fn f}
                     {:cmds ["dep" "add"] :fn f}
-                    {:cmds ["dep" "search"] :fn f}
+                    {:cmds ["dep" "search"] :fn f :cmds-opts [:search-term]}
                     {:cmds [] :fn g}]]
     (is (submap?
          {:rest-cmds ["cheshire/cheshire"], :opts {}}
          (cli/dispatch disp-table ["add" "dep" "cheshire/cheshire"])))
     (is (submap?
-         {:cmds ["dep" "search" "cheshire"]
-          :rest-cmds ["cheshire"], :opts {}}
+         {:dispatch ["dep" "search"]
+          :opts {:search-term "cheshire"}}
          (cli/dispatch disp-table ["dep" "search" "cheshire"])))))

@@ -178,37 +178,50 @@
     (when (= prefix a)
       suffix)))
 
-#_[["dep" "add"] f
-   ["dep" "search"] g]
-
 (defn dispatch
   "Subcommand dispatcher.
 
-  Dispatches on first matching command entry in `table`.
-  Command entries are vectors of strings.
+  Dispatches on first matching command entry in `table`. A match is
+  determines by whether `:cmds`, a vector of strings, is a subsequence
+  (matching from the start) of the invoked commands.
 
   Table is in the form:
 
   ```clojure
-  [{:cmds [\"sub_1\" .. \"sub_n\"] :fn f}
+  [{:cmds [\"sub_1\" .. \"sub_n\"] :fn f :cmds-opts [:lib]}
    ...
    {:cmds [] :fn f}]
   ```
 
-  When a match is found, the right hand side function is called with
-  the return value of `parse-args` applied to `args` enhanced with:
+  When a match is found, `:fn` called with the return value of
+  `parse-args` applied to `args` enhanced with:
 
   * `:dispatch` - the matching commands
   * `:rest-cmds` - any remaining cmds
 
-  Use an empty `:cmds` vector to always match.
+  Any trailing commands can be matched as options using `:cmds-opts`.
+
+  This function does not throw. Use an empty `:cmds` vector to always match.
   "
-  {:no-doc true}
   ([table args] (dispatch table args nil))
   ([table args opts]
-   (let [{:keys [cmds] :as m} (parse-args args opts)]
+   (let [{:keys [cmds opts] :as m} (parse-args args opts)]
      (reduce (fn [_ {dispatch :cmds
-                     f :fn}]
+                     f :fn
+                     cmds-opts :cmds-opts}]
                (when-let [suffix (split dispatch cmds)]
-                 (reduced (f (assoc m :rest-cmds (some-> suffix seq vec))))))
+                 (let [rest-cmds (some-> suffix seq vec)
+                       [rest-cmds extra-opts] (if (and rest-cmds cmds-opts)
+                                                (let [cnt (min (count rest-cmds)
+                                                               (count cmds-opts))]
+                                                  [(drop cnt rest-cmds)
+                                                   (zipmap cmds-opts rest-cmds)])
+                                                [rest-cmds nil])
+                       opts (if extra-opts
+                              (merge opts extra-opts)
+                              opts)]
+                   (reduced (f (assoc m
+                                      :rest-cmds rest-cmds
+                                      :opts opts
+                                      :dispatch dispatch))))))
              nil table))))
