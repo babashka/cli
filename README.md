@@ -104,7 +104,7 @@ To handle subcommands, use
 [dispatch](https://github.com/babashka/cli/blob/main/API.md#dispatch).
 
 An example. Say we want to create a CLI that can be called as `$ cli copy
-<file> -dry-run` and `$ cli delete <file> --recursive --depth 3`.
+<file> --dry-run` and `$ cli delete <file> --recursive --depth 3`.
 
 This can be accomplished by doing the following:
 
@@ -139,17 +139,19 @@ When running `bb -m example --help`, `dispatch` calls `help` which returns:
 {:opts {:help true}, :rest-cmds nil, :dispatch [], :fn :help}
 ```
 
-When running `bb -m example copy the-file`, `dispatch` calls `copy`,
+When running `bb -m example copy the-file --dry-run`, `dispatch` calls `copy`,
 which returns:
 
 ``` clojure
-{:cmds ["copy" "the-file"], :opts {:file "the-file"}, :rest-cmds (), :dispatch ["copy"], :fn :copy}
+{:cmds ["copy" "the-file"], :opts {:file "the-file" :dry-run true},
+ :rest-cmds (), :dispatch ["copy"], :fn :copy}
 ```
 
 When running `bb -m example delete the-file --depth 3`, `dispatch` calls `delete` which returns:
 
 ``` clojure
-{:cmds ["delete" "the-file"], :opts {:depth 3, :file "the-file"}, :rest-cmds (), :dispatch ["delete"], :fn :delete}
+{:cmds ["delete" "the-file"], :opts {:depth 3, :file "the-file"},
+ :rest-cmds (), :dispatch ["delete"], :fn :delete}
 ```
 
 See [neil](https://github.com/babashka/neil) for a real world example of a CLI
