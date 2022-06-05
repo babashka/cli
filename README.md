@@ -44,6 +44,7 @@ Both `:` and `--` are supported as the initial characters of a named option.
 ## Projects using babashka CLI
 
 - [neil](https://github.com/babashka/neil)
+- [quickdoc](https://github.com/borkdude/quickdoc#clojure-cli)
 
 ## TOC
 
@@ -315,6 +316,8 @@ Usage:
 $ clj -M:new app --name foo/bar --force --version 1.2.3
 Generating a project called bar based on the 'app' template.
 ```
+
+### [quickdoc](https://github.com/borkdude/quickdoc#clojure-cli)
 
 ## Leiningen
 
