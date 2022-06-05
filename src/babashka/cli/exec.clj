@@ -26,13 +26,18 @@
                                   edn/read-string))
         resolve-args (:resolve-args basis)
         exec-fn (:exec-fn resolve-args)
+        ns-default (:ns-default resolve-args)
         [f & args] args
         [cli-opts f args] (if (str/starts-with? f "{")
                             [(edn/read-string f) (first args) (rest args)]
                             [nil f args])
-        [f args] (if exec-fn
-                   [(str exec-fn) (cons f args)]
-                   [f args])
+        [f args] (cond exec-fn
+                       [(let [exec-sym (symbol exec-fn)]
+                          (if (namespace exec-sym)
+                            exec-sym
+                            (symbol (str ns-default) (str exec-fn)))) (cons f args)]
+                       ns-default [ns-default (cons f args)]
+                       :else [f args])
         f (coerce f symbol)
         ns (namespace f)
         fq? (some? ns)
@@ -42,6 +47,7 @@
                    [f args]
                    [(symbol (str ns) (first args)) (rest args)])
         f (requiring-resolve f)
+        _ (assert f (str "Could not find var: " f))
         ns-opts (:org.babashka/cli (meta (find-ns ns)))
         fn-opts (:org.babashka/cli (meta f))
         exec-args (merge-opts

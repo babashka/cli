@@ -31,4 +31,16 @@
                (binding [babashka.cli.exec/*basis* '{:resolve-args {:org.babashka/cli {:coerce {:a :long}}
                                                                     :exec-fn babashka.cli.exec-test/foo}}]
                  (-main
-                  ":a" "1" ":b" "2")))))
+                  ":a" "1" ":b" "2"))))
+  (is (submap? {:a 1 :b 2}
+               (binding [babashka.cli.exec/*basis*
+                         '{:resolve-args {:org.babashka/cli {:coerce {:a :long}}
+                                          :ns-default babashka.cli.exec-test}}]
+                 (-main
+                  "foo" ":a" "1" ":b" "2"))))
+  (is (submap? {:a 1 :b 2}
+               (binding [babashka.cli.exec/*basis*
+                         '{:resolve-args {:org.babashka/cli {:coerce {:a :long}}
+                                          :ns-default babashka.cli.exec-test
+                                          :exec-fn foo}}]
+                 (-main ":a" "1" ":b" "2")))))
