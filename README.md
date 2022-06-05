@@ -41,7 +41,18 @@ offer a light-weight way to coerce strings.
 
 Both `:` and `--` are supported as the initial characters of a named option.
 
-## Quickstart
+## TOC
+
+- [Options](#options)
+- [Subcommands](#subcommands)
+- [Clojure CLI]()
+- [Leiningen]()
+
+## Options
+
+For parsing options, use either [`parse-opts`](https://github.com/babashka/cli/blob/main/API.md#parse-opts) or [`parse-args`](https://github.com/babashka/cli/blob/main/API.md#parse-args).
+
+Examples:
 
 Parse `{:port 1339}` from command line arguments:
 
@@ -85,6 +96,58 @@ Long options also support the syntax `--foo=bar`:
 ``` clojure
 (cli/parse-opts ["--foo=bar"])
 ;;=> {:foo "bar"}
+```
+
+## Subcommands
+
+To handle subcommands, use
+[dispatch](https://github.com/babashka/cli/blob/main/API.md#dispatch).
+
+An example. Say we want to create a CLI that can be called as `$ cli copy
+<file> -dry-run` and `$ cli delete <file> --recursive --depth 3`.
+
+This can be accomplished by doing the following:
+
+``` clojure
+(ns example
+  (:require [babashka.cli :as cli]))
+
+(defn copy [m]
+  (assoc m :fn :copy))
+
+(defn delete [m]
+  (assoc m :fn :delete))
+
+(defn help [m]
+  (assoc m :fn :help))
+
+(def dispatch-table
+  [{:cmds ["copy"] :cmds-opts [:file] :fn copy}
+   {:cmds ["delete"] :cmds-opts [:file] :fn delete}
+   {:cmds [] :fn help}])
+
+(defn -main [& args]
+  (cli/dispatch dispatch-table args {:coerce {:depth :long}}))
+```
+
+Calling the `scratch` namespace's `-main` function can be done using `clojure -M -m example` or `bb -m example`.
+The last entry in the `dispatch-table` always matches and calls the help function.
+
+When running `bb -m example --help`, `dispatch` calls `help` which returns:
+
+`{:opts {:help true}, :rest-cmds nil, :dispatch [], :fn :help}`
+
+When running `bb -m example copy the-file`, `dispatch` calls `copy`,
+which returns:
+
+``` clojure
+{:cmds ["copy" "the-file"], :opts {:file "the-file"}, :rest-cmds (), :dispatch ["copy"], :fn :copy}
+```
+
+When running `bb -m example delete the-file --depth 3`, `dispatch` calls `delete` which returns:
+
+``` clojure
+{:cmds ["delete" "the-file"], :opts {:depth 3, :file "the-file"}, :rest-cmds (), :dispatch ["delete"], :fn :delete}
 ```
 
 ## Projects using babashka CLI
