@@ -135,7 +135,9 @@ The last entry in the `dispatch-table` always matches and calls the help functio
 
 When running `bb -m example --help`, `dispatch` calls `help` which returns:
 
-`{:opts {:help true}, :rest-cmds nil, :dispatch [], :fn :help}`
+``` clojure
+{:opts {:help true}, :rest-cmds nil, :dispatch [], :fn :help}
+```
 
 When running `bb -m example copy the-file`, `dispatch` calls `copy`,
 which returns:
@@ -149,6 +151,9 @@ When running `bb -m example delete the-file --depth 3`, `dispatch` calls `delete
 ``` clojure
 {:cmds ["delete" "the-file"], :opts {:depth 3, :file "the-file"}, :rest-cmds (), :dispatch ["delete"], :fn :delete}
 ```
+
+See [neil](https://github.com/babashka/neil) for a real world example of a CLI
+that uses subcommands.
 
 ## Projects using babashka CLI
 
