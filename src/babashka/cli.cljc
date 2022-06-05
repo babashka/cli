@@ -152,7 +152,7 @@
          collect-fn (coerce-collect-fn collect last-opt)]
      (-> (process-previous opts last-opt added collect-fn)
          (cond->
-             cmds (vary-meta assoc :org.babashka/cli {:cmds cmds}))))))
+             cmds (vary-meta assoc-in [:org.babashka/cli :cmds] cmds))))))
 
 (defn parse-args
   "Same as `parse-opts` but separates parsed opts into `:opts` and adds
@@ -195,23 +195,20 @@
    {:cmds [] :fn f}]
   ```
 
-  When a match is found, the right hand side function is called with a map of:
-  * `parse-args` results: `:cmds`, `:opts`, `:rest-args`
+  When a match is found, the right hand side function is called with
+  the return value of `parse-args` applied to `args` enhanced with:
+
   * `:dispatch` - the matching commands
   * `:rest-cmds` - any remaining cmds
 
-  `:else` represents an always matching entry.
+  Use an empty `:cmds` vector to always match.
   "
   {:no-doc true}
   ([table args] (dispatch table args nil))
   ([table args opts]
-   (let [{:keys [cmds opts remaining]} (parse-args args opts)]
+   (let [{:keys [cmds] :as m} (parse-args args opts)]
      (reduce (fn [_ {dispatch :cmds
                      f :fn}]
                (when-let [suffix (split dispatch cmds)]
-                 (reduced (f {:dispatch dispatch
-                              :cmds cmds
-                              :rest-cmds (some-> suffix seq vec)
-                              :opts opts
-                              :rest-args remaining}))))
+                 (reduced (f (assoc m :rest-cmds (some-> suffix seq vec))))))
              nil table))))
