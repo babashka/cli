@@ -55,8 +55,9 @@ Subcommand dispatcher.
   Any trailing commands can be matched as options using `:cmds-opts`.
 
   This function does not throw. Use an empty `:cmds` vector to always match.
-  
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L181-L227)</sub>
+
+  Examples: see [README.md](README.md#subcommands).
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L181-L228)</sub>
 ## `parse-args`
 ``` clojure
 
