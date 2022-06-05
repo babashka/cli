@@ -108,8 +108,12 @@ Long options also support the syntax `--foo=bar`:
 To handle subcommands, use
 [dispatch](https://github.com/babashka/cli/blob/main/API.md#dispatch).
 
-An example. Say we want to create a CLI that can be called as `$ cli copy
-<file> --dry-run` and `$ cli delete <file> --recursive --depth 3`.
+An example. Say we want to create a CLI that can be called as:
+
+``` clojure
+$ cli copy <file> --dry-run
+$ cli delete <file> --recursive --depth 3
+```
 
 This can be accomplished by doing the following:
 
