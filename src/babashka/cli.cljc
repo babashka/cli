@@ -190,9 +190,9 @@
   Table is in the form:
 
   ```clojure
-  [[\"sub_1\" .. \"sub_n\"] f
-   ... g
-   :else h]
+  [{:cmds [\"sub_1\" .. \"sub_n\"] :fn f}
+   ...
+   {:cmds [] :fn f}]
   ```
 
   When a match is found, the right hand side function is called with a map of:
@@ -202,18 +202,16 @@
 
   `:else` represents an always matching entry.
   "
-
+  {:no-doc true}
   ([table args] (dispatch table args nil))
   ([table args opts]
-   (let [{:keys [cmds opts remaining]} (parse-args args opts)
-         table (partition-all 2 table)]
-     (reduce (fn [_ [dispatch f]]
-               (if (= :else dispatch)
-                 (reduced (f {:cmds cmds :opts opts :rest-args remaining}))
-                 (when-let [suffix (split dispatch cmds)]
-                   (reduced (f {:dispatch dispatch
-                                :cmds cmds
-                                :rest-cmds (some-> suffix seq vec)
-                                :opts opts
-                                :rest-args remaining})))))
+   (let [{:keys [cmds opts remaining]} (parse-args args opts)]
+     (reduce (fn [_ {dispatch :cmds
+                     f :fn}]
+               (when-let [suffix (split dispatch cmds)]
+                 (reduced (f {:dispatch dispatch
+                              :cmds cmds
+                              :rest-cmds (some-> suffix seq vec)
+                              :opts opts
+                              :rest-args remaining}))))
              nil table))))

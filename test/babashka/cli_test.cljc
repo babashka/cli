@@ -76,10 +76,10 @@
   (let [f (fn [m]
             m)
         g (constantly :rest)
-        disp-table [["add" "dep"] f
-                    ["dep" "add"] f
-                    ["dep" "search"] f
-                    :else g]]
+        disp-table [{:cmds ["add" "dep"] :fn f}
+                    {:cmds ["dep" "add"] :fn f}
+                    {:cmds ["dep" "search"] :fn f}
+                    {:cmds [] :fn g}]]
     (is (submap?
          {:rest-cmds ["cheshire/cheshire"], :opts {}}
          (cli/dispatch disp-table ["add" "dep" "cheshire/cheshire"])))
