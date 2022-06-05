@@ -45,8 +45,8 @@ Both `:` and `--` are supported as the initial characters of a named option.
 
 - [Options](#options)
 - [Subcommands](#subcommands)
-- [Clojure CLI]()
-- [Leiningen]()
+- [Clojure CLI](#clojure-cli)
+- [Leiningen](#leiningen)
 
 ## Options
 
