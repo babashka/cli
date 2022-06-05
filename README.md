@@ -177,7 +177,7 @@ and your tasks can then be called with options:
 $ bb publish --skip-bump
 ```
 
-## Usage with the clojure CLI
+## Clojure CLI
 
 You can control parsing behavior by adding `:org.babashka/cli` metadata to
 Clojure functions. It does not introduce a dependency on `babashka.cli`
