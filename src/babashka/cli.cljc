@@ -202,7 +202,8 @@
   Any trailing commands can be matched as options using `:cmds-opts`.
 
   This function does not throw. Use an empty `:cmds` vector to always match.
-  "
+
+  Examples: see [README.md](README.md#subcommands)."
   ([table args] (dispatch table args nil))
   ([table args opts]
    (let [{:keys [cmds opts] :as m} (parse-args args opts)]
