@@ -230,7 +230,8 @@ Use `:org.babashka/cli` metadata for coercions:
 (ns my-ns)
 
 (defn foo
-  {:org.babashka/cli {:coerce {:a :symbol :b :long}}}
+  {:org.babashka/cli {:coerce {:a :symbol
+                               :b :long}}}
   ;; map argument:
   [m]
   ;; print map argument:
@@ -257,11 +258,21 @@ $ clojure -M:prn --foo=bar --baz
 {:foo "bar" :baz true}
 ```
 
+You can also pre-define the exec function in `:exec-fn`:
+
+``` clojure
+:prn {:deps {org.babashka/cli {:mvn/version "0.2.16"}}
+      :exec-fn clojure.core/prn
+      :main-opts ["-m" "babashka.cli.exec"]}
+```
+
 To alter the parsing behavior of functions you don't control, you can add
 `:org.babashka/cli` data in the `deps.edn` alias:
 
 ``` clojure
-:prn {:main-opts ["-m" "babashka.cli.exec" "clojure.core" "prn"]
+:prn {:deps {org.babashka/cli {:mvn/version "0.2.16"}}
+      :exec-fn clojure.core/prn
+      :main-opts ["-m" "babashka.cli.exec"]
       :org.babashka/cli {:coerce {:foo :long}}}
 ```
 
