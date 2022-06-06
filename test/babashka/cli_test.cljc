@@ -2,7 +2,7 @@
   (:require
    [babashka.cli :as cli]
    [clojure.string :as str]
-   [clojure.test :refer [deftest is]]))
+   [clojure.test :refer [deftest is testing]]))
 
 (defn normalize-filename [s]
   (str/replace s "\\" "/"))
@@ -57,7 +57,11 @@
                (cli/parse-opts ["-a" "1" "-a" "1"] {:collect {:a []} :coerce {:a :long}})))
   (is (submap? {:foo :bar
                 :skip true}
-               (cli/parse-opts ["--skip"] {:exec-args {:foo :bar}}))))
+               (cli/parse-opts ["--skip"] {:exec-args {:foo :bar}})))
+  (testing "shorthands"
+    (is (submap? '{:foo [a b]
+                   :skip true}
+                 (cli/parse-opts ["--skip" "--foo=a" "--foo=b"] {:coerce {:foo :symbols}})))))
 
 (deftest parse-opts-collect-test
   (is (submap? '{:paths ["src" "test"]}

@@ -28,7 +28,7 @@
         exec-fn (:exec-fn resolve-args)
         ns-default (:ns-default resolve-args)
         [f & args] args
-        [cli-opts f args] (if (str/starts-with? f "{")
+        [cli-opts f args] (if (and f (str/starts-with? f "{"))
                             [(edn/read-string f) (first args) (rest args)]
                             [nil f args])
         [f args] (cond exec-fn
@@ -58,6 +58,6 @@
                          cli-opts
                          (:org.babashka/cli resolve-args)
                          (when exec-args {:exec-args exec-args}))
-        opts (parse-opts args opts)]
+        opts (parse-opts (drop-while nil? args) opts)]
     (try (f opts)
          (finally (shutdown-agents)))))
