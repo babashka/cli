@@ -150,11 +150,8 @@
                            k (keyword kname)
                            k (get aliases k k)]
                        (if arg
-                         (recur acc k nil (cons arg (rest args)))
-                         (recur (process-previous acc current-opt added collect-fn)
-                                k
-                                added
-                                (next args))))))
+                         (recur (process-previous acc current-opt added collect-fn) k nil (cons arg (rest args)))
+                         (recur (process-previous acc current-opt added collect-fn) k added (next args))))))
                  (recur (add-val acc current-opt collect-fn (get coerce-opts current-opt) arg)
                         current-opt
                         current-opt
