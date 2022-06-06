@@ -41,6 +41,17 @@ offer a light-weight way to coerce strings.
 
 Both `:` and `--` are supported as the initial characters of a named option.
 
+This library also supports calling exec-style functions, such that:
+
+``` clojure
+(defn foo [{:keys [foo bar] :as m}] (prn m))
+```
+
+``` clojure
+clojure -M:foo --foo --bar=yes
+{:foo true, :bar "yes"}
+```
+
 ## Projects using babashka CLI
 
 - [neil](https://github.com/babashka/neil)
