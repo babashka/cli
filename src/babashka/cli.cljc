@@ -12,11 +12,12 @@
   [s f]
   (let [f* (if (keyword? f)
              (case f
-               :boolean parse-boolean
-               (:int :long) parse-long
-               :double parse-double
-               :symbol symbol
-               :keyword keyword)
+               (:boolean :booleans) parse-boolean
+               (:int :ints :long :longs) parse-long
+               (:double :doubles) parse-double
+               (:symbol :symbols) symbol
+               (:keyword :keywords) keyword
+               (:string :strings) identity)
              f)]
     (if (string? s)
       (let [v (f* s)]
@@ -54,8 +55,14 @@
             :limit parse-long}}
 ;; which confirms my belief that this is the optimal format for common use cases!
 
-(defn- coerce-collect-fn [collect-opts opt]
-  (let [collect-fn (get collect-opts opt)
+(defn- coerce->collect [k]
+  (case k
+    (:strings :booleans :ints :longs :doubles :symbols :keywords) []
+    nil))
+
+(defn- coerce-collect-fn [collect-opts opt coercek]
+  (let [collect-fn (or (get collect-opts opt)
+                       (coerce->collect coercek))
         collect-fn (when collect-fn
                      (if (coll? collect-fn)
                        (fnil conj collect-fn)
@@ -120,7 +127,7 @@
            (if-not args
              [acc current-opt added]
              (let [^String arg (first args)
-                   collect-fn (coerce-collect-fn collect current-opt)
+                   collect-fn (coerce-collect-fn collect current-opt (get coerce-opts current-opt))
                    char
                    (when (pos? #?(:clj (.length arg)
                                   :cljs (.-length arg)))
@@ -142,16 +149,14 @@
                                          [kname])
                            k (keyword kname)
                            k (get aliases k k)]
-                       (recur (cond-> (process-previous acc current-opt added collect-fn)
-                                arg (add-val k collect-fn (get coerce-opts k) arg))
-                              k
-                              (if arg k added)
-                              (next args)))))
+                       (if arg
+                         (recur (process-previous acc current-opt added collect-fn) k nil (cons arg (rest args)))
+                         (recur (process-previous acc current-opt added collect-fn) k added (next args))))))
                  (recur (add-val acc current-opt collect-fn (get coerce-opts current-opt) arg)
                         current-opt
                         current-opt
                         (next args))))))
-         collect-fn (coerce-collect-fn collect last-opt)]
+         collect-fn (coerce-collect-fn collect last-opt (get coerce last-opt))]
      (-> (process-previous opts last-opt added collect-fn)
          (cond->
              cmds (vary-meta assoc-in [:org.babashka/cli :cmds] cmds))))))

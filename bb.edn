@@ -16,7 +16,7 @@
                                     :skip-bump parse-boolean}}))
 
   test {:doc "Run tests"
-        :task (clojure "-X:test")}
+        :task (apply clojure "-M:test" *command-line-args*)}
 
   quickdoc {:doc "Invoke quickdoc"
             :requires ([quickdoc.api :as api])
