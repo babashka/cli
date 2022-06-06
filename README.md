@@ -16,7 +16,7 @@ Check [breaking changes](CHANGELOG.md#breaking-changes) before upgrading!
 Add to your `deps.edn` or `bb.edn` `:deps` entry:
 
 ``` clojure
-org.babashka/cli {:mvn/version "0.2.15"}
+org.babashka/cli {:mvn/version "0.2.16"}
 ```
 
 ## Rationale
@@ -95,6 +95,14 @@ Booleans need no explicit `true` value and `:coerce` option:
 (cli/parse-opts ["-v" "-v" "-v"] {:aliases {:v :verbose}
                                   :collect {:verbose []}})
 ;;=> {:verbose [true true true]}
+```
+
+If you want to coerce _and_ collect an option, you can use a shorthand, the
+plural name of a type:
+
+``` clojure
+(cli/parse-opts ["--foo" "bar" "--foo" "baz"] {:coerce {:foo :keywords}})
+;; => {:foo [:bar :baz]}
 ```
 
 Long options also support the syntax `--foo=bar`:
@@ -205,7 +213,7 @@ writing extra boilerplate.
 In your `deps.edn` `:aliases` entry, add:
 
 ``` clojure
-:exec {:deps {org.babashka/cli {:mvn/version "0.2.15"}
+:exec {:deps {org.babashka/cli {:mvn/version "0.2.16"}
        :main-opts ["-m" "babashka.cli.exec"]}
 ```
 
@@ -240,7 +248,7 @@ babashka CLI.
 An example that specializes `babashka.cli` usage to a function:
 
 ``` clojure
-:prn {:deps {org.babashka/cli {:mvn/version "0.2.15"}}
+:prn {:deps {org.babashka/cli {:mvn/version "0.2.16"}}
       :main-opts ["-m" "babashka.cli.exec" "clojure.core" "prn"]}
 ```
 
@@ -267,7 +275,7 @@ $ clojure -M:prn --foo=1
 `.clojure/deps.edn` alias:
 
 ``` clojure
-:antq {:deps {org.babashka/cli {:mvn/version "0.2.15"}
+:antq {:deps {org.babashka/cli {:mvn/version "0.2.16"}
               com.github.liquidz/antq {:mvn/version "1.7.798"}}
        :main-opts ["-m" "babashka.cli.exec" "antq.tool" "outdated"]
        :org.babashka/cli {:collect {:skip []}}}
@@ -305,7 +313,7 @@ clj -Tantq outdated :upgrade true :skip '["github-action"]'
 `.clojure/deps.edn` alias:
 
 ``` clojure
-:new {:deps {org.babashka/cli {:mvn/version "0.2.15"}
+:new {:deps {org.babashka/cli {:mvn/version "0.2.16"}
              com.github.seancorfield/clj-new {:mvn/version "1.2.381"}}
       :main-opts ["-m" "babashka.cli.exec" "clj-new"]}
 ```
@@ -329,7 +337,7 @@ In `~/.lein/profiles.clj` put:
 
 ``` clojure
 {:clj-1.11 {:dependencies [[org.clojure/clojure "1.11.1"]]}
- :clj-new {:dependencies [[org.babashka/cli "0.2.15"]
+ :clj-new {:dependencies [[org.babashka/cli "0.2.16"]
                           [com.github.seancorfield/clj-new "1.2.381"]]}
  :user {:aliases {"clj-new" ["with-profiles" "+clj-1.11,+clj-new"
                              "run" "-m" "babashka.cli.exec"

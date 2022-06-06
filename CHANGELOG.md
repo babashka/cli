@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.2.16
+
+- Support `:coerce` + `:collect` shorthands
+
 ## v0.2.15
 
 - Support `:ns-default` in deps alias
