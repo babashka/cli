@@ -336,8 +336,11 @@ clj -Tantq outdated :upgrade true :skip '["github-action"]'
 
 ``` clojure
 :new {:deps {org.babashka/cli {:mvn/version "0.2.16"}
-             com.github.seancorfield/clj-new {:mvn/version "1.2.381"}}
-      :main-opts ["-m" "babashka.cli.exec" "clj-new"]}
+             com.github.seancorfield/clj-new {:git/sha "71835d592b547bcd12363bf0aacd5c2f31f7399a"}}
+      :ns-default clj-new
+      :exec-args {:template "app"
+                         :env {:group io.github.myuser}}
+      :main-opts ["-m" "babashka.cli.exec"]}
 ```
 
 Usage:
