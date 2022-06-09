@@ -69,7 +69,9 @@
                        collect-fn))]
     collect-fn))
 
-(defn- process-previous [acc current-opt added collect-fn]
+(defn- process-previous
+  "Adds true for trailing --foo boolean flag or leaves previous value as is."
+  [acc current-opt added collect-fn]
   (if (not= current-opt added)
     (update acc current-opt (fn [curr-val]
                               (if (nil? curr-val)
@@ -116,6 +118,7 @@
          aliases (:aliases opts)
          collect (:collect opts)
          exec-args (:exec-args opts)
+         mode (:mode opts)
          [cmds opts] (split-with #(not (or (str/starts-with? % ":")
                                            (str/starts-with? % "-"))) args)
          cmds (some-> (seq cmds) vec)
@@ -151,11 +154,16 @@
                            k (get aliases k k)]
                        (if arg
                          (recur (process-previous acc current-opt added collect-fn) k nil (cons arg (rest args)))
-                         (recur (process-previous acc current-opt added collect-fn) k added (next args))))))
-                 (recur (add-val acc current-opt collect-fn (get coerce-opts current-opt) arg)
-                        current-opt
-                        current-opt
-                        (next args))))))
+                         (recur (process-previous acc (if (= :strict mode)
+                                                        k current-opt)
+                                                  (if (= :strict mode)
+                                                    nil added) collect-fn) k added (next args))))))
+                 (if (= :strict mode)
+                   [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) nil nil]
+                   (recur (add-val acc current-opt collect-fn (get coerce-opts current-opt) arg)
+                          current-opt
+                          current-opt
+                          (next args)))))))
          collect-fn (coerce-collect-fn collect last-opt (get coerce last-opt))]
      (-> (process-previous opts last-opt added collect-fn)
          (cond->

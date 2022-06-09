@@ -123,6 +123,21 @@ Long options also support the syntax `--foo=bar`:
 ;;=> {:foo "bar"}
 ```
 
+## Strict mode
+
+Strict mode enforces option syntax as follows:
+
+- A boolean option must be passed as a single flag: `--foo` which parses as `{:foo true}`.
+- An option with a value must be passed in the format: `--foo=bar` which parses as `{:foo "bar"}`.
+
+Any non-options that follow options are parsed as `:args`:
+
+``` clojure
+(cli/parse-args ["git" "push" "--force" "repo" "branch"] {:mode :strict})
+;;=>
+{:args ["repo" "branch"], :cmds ["git" "push"], :opts {:force true}}
+```
+
 ## Subcommands
 
 To handle subcommands, use
