@@ -350,6 +350,26 @@ $ clj -M:new app --name foo/bar --force --version 1.2.3
 Generating a project called bar based on the 'app' template.
 ```
 
+### deps-new
+
+`.clojure/deps.edn` alias:
+
+``` clojure
+:new {:deps {org.babashka/cli {:mvn/version "0.2.16"}
+             io.github.seancorfield/deps-new {:git/sha "c8bf28b92c28042f43cd5329306b96bd919d14dd"}}
+      :exec-args {} ;; insert default arguments here
+      :ns-default org.corfield.new
+      :main-opts ["-m" "babashka.cli.exec"]}
+```
+
+Usage:
+
+``` clojure
+$ clj -M:new app --name foo/bar --version 1.2.3 --overwrite
+
+Creating project from org.corfield.new/app in bar
+```
+
 ### [quickdoc](https://github.com/borkdude/quickdoc#clojure-cli)
 
 ## Leiningen
