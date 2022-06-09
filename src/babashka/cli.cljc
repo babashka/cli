@@ -154,11 +154,12 @@
                            k (get aliases k k)]
                        (if arg
                          (recur (process-previous acc current-opt added collect-fn) k nil (cons arg (rest args)))
-                         (recur (process-previous acc current-opt
+                         (recur (process-previous acc (if (= :strict mode)
+                                                        k current-opt)
                                                   (if (= :strict mode)
                                                     nil added) collect-fn) k added (next args))))))
                  (if (= :strict mode)
-                   [(vary-meta acc assoc-in [:org.babashka/cli :rest-args] args) nil nil]
+                   [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) nil nil]
                    (recur (add-val acc current-opt collect-fn (get coerce-opts current-opt) arg)
                           current-opt
                           current-opt

@@ -94,3 +94,7 @@
          {:dispatch ["dep" "search"]
           :opts {:search-term "cheshire"}}
          (cli/dispatch disp-table ["dep" "search" "cheshire"])))))
+
+(deftest strict-mode
+  (is (= {:args ["repo" "branch"], :cmds ["git" "push"], :opts {:force true}}
+         (cli/parse-args ["git" "push" "--force" "repo" "branch"] {:mode :strict}))))
