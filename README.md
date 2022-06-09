@@ -339,7 +339,7 @@ clj -Tantq outdated :upgrade true :skip '["github-action"]'
              com.github.seancorfield/clj-new {:git/sha "71835d592b547bcd12363bf0aacd5c2f31f7399a"}}
       :ns-default clj-new
       :exec-args {:template "app"
-                         :env {:group io.github.myuser}}
+                  :env {:group io.github.myuser}}
       :main-opts ["-m" "babashka.cli.exec"]}
 ```
 
