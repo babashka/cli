@@ -366,7 +366,6 @@ Usage:
 
 ``` clojure
 $ clj -M:new app --name foo/bar --version 1.2.3 --overwrite
-
 Creating project from org.corfield.new/app in bar
 ```
 
