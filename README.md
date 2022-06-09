@@ -24,13 +24,13 @@ org.babashka/cli {:mvn/version "0.2.16"}
 Command line arguments in clojure and babashka CLIs are often in the form:
 
 ``` clojure
-$ tool subcommand :opt1 :v1 :opt2 :v2
+$ cli command :opt1 v1 :opt2 v2
 ```
 
 or the more Unixy:
 
 ``` clojure
-$ tool subcommand --long-opt1 v1 -o v2
+$ cli command --long-opt1 v1 -o v2
 ```
 
 This library eases that style of command line parsing.
