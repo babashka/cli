@@ -330,7 +330,7 @@ vs.
 clj -Tantq outdated :upgrade true :skip '["github-action"]'
 ```
 
-These projects have added support for babashka CLI. Feel free to add a PR to
+The following projects have added support for babashka CLI. Feel free to add a PR to
 list your project as well!
 
 ### [clj-new](https://github.com/seancorfield/clj-new#babashka-cli)
