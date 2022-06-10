@@ -56,6 +56,8 @@ clojure -M:foo --foo --bar=yes
 
 - [neil](https://github.com/babashka/neil)
 - [quickdoc](https://github.com/borkdude/quickdoc#clojure-cli)
+- [clj-new](https://github.com/seancorfield/clj-new#babashka-cli)
+- [deps-new](https://github.com/seancorfield/deps-new#babashka-cli)
 
 ## TOC
 
