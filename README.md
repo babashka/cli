@@ -330,44 +330,14 @@ vs.
 clj -Tantq outdated :upgrade true :skip '["github-action"]'
 ```
 
-### clj-new
+## Projects
 
-`.clojure/deps.edn` alias:
+These projects have added support for babashka CLI. Feel free to add a PR to
+list your project as well!
 
-``` clojure
-:new {:deps {org.babashka/cli {:mvn/version "0.2.16"}
-             com.github.seancorfield/clj-new {:git/sha "71835d592b547bcd12363bf0aacd5c2f31f7399a"}}
-      :ns-default clj-new
-      :exec-args {:template "app"
-                  :env {:group io.github.myuser}}
-      :main-opts ["-m" "babashka.cli.exec"]}
-```
+### [clj-new](https://github.com/seancorfield/clj-new#babashka-cli)
 
-Usage:
-
-``` clojure
-$ clj -M:new app --name foo/bar --force --version 1.2.3
-Generating a project called bar based on the 'app' template.
-```
-
-### deps-new
-
-`.clojure/deps.edn` alias:
-
-``` clojure
-:new {:deps {org.babashka/cli {:mvn/version "0.2.16"}
-             io.github.seancorfield/deps-new {:git/sha "c8bf28b92c28042f43cd5329306b96bd919d14dd"}}
-      :exec-args {} ;; insert default arguments here
-      :ns-default org.corfield.new
-      :main-opts ["-m" "babashka.cli.exec"]}
-```
-
-Usage:
-
-``` clojure
-$ clj -M:new app --name foo/bar --version 1.2.3 --overwrite
-Creating project from org.corfield.new/app in bar
-```
+### [deps-new](https://github.com/seancorfield/deps-new#babashka-cli)
 
 ### [quickdoc](https://github.com/borkdude/quickdoc#clojure-cli)
 
