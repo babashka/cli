@@ -297,7 +297,7 @@ $ clojure -M:prn --foo=1
 {:foo 1}
 ```
 
-### antq
+### [antq](https://github.com/liquidz/antq)
 
 `.clojure/deps.edn` alias:
 
