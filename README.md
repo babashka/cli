@@ -304,6 +304,7 @@ $ clojure -M:prn --foo=1
 ``` clojure
 :antq {:deps {org.babashka/cli {:mvn/version "0.2.17"}
               com.github.liquidz/antq {:mvn/version "1.7.798"}}
+       :paths []
        :main-opts ["-m" "babashka.cli.exec" "antq.tool" "outdated"]
        :org.babashka/cli {:coerce {:skip []}}}
 ```
