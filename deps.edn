@@ -1,4 +1,5 @@
-{:deps {org.clojure/clojure {:mvn/version "1.11.1"}}
+{:deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        funcool/promesa {:mvn/version "8.0.450"}}
  :aliases
  {:test ;; added by neil
   {:extra-paths ["test"]
@@ -11,5 +12,6 @@
   :build ;; added by neil
   {:deps {io.github.clojure/tools.build {:git/tag "v0.8.2" :git/sha "ba1a2bf"}
           slipset/deps-deploy {:mvn/version "0.2.0"}}
-   :extra-paths [".build"]
-   :ns-default build}}}
+   :extra-paths ["." ".build"]
+   :ns-default build
+   :main-opts ["-m" "babashka.cli.exec"]}}}

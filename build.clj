@@ -13,7 +13,9 @@
 (defn clean [_]
   (b/delete {:path "target"}))
 
-(defn jar [_]
+(defn jar [opts]
+  (when (:verbose opts)
+    (println "Building jar..."))
   (b/write-pom {:class-dir class-dir
                 :lib lib
                 :version version

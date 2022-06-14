@@ -367,6 +367,23 @@ $ clj -M:kaocha --watch --fail-fast --kaocha/reporter kaocha.report/documentatio
 
 ### [quickdoc](https://github.com/borkdude/quickdoc#clojure-cli)
 
+### [tools.build](https://github.com/clojure/tools.build)
+
+In `deps.edn` create an alias:
+
+``` clojure
+:build {:deps {io.github.clojure/tools.build {:git/tag "v0.8.2" :git/sha "ba1a2bf"}}
+        :extra-paths ["."]
+        :ns-default build
+        :main-opts ["-m" "babashka.cli.exec"]}
+```
+
+Now you can call your build functions as CLIs:
+
+``` clojure
+clj -M:build jar --verbose
+```
+
 ### [tools.deps.graph](https://github.com/clojure/tools.deps.graph)
 
 In `deps.edn` create an alias:
