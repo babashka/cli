@@ -19,7 +19,7 @@ Add to your `deps.edn` or `bb.edn` `:deps` entry:
 org.babashka/cli {:mvn/version "0.2.17"}
 ```
 
-## Rationale
+## Intro
 
 Command line arguments in clojure and babashka CLIs are often in the form:
 
@@ -39,7 +39,8 @@ It does not convert options into EDN automatically which, arguably, is more
 convenient for command line usage, especially on Windows. This library does
 offer a light-weight way to coerce strings.
 
-Both `:` and `--` are supported as the initial characters of a named option.
+Both `:` and `--` are supported as the initial characters of a named option. See
+[options](https://github.com/babashka/cli#options) for more details.
 
 This library also supports calling exec-style functions, such that:
 
@@ -51,6 +52,9 @@ This library also supports calling exec-style functions, such that:
 clojure -M:foo --foo --bar=yes
 {:foo true, :bar "yes"}
 ```
+
+See [clojure CLI](https://github.com/babashka/cli#clojure-cli) for how to turn
+your exec functions into CLIs.
 
 ## Projects using babashka CLI
 
