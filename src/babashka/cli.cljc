@@ -100,7 +100,7 @@
   under the `:org.babashka/cli` key in the metadata.
 
   Supported options:
-  - `:coerce`: a map of keys to coercion functions that will be applied to parsed `:opts`. See `coerce-vals`.
+  - `:coerce`: a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
   - `:aliases`: a map of short names to long names.
 
   Examples:

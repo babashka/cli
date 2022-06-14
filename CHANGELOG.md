@@ -2,6 +2,12 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.2.17
+
+- The `:coerce` option now supports a collection and type: `[:keyword]` which
+  makes `:collect` redundant and henceforth deprecated. The shorthand
+  `:keywords` introduced in v0.2.16 is removed (breaking).
+
 ## v0.2.16
 
 - Support `:coerce` + `:collect` shorthands
@@ -71,4 +77,5 @@ Initial release
 
 ## Breaking changes
 
-None yet.
+- v0.2.17: The shorthand `:keywords` introduced in v0.2.16 is removed
+  (breaking).
