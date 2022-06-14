@@ -339,6 +339,27 @@ clj -Tantq outdated :upgrade true :skip '["github-action"]'
 The following projects have added support for babashka CLI. Feel free to add a PR to
 list your project as well!
 
+### [codox](https://github.com/weavejester/codox)
+
+In `deps.edn` create an alias:
+
+``` clojure
+:codox {:extra-deps {org.babashka/cli {:mvn/version "0.2.17"}
+                     codox/codox {:mvn/version "0.10.8"}}
+        :exec-fn codox.main/generate-docs
+        :exec-args {:source-paths  ["src"]}
+        :org.babashka/cli {:coerce {:source-paths []
+                                    :doc-paths []
+                                    :themes [:keyword]}}
+        :main-opts ["-m" "babashka.cli.exec"]}
+```
+
+CLI invocation:
+
+``` clojure
+$ clojure -M:codox --output-path /tmp/out
+```
+
 ### [clj-new](https://github.com/seancorfield/clj-new#babashka-cli)
 
 ### [deps-new](https://github.com/seancorfield/deps-new#babashka-cli)
