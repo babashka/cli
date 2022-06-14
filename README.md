@@ -339,6 +339,8 @@ clj -Tantq outdated :upgrade true :skip '["github-action"]'
 The following projects have added support for babashka CLI. Feel free to add a PR to
 list your project as well!
 
+### [clj-new](https://github.com/seancorfield/clj-new#babashka-cli)
+
 ### [codox](https://github.com/weavejester/codox)
 
 In `deps.edn` create an alias:
@@ -360,8 +362,6 @@ CLI invocation:
 ``` clojure
 $ clojure -M:codox --output-path /tmp/out
 ```
-
-### [clj-new](https://github.com/seancorfield/clj-new#babashka-cli)
 
 ### [deps-new](https://github.com/seancorfield/deps-new#babashka-cli)
 
