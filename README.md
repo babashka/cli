@@ -366,6 +366,25 @@ $ clj -M:kaocha --watch --fail-fast --kaocha/reporter kaocha.report/documentatio
 
 ### [quickdoc](https://github.com/borkdude/quickdoc#clojure-cli)
 
+### [tools.deps.graph](https://github.com/clojure/tools.deps.graph)
+
+In `deps.edn` create an alias:
+
+``` clojure
+:graph {:deps {org.babashka/cli {:mvn/version "0.2.17"}
+               org.clojure/tools.deps.graph {:mvn/version "1.1.68"}}
+        :exec-fn clojure.tools.deps.graph/graph
+        :exec-args {} ;; insert default arguments here
+        :org.babashka/cli {:coerce {:trace-omit [:symbol]}}
+        :main-opts ["-m" "babashka.cli.exec"]}
+```
+
+Then invoke on the command line:
+
+``` clojure
+clj -M:graph --size --output graph.png
+```
+
 ## Leiningen
 
 This tool can be used to run clojure exec functions with [lein](https://leiningen.org/).
