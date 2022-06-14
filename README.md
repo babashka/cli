@@ -340,7 +340,25 @@ list your project as well!
 
 ### [kaocha](https://github.com/lambdaisland/kaocha)
 
+In `deps.edn` create an alias:
 
+``` clojure
+:kaocha {:extra-deps {org.babashka/cli {:mvn/version "0.2.17"}
+                      lambdaisland/kaocha {:mvn/version "1.66.1034"}}
+         :exec-fn kaocha.runner/exec-fn
+         :exec-args {} ;; insert default arguments here
+         :org.babashka/cli {:aliases {:watch :watch?
+                                      :fail-fast? :fail-fast}
+                            :coerce {:skip-meta :keyword
+                                     :kaocha/reporter [:symbol]}}
+         :main-opts ["-m" "babashka.cli.exec"]}
+```
+
+Now you are able to use kaocha's exec-fn to be used as a CLI:
+
+``` clojure
+$ clj -M:kaocha --watch --fail-fast --kaocha/reporter kaocha.report/documentation
+```
 
 ### [quickdoc](https://github.com/borkdude/quickdoc#clojure-cli)
 
