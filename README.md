@@ -374,7 +374,7 @@ In `deps.edn` create an alias:
 ``` clojure
 :build {:deps {org.babashka/cli {:mvn/version "0.2.17"}
                io.github.clojure/tools.build {:git/tag "v0.8.2" :git/sha "ba1a2bf"}}
-        :extra-paths ["."]
+        :paths ["."]
         :ns-default build
         :main-opts ["-m" "babashka.cli.exec"]}
 ```
