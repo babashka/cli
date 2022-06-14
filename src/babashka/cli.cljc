@@ -1,6 +1,6 @@
 (ns babashka.cli
-  (:require [clojure.string :as str]
-            [babashka.cli.internal :refer [merge-opts]]))
+  (:require
+   [clojure.string :as str]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -10,14 +10,17 @@
   `:keyword`) or a function. When `f` return `nil`, this is
   interpreted as a parse failure and throws."
   [s f]
-  (let [f* (if (keyword? f)
-             (case f
-               (:boolean :booleans) parse-boolean
-               (:int :ints :long :longs) parse-long
-               (:double :doubles) parse-double
-               (:symbol :symbols) symbol
-               (:keyword :keywords) keyword
-               (:string :strings) identity)
+  (let [f (if (coll? f)
+            (or (first f)
+                :string) f)
+        f* (case f
+             :boolean parse-boolean
+             (:int :long) parse-long
+             :double parse-double
+             :symbol symbol
+             :keyword keyword
+             :string identity
+             ;; default
              f)]
     (if (string? s)
       (let [v (f* s)]
@@ -56,9 +59,8 @@
 ;; which confirms my belief that this is the optimal format for common use cases!
 
 (defn- coerce->collect [k]
-  (case k
-    (:strings :booleans :ints :longs :doubles :symbols :keywords) []
-    nil))
+  (when (coll? k)
+    (empty k)))
 
 (defn- coerce-collect-fn [collect-opts opt coercek]
   (let [collect-fn (or (get collect-opts opt)
@@ -171,14 +173,14 @@
      (assoc cli-opts :opts (dissoc opts :org.babashka/cli)))))
 
 #_(defn commands
-  "Returns commands, i.e. non-option arguments passed before the first option argument."
-  [parsed-opts]
-  (-> parsed-opts meta :org.babashka/cli :cmds))
+    "Returns commands, i.e. non-option arguments passed before the first option argument."
+    [parsed-opts]
+    (-> parsed-opts meta :org.babashka/cli :cmds))
 
 #_(defn remaining
-  "Returns remaining arguments, i.e. arguments after `--`"
-  [parsed-opts]
-  (-> parsed-opts meta :org.babashka/cli :rest-args))
+    "Returns remaining arguments, i.e. arguments after `--`"
+    [parsed-opts]
+    (-> parsed-opts meta :org.babashka/cli :rest-args))
 
 (defn- split [a b]
   (let [[prefix suffix] (split-at (count a) b)]

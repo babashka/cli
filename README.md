@@ -89,14 +89,21 @@ Use an alias (short option):
 ;; {:port 1339}
 ```
 
-Collect values into a collection:
+Coerce values into a collection:
 
 ``` clojure
-(cli/parse-opts ["--paths" "src" "--paths" "test"] {:collect {:paths []}})
+(cli/parse-opts ["--paths" "src" "--paths" "test"] {:coerce {:paths []}})
 ;;=> {:paths ["src" "test"]}
 
-(cli/parse-opts ["--paths" "src" "test"] {:collect {:paths []}})
+(cli/parse-opts ["--paths" "src" "test"] {:coerce {:paths []}})
 ;;=> {:paths ["src" "test"]}
+```
+
+Transforming to a collection of a certain type:
+
+``` clojure
+(cli/parse-opts ["--foo" "bar" "--foo" "baz"] {:coerce {:foo [:keyword]}})
+;; => {:foo [:bar :baz]}
 ```
 
 Booleans need no explicit `true` value and `:coerce` option:
@@ -106,16 +113,8 @@ Booleans need no explicit `true` value and `:coerce` option:
 ;;=> {:verbose true}
 
 (cli/parse-opts ["-v" "-v" "-v"] {:aliases {:v :verbose}
-                                  :collect {:verbose []}})
+                                  :coerce {:verbose []}})
 ;;=> {:verbose [true true true]}
-```
-
-If you want to coerce _and_ collect an option, you can use a shorthand, the
-plural name of a type:
-
-``` clojure
-(cli/parse-opts ["--foo" "bar" "--foo" "baz"] {:coerce {:foo :keywords}})
-;; => {:foo [:bar :baz]}
 ```
 
 Long options also support the syntax `--foo=bar`:
@@ -302,7 +301,7 @@ $ clojure -M:prn --foo=1
 :antq {:deps {org.babashka/cli {:mvn/version "0.2.16"}
               com.github.liquidz/antq {:mvn/version "1.7.798"}}
        :main-opts ["-m" "babashka.cli.exec" "antq.tool" "outdated"]
-       :org.babashka/cli {:collect {:skip []}}}
+       :org.babashka/cli {:coerce {:skip []}}}
 ```
 
 On the command line you can now run it with:
@@ -319,7 +318,7 @@ $ clj -Tantq outdated :upgrade true
 ```
 even though antq has its own `-main` function.
 
-Note that we added the `:org.babashka/cli {:collect {:skip []}}` data in the
+Note that we added the `:org.babashka/cli {:coerce {:skip []}}` data in the
 alias to make sure that `--skip` options get collected into a vector:
 
 ``` clojure
@@ -339,6 +338,10 @@ list your project as well!
 
 ### [deps-new](https://github.com/seancorfield/deps-new#babashka-cli)
 
+### [kaocha](https://github.com/lambdaisland/kaocha)
+
+
+
 ### [quickdoc](https://github.com/borkdude/quickdoc#clojure-cli)
 
 ## Leiningen
@@ -356,8 +359,8 @@ In `~/.lein/profiles.clj` put:
  :user {:aliases {"clj-new" ["with-profiles" "+clj-1.11,+clj-new"
                              "run" "-m" "babashka.cli.exec"
                              {:exec-args {:env {:description "My project"}}
-                              :coerce {:verbose :long}
-                              :collect {:args []}
+                              :coerce {:verbose :long
+                                       :args []}
                               :aliases {:f :force}}
                              "clj-new"]}}}
 ```
