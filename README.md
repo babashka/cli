@@ -347,7 +347,8 @@ In `deps.edn` create an alias:
 :codox {:extra-deps {org.babashka/cli {:mvn/version "0.2.17"}
                      codox/codox {:mvn/version "0.10.8"}}
         :exec-fn codox.main/generate-docs
-        :exec-args {:source-paths  ["src"]}
+        ;; default arguments:
+        :exec-args {:source-paths ["src"]}
         :org.babashka/cli {:coerce {:source-paths []
                                     :doc-paths []
                                     :themes [:keyword]}}
