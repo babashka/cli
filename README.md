@@ -348,7 +348,7 @@ In `deps.edn` create an alias:
          :exec-fn kaocha.runner/exec-fn
          :exec-args {} ;; insert default arguments here
          :org.babashka/cli {:aliases {:watch :watch?
-                                      :fail-fast? :fail-fast}
+                                      :fail-fast :fail-fast?}
                             :coerce {:skip-meta :keyword
                                      :kaocha/reporter [:symbol]}}
          :main-opts ["-m" "babashka.cli.exec"]}
