@@ -62,8 +62,7 @@
     (is (submap? '{:foo [a b]
                    :skip true}
                  (cli/parse-opts ["--skip" "--foo=a" "--foo=b"]
-                                 {:coerce {:foo [:symbol]}}))))
-  )
+                                 {:coerce {:foo [:symbol]}})))))
 
 (deftest parse-opts-collect-test
   (is (submap? '{:paths ["src" "test"]}
@@ -85,6 +84,15 @@
     (is (submap? {:org.babashka/cli {:rest-args ["a"]}} (meta res)))
     #_(is (submap? ["a"] (cli/remaining res)))))
 
+(deftest bail-early-test
+  (is (= {:args ["do" "something" "--now"], :opts {:classpath "src"}}
+         (cli/parse-args ["--classpath" "src" "do" "something" "--now"] {:bail-early true})))
+  (is (= {:cmds ["do" "something"], :opts {:now true}}
+         (cli/parse-args ["do" "something" "--now"]
+                         {:bail-early true})))
+  (is (= {:args ["ssh://foo"], :cmds ["git" "push"], :opts {:force true}}
+         (cli/parse-args ["git" "push" "--force" "ssh://foo"] {:bail-early true :coerce {:force :boolean}}))))
+
 (deftest dispatch-test
   (let [f (fn [m]
             m)
@@ -100,3 +108,4 @@
          {:dispatch ["dep" "search"]
           :opts {:search-term "cheshire"}}
          (cli/dispatch disp-table ["dep" "search" "cheshire"])))))
+

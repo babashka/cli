@@ -118,6 +118,7 @@
          aliases (:aliases opts)
          collect (:collect opts)
          exec-args (:exec-args opts)
+         bail-early (:bail-early opts)
          [cmds opts] (split-with #(not (or (str/starts-with? % ":")
                                            (str/starts-with? % "-"))) args)
          cmds (some-> (seq cmds) vec)
@@ -154,10 +155,20 @@
                        (if arg
                          (recur (process-previous acc current-opt added collect-fn) k nil (cons arg (rest args)))
                          (recur (process-previous acc current-opt added collect-fn) k added (next args))))))
-                 (recur (add-val acc current-opt collect-fn (get coerce-opts current-opt) arg)
-                        current-opt
-                        current-opt
-                        (next args))))))
+                 (let [coerce-opt (get coerce-opts current-opt)
+                       the-end? (and bail-early
+                                     (or (and (= :boolean coerce-opt)
+                                              (not added)
+                                              (not= arg "true")
+                                              (not= arg "false"))
+                                         (and added
+                                              (not collect-fn))))]
+                   (if the-end?
+                     [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt nil]
+                     (recur (add-val acc current-opt collect-fn coerce-opt arg)
+                            current-opt
+                            current-opt
+                            (next args))))))))
          collect-fn (coerce-collect-fn collect last-opt (get coerce last-opt))]
      (-> (process-previous opts last-opt added collect-fn)
          (cond->
