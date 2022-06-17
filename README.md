@@ -67,6 +67,7 @@ your exec functions into CLIs.
 ## TOC
 
 - [Options](#options)
+- [Arguments](#arguments)
 - [Subcommands](#subcommands)
 - [Babashka tasks](#babashka-tasks)
 - [Clojure CLI](#clojure-cli)

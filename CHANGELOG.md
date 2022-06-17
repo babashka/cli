@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.2.20
+
+- Support parsing of trailing `:args`. See [docs](https://github.com/babashka/cli#arguments).
+
 ## v0.2.19
 
 - `:no-keyword-opts` to treat `:foo` as option value rather than option name

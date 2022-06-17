@@ -108,7 +108,6 @@
           :opts {:search-term "cheshire"}}
          (cli/dispatch disp-table ["dep" "search" "cheshire"])))))
 
-
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
          (cli/parse-opts
           ["--query" ":a" ":b" ":c"]
