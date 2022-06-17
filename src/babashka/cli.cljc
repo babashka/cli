@@ -1,8 +1,12 @@
 (ns babashka.cli
   (:require
+   [clojure.edn :as edn]
    [clojure.string :as str]))
 
 #?(:clj (set! *warn-on-reflection* true))
+
+(defn nil->error [x]
+  (if (nil? x) ::error x))
 
 (defn coerce
   "Coerce string `s` using `f`. Does not coerce when `s` is not a string.
@@ -14,17 +18,18 @@
             (or (first f)
                 :string) f)
         f* (case f
-             :boolean parse-boolean
-             (:int :long) parse-long
-             :double parse-double
+             :boolean (comp nil->error parse-boolean)
+             (:int :long) (comp nil->error parse-long)
+             :double (comp nil->error parse-double)
              :symbol symbol
              :keyword keyword
              :string identity
+             :edn edn/read-string
              ;; default
              f)]
     (if (string? s)
       (let [v (f* s)]
-        (if (nil? v)
+        (if (= ::error v)
           (throw (ex-info (str "Coerce failure: cannot transform input " (pr-str s)
                                (if (keyword? f)
                                  " to "
