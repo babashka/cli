@@ -100,3 +100,10 @@
          {:dispatch ["dep" "search"]
           :opts {:search-term "cheshire"}}
          (cli/dispatch disp-table ["dep" "search" "cheshire"])))))
+
+(deftest no-colon-opts-test
+  (is (= {:query [:a :b :c]}
+         (cli/parse-opts
+          ["--query" ":a" ":b" ":c"]
+          {:no-keyword-opts true
+           :coerce {:query [:edn]}}))))

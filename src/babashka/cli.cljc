@@ -123,7 +123,8 @@
          aliases (:aliases opts)
          collect (:collect opts)
          exec-args (:exec-args opts)
-         [cmds opts] (split-with #(not (or (str/starts-with? % ":")
+         no-keyword-opts (:no-keyword-opts opts)
+         [cmds opts] (split-with #(not (or (when-not no-keyword-opts (str/starts-with? % ":"))
                                            (str/starts-with? % "-"))) args)
          cmds (some-> (seq cmds) vec)
          [opts last-opt added]
@@ -139,7 +140,7 @@
                    (when (pos? #?(:clj (.length arg)
                                   :cljs (.-length arg)))
                      (str (.charAt arg 0)))]
-               (if (or (= char ":")
+               (if (or (when-not no-keyword-opts (= char ":"))
                        (= char "-"))
                  (let [long-opt? (str/starts-with? arg "--")
                        the-end? (and long-opt? (= "--" arg))]

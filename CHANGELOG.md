@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.2.19
+
+- `:no-keyword-opts` to treat `:foo` as option value rather than option name
+
 ## v0.2.18
 
 - Allow `nil` to be a valid coerced value
