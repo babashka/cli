@@ -123,7 +123,6 @@
          aliases (:aliases opts)
          collect (:collect opts)
          exec-args (:exec-args opts)
-         bail-early (:bail-early opts)
          no-keyword-opts (:no-keyword-opts opts)
          [cmds opts] (split-with #(not (or (when-not no-keyword-opts (str/starts-with? % ":"))
                                            (str/starts-with? % "-"))) args)
@@ -148,7 +147,7 @@
                    (if the-end?
                      (let [nargs (next args)]
                        [(cond-> acc
-                          nargs (vary-meta assoc-in [:org.babashka/cli :rest-args] (vec nargs)))
+                          nargs (vary-meta assoc-in [:org.babashka/cli :args] (vec nargs)))
                         current-opt added])
                      (let [kname (if long-opt?
                                    (subs arg 2)
@@ -162,13 +161,13 @@
                          (recur (process-previous acc current-opt added collect-fn) k nil (cons arg (rest args)))
                          (recur (process-previous acc current-opt added collect-fn) k added (next args))))))
                  (let [coerce-opt (get coerce-opts current-opt)
-                       the-end? (and bail-early
-                                     (or (and (= :boolean coerce-opt)
-                                              (not added)
-                                              (not= arg "true")
-                                              (not= arg "false"))
-                                         (and added
-                                              (not collect-fn))))]
+                       the-end? (or
+                                 (and (= :boolean coerce-opt)
+                                      (not added)
+                                      (not= arg "true")
+                                      (not= arg "false"))
+                                 (and (= added current-opt)
+                                      (not collect-fn)))]
                    (if the-end?
                      [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt nil]
                      (recur (add-val acc current-opt collect-fn coerce-opt arg)

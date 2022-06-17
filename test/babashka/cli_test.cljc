@@ -77,21 +77,20 @@
                (cli/parse-opts ["-v" "-v" "-v"] {:aliases {:v :verbose}
                                                  :collect {:verbose []}}))))
 
-(deftest parse-opts-rest-test
+(deftest args-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "--"])))
   (let [res (cli/parse-opts ["--foo" "--" "a"])]
     (is (submap? {:foo true} res))
-    (is (submap? {:org.babashka/cli {:rest-args ["a"]}} (meta res)))
-    #_(is (submap? ["a"] (cli/remaining res)))))
-
-(deftest bail-early-test
+    (is (submap? {:org.babashka/cli {:args ["a"]}} (meta res))))
   (is (= {:args ["do" "something" "--now"], :opts {:classpath "src"}}
-         (cli/parse-args ["--classpath" "src" "do" "something" "--now"] {:bail-early true})))
+         (cli/parse-args ["--classpath" "src" "do" "something" "--now"]
+                         )))
   (is (= {:cmds ["do" "something"], :opts {:now true}}
-         (cli/parse-args ["do" "something" "--now"]
-                         {:bail-early true})))
+         (cli/parse-args ["do" "something" "--now"])))
   (is (= {:args ["ssh://foo"], :cmds ["git" "push"], :opts {:force true}}
-         (cli/parse-args ["git" "push" "--force" "ssh://foo"] {:bail-early true :coerce {:force :boolean}}))))
+         (cli/parse-args ["git" "push" "--force" "ssh://foo"] {:coerce {:force :boolean}})))
+  (is (= {:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
+         (cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:coerce {:paths []}}))))
 
 (deftest dispatch-test
   (let [f (fn [m]
@@ -109,7 +108,7 @@
           :opts {:search-term "cheshire"}}
          (cli/dispatch disp-table ["dep" "search" "cheshire"])))))
 
-(deftest no-colon-opts-test
+(deftest no-keyword-opts-test
   (is (= {:query [:a :b :c]}
          (cli/parse-opts
           ["--query" ":a" ":b" ":c"]

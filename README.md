@@ -58,6 +58,7 @@ your exec functions into CLIs.
 
 ## Projects using babashka CLI
 
+- [jet](https://github.com/borkdude/jet)
 - [neil](https://github.com/babashka/neil)
 - [quickdoc](https://github.com/borkdude/quickdoc#clojure-cli)
 - [clj-new](https://github.com/seancorfield/clj-new#babashka-cli)
@@ -126,6 +127,33 @@ Long options also support the syntax `--foo=bar`:
 ``` clojure
 (cli/parse-opts ["--foo=bar"])
 ;;=> {:foo "bar"}
+```
+
+## Arguments
+
+To parse (trailing) arguments, use `parse-args`. E.g. to parse the `git` syntax
+for `push` + `--force`:
+
+``` clojure
+(cli/parse-args ["git" "push" "--force" "ssh://foo"] {:coerce {:force :boolean}})
+;;=> {:args ["ssh://foo"], :cmds ["git" "push"], :opts {:force true}}
+```
+
+Note that this library can only disambiguate correctly between values for
+options and trailing arguments with enough `:coerce` information
+available. Without the `:force :boolean` info, we get:
+
+``` clojure
+(cli/parse-args ["git" "push" "--force" "ssh://foo"])
+{:cmds ["git" "push"], :opts {:force "ssh://foo"}}
+```
+
+In case of ambiguity `--` may also be used to communicate the boundary between
+options and arguments:
+
+``` clojure
+(cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:coerce {:paths []}})
+{:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
 ```
 
 ## Subcommands
