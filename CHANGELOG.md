@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.2.18
+
+- Allow `nil` to be a valid coerced value
+
 ## v0.2.17
 
 - The `:coerce` option now supports a collection and type: `[:keyword]` which
