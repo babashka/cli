@@ -123,7 +123,8 @@
          aliases (:aliases opts)
          collect (:collect opts)
          exec-args (:exec-args opts)
-         [cmds opts] (split-with #(not (or (str/starts-with? % ":")
+         no-keyword-opts (:no-keyword-opts opts)
+         [cmds opts] (split-with #(not (or (when-not no-keyword-opts (str/starts-with? % ":"))
                                            (str/starts-with? % "-"))) args)
          cmds (some-> (seq cmds) vec)
          [opts last-opt added]
@@ -139,14 +140,14 @@
                    (when (pos? #?(:clj (.length arg)
                                   :cljs (.-length arg)))
                      (str (.charAt arg 0)))]
-               (if (or (= char ":")
+               (if (or (when-not no-keyword-opts (= char ":"))
                        (= char "-"))
                  (let [long-opt? (str/starts-with? arg "--")
                        the-end? (and long-opt? (= "--" arg))]
                    (if the-end?
                      (let [nargs (next args)]
                        [(cond-> acc
-                          nargs (vary-meta assoc-in [:org.babashka/cli :rest-args] (vec nargs)))
+                          nargs (vary-meta assoc-in [:org.babashka/cli :args] (vec nargs)))
                         current-opt added])
                      (let [kname (if long-opt?
                                    (subs arg 2)
@@ -159,10 +160,20 @@
                        (if arg
                          (recur (process-previous acc current-opt added collect-fn) k nil (cons arg (rest args)))
                          (recur (process-previous acc current-opt added collect-fn) k added (next args))))))
-                 (recur (add-val acc current-opt collect-fn (get coerce-opts current-opt) arg)
-                        current-opt
-                        current-opt
-                        (next args))))))
+                 (let [coerce-opt (get coerce-opts current-opt)
+                       the-end? (or
+                                 (and (= :boolean coerce-opt)
+                                      (not added)
+                                      (not= arg "true")
+                                      (not= arg "false"))
+                                 (and (= added current-opt)
+                                      (not collect-fn)))]
+                   (if the-end?
+                     [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt nil]
+                     (recur (add-val acc current-opt collect-fn coerce-opt arg)
+                            current-opt
+                            current-opt
+                            (next args))))))))
          collect-fn (coerce-collect-fn collect last-opt (get coerce last-opt))]
      (-> (process-previous opts last-opt added collect-fn)
          (cond->

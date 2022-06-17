@@ -62,8 +62,7 @@
     (is (submap? '{:foo [a b]
                    :skip true}
                  (cli/parse-opts ["--skip" "--foo=a" "--foo=b"]
-                                 {:coerce {:foo [:symbol]}}))))
-  )
+                                 {:coerce {:foo [:symbol]}})))))
 
 (deftest parse-opts-collect-test
   (is (submap? '{:paths ["src" "test"]}
@@ -78,12 +77,20 @@
                (cli/parse-opts ["-v" "-v" "-v"] {:aliases {:v :verbose}
                                                  :collect {:verbose []}}))))
 
-(deftest parse-opts-rest-test
+(deftest args-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "--"])))
   (let [res (cli/parse-opts ["--foo" "--" "a"])]
     (is (submap? {:foo true} res))
-    (is (submap? {:org.babashka/cli {:rest-args ["a"]}} (meta res)))
-    #_(is (submap? ["a"] (cli/remaining res)))))
+    (is (submap? {:org.babashka/cli {:args ["a"]}} (meta res))))
+  (is (= {:args ["do" "something" "--now"], :opts {:classpath "src"}}
+         (cli/parse-args ["--classpath" "src" "do" "something" "--now"]
+                         )))
+  (is (= {:cmds ["do" "something"], :opts {:now true}}
+         (cli/parse-args ["do" "something" "--now"])))
+  (is (= {:args ["ssh://foo"], :cmds ["git" "push"], :opts {:force true}}
+         (cli/parse-args ["git" "push" "--force" "ssh://foo"] {:coerce {:force :boolean}})))
+  (is (= {:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
+         (cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:coerce {:paths []}}))))
 
 (deftest dispatch-test
   (let [f (fn [m]
@@ -100,3 +107,10 @@
          {:dispatch ["dep" "search"]
           :opts {:search-term "cheshire"}}
          (cli/dispatch disp-table ["dep" "search" "cheshire"])))))
+
+(deftest no-keyword-opts-test
+  (is (= {:query [:a :b :c]}
+         (cli/parse-opts
+          ["--query" ":a" ":b" ":c"]
+          {:no-keyword-opts true
+           :coerce {:query [:edn]}}))))

@@ -16,7 +16,7 @@ Check [breaking changes](CHANGELOG.md#breaking-changes) before upgrading!
 Add to your `deps.edn` or `bb.edn` `:deps` entry:
 
 ``` clojure
-org.babashka/cli {:mvn/version "0.2.18"}
+org.babashka/cli {:mvn/version "0.2.19"}
 ```
 
 ## Intro
@@ -58,6 +58,7 @@ your exec functions into CLIs.
 
 ## Projects using babashka CLI
 
+- [jet](https://github.com/borkdude/jet)
 - [neil](https://github.com/babashka/neil)
 - [quickdoc](https://github.com/borkdude/quickdoc#clojure-cli)
 - [clj-new](https://github.com/seancorfield/clj-new#babashka-cli)
@@ -126,6 +127,33 @@ Long options also support the syntax `--foo=bar`:
 ``` clojure
 (cli/parse-opts ["--foo=bar"])
 ;;=> {:foo "bar"}
+```
+
+## Arguments
+
+To parse (trailing) arguments, use `parse-args`. E.g. to parse the `git` syntax
+for `push` + `--force`:
+
+``` clojure
+(cli/parse-args ["git" "push" "--force" "ssh://foo"] {:coerce {:force :boolean}})
+;;=> {:args ["ssh://foo"], :cmds ["git" "push"], :opts {:force true}}
+```
+
+Note that this library can only disambiguate correctly between values for
+options and trailing arguments with enough `:coerce` information
+available. Without the `:force :boolean` info, we get:
+
+``` clojure
+(cli/parse-args ["git" "push" "--force" "ssh://foo"])
+{:cmds ["git" "push"], :opts {:force "ssh://foo"}}
+```
+
+In case of ambiguity `--` may also be used to communicate the boundary between
+options and arguments:
+
+``` clojure
+(cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:coerce {:paths []}})
+{:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
 ```
 
 ## Subcommands
@@ -229,7 +257,7 @@ writing extra boilerplate.
 In your `deps.edn` `:aliases` entry, add:
 
 ``` clojure
-:exec {:deps {org.babashka/cli {:mvn/version "0.2.18"}
+:exec {:deps {org.babashka/cli {:mvn/version "0.2.19"}
        :main-opts ["-m" "babashka.cli.exec"]}
 ```
 
@@ -265,7 +293,7 @@ babashka CLI.
 An example that specializes `babashka.cli` usage to a function:
 
 ``` clojure
-:prn {:deps {org.babashka/cli {:mvn/version "0.2.18"}}
+:prn {:deps {org.babashka/cli {:mvn/version "0.2.19"}}
       :main-opts ["-m" "babashka.cli.exec" "clojure.core" "prn"]}
 ```
 
@@ -277,7 +305,7 @@ $ clojure -M:prn --foo=bar --baz
 You can also pre-define the exec function in `:exec-fn`:
 
 ``` clojure
-:prn {:deps {org.babashka/cli {:mvn/version "0.2.18"}}
+:prn {:deps {org.babashka/cli {:mvn/version "0.2.19"}}
       :exec-fn clojure.core/prn
       :main-opts ["-m" "babashka.cli.exec"]}
 ```
@@ -286,7 +314,7 @@ To alter the parsing behavior of functions you don't control, you can add
 `:org.babashka/cli` data in the `deps.edn` alias:
 
 ``` clojure
-:prn {:deps {org.babashka/cli {:mvn/version "0.2.18"}}
+:prn {:deps {org.babashka/cli {:mvn/version "0.2.19"}}
       :exec-fn clojure.core/prn
       :main-opts ["-m" "babashka.cli.exec"]
       :org.babashka/cli {:coerce {:foo :long}}}
@@ -302,7 +330,7 @@ $ clojure -M:prn --foo=1
 `.clojure/deps.edn` alias:
 
 ``` clojure
-:antq {:deps {org.babashka/cli {:mvn/version "0.2.18"}
+:antq {:deps {org.babashka/cli {:mvn/version "0.2.19"}
               com.github.liquidz/antq {:mvn/version "1.7.798"}}
        :paths []
        :main-opts ["-m" "babashka.cli.exec" "antq.tool" "outdated"]
@@ -346,7 +374,7 @@ list your project as well!
 In `deps.edn` create an alias:
 
 ``` clojure
-:codox {:extra-deps {org.babashka/cli {:mvn/version "0.2.18"}
+:codox {:extra-deps {org.babashka/cli {:mvn/version "0.2.19"}
                      codox/codox {:mvn/version "0.10.8"}}
         :exec-fn codox.main/generate-docs
         ;; default arguments:
@@ -370,7 +398,7 @@ $ clojure -M:codox --output-path /tmp/out
 In `deps.edn` create an alias:
 
 ``` clojure
-:kaocha {:extra-deps {org.babashka/cli {:mvn/version "0.2.18"}
+:kaocha {:extra-deps {org.babashka/cli {:mvn/version "0.2.19"}
                       lambdaisland/kaocha {:mvn/version "1.66.1034"}}
          :exec-fn kaocha.runner/exec-fn
          :exec-args {} ;; insert default arguments here
@@ -394,7 +422,7 @@ $ clj -M:kaocha --watch --fail-fast --kaocha/reporter kaocha.report/documentatio
 In `deps.edn` create an alias:
 
 ``` clojure
-:build {:deps {org.babashka/cli {:mvn/version "0.2.18"}
+:build {:deps {org.babashka/cli {:mvn/version "0.2.19"}
                io.github.clojure/tools.build {:git/tag "v0.8.2" :git/sha "ba1a2bf"}}
         :paths ["."]
         :ns-default build
@@ -412,7 +440,7 @@ clj -M:build jar --verbose
 In `deps.edn` create an alias:
 
 ``` clojure
-:graph {:deps {org.babashka/cli {:mvn/version "0.2.18"}
+:graph {:deps {org.babashka/cli {:mvn/version "0.2.19"}
                org.clojure/tools.deps.graph {:mvn/version "1.1.68"}}
         :exec-fn clojure.tools.deps.graph/graph
         :exec-args {} ;; insert default arguments here
@@ -436,7 +464,7 @@ In `~/.lein/profiles.clj` put:
 
 ``` clojure
 {:clj-1.11 {:dependencies [[org.clojure/clojure "1.11.1"]]}
- :clj-new {:dependencies [[org.babashka/cli "0.2.18"]
+ :clj-new {:dependencies [[org.babashka/cli "0.2.19"]
                           [com.github.seancorfield/clj-new "1.2.381"]]}
  :user {:aliases {"clj-new" ["with-profiles" "+clj-1.11,+clj-new"
                              "run" "-m" "babashka.cli.exec"
