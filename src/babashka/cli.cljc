@@ -1,8 +1,12 @@
 (ns babashka.cli
   (:require
+   [clojure.edn :as edn]
    [clojure.string :as str]))
 
 #?(:clj (set! *warn-on-reflection* true))
+
+(defn nil->error [x]
+  (if (nil? x) ::error x))
 
 (defn coerce
   "Coerce string `s` using `f`. Does not coerce when `s` is not a string.
@@ -14,17 +18,18 @@
             (or (first f)
                 :string) f)
         f* (case f
-             :boolean parse-boolean
-             (:int :long) parse-long
-             :double parse-double
+             :boolean (comp nil->error parse-boolean)
+             (:int :long) (comp nil->error parse-long)
+             :double (comp nil->error parse-double)
              :symbol symbol
              :keyword keyword
              :string identity
+             :edn edn/read-string
              ;; default
              f)]
     (if (string? s)
       (let [v (f* s)]
-        (if (nil? v)
+        (if (= ::error v)
           (throw (ex-info (str "Coerce failure: cannot transform input " (pr-str s)
                                (if (keyword? f)
                                  " to "
@@ -119,7 +124,8 @@
          collect (:collect opts)
          exec-args (:exec-args opts)
          bail-early (:bail-early opts)
-         [cmds opts] (split-with #(not (or (str/starts-with? % ":")
+         no-keyword-opts (:no-keyword-opts opts)
+         [cmds opts] (split-with #(not (or (when-not no-keyword-opts (str/starts-with? % ":"))
                                            (str/starts-with? % "-"))) args)
          cmds (some-> (seq cmds) vec)
          [opts last-opt added]
@@ -135,7 +141,7 @@
                    (when (pos? #?(:clj (.length arg)
                                   :cljs (.-length arg)))
                      (str (.charAt arg 0)))]
-               (if (or (= char ":")
+               (if (or (when-not no-keyword-opts (= char ":"))
                        (= char "-"))
                  (let [long-opt? (str/starts-with? arg "--")
                        the-end? (and long-opt? (= "--" arg))]
