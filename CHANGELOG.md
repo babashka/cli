@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.2.21
+
+- `format-opts` for help output + [spec](https://github.com/babashka/cli#spec) format
+
 ## v0.2.20
 
 - Support parsing of trailing `:args`. See [docs](https://github.com/babashka/cli#arguments).
