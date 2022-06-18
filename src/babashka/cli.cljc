@@ -137,7 +137,8 @@
   ([args] (parse-opts args {}))
   ([args opts]
    (let [spec (:spec opts)
-         opts (or opts (spec->opts spec))
+         opts (or (when spec (spec->opts spec))
+                  opts)
          coerce-opts (:coerce opts)
          aliases (:aliases opts)
          collect (:collect opts)
@@ -222,6 +223,9 @@
     (when (= prefix a)
       suffix)))
 
+(defn- kw->str [kw]
+  (subs (str kw) 1))
+
 (defn format-opts [{:keys [spec
                            indent
                            order]
@@ -231,9 +235,9 @@
         (reduce (fn [{:keys [alias-width long-opt-width default-width description-width
                              ref-width]}
                      [option {:keys [ref default default-desc desc alias]}]]
-                  (let [alias-width (max alias-width (if alias (count (name alias)) 0))
-                        long-opt-width (max long-opt-width (count (name option)))
-                        ref-width (max ref-width (if ref (count (name ref)) 0))
+                  (let [alias-width (max alias-width (if alias (count (kw->str alias)) 0))
+                        long-opt-width (max long-opt-width (count (kw->str option)))
+                        ref-width (max ref-width (if ref (count (str ref)) 0))
                         default-width (max default-width (if default (count (or (str default-desc)
                                                                                 (str default))) 0))
                         description-width (max description-width (if desc (count (str desc)) 0))]
@@ -252,14 +256,14 @@
               (map (fn [[option {:keys [ref default default-desc desc alias]}]]
                      (with-out-str
                        (run! print (repeat indent " "))
-                       (when alias (print (str "-" (name alias) ", ")))
+                       (when alias (print (str "-" (kw->str alias) ", ")))
                        (run! print (repeat (- (+ (if (pos? alias-width)
                                                    3 0)
                                                  alias-width) (if alias
-                                                                (+ 3 (count (name alias)))
+                                                                (+ 3 (count (kw->str alias)))
                                                                 0)) " "))
-                       (print (str "--" (name option)))
-                       (run! print (repeat (+ 1 (- long-opt-width (count (name option)))) " "))
+                       (print (str "--" (kw->str option)))
+                       (run! print (repeat (+ 1 (- long-opt-width (count (kw->str option)))) " "))
                        (when ref (print ref))
                        (let [spaces (+ (if (pos? ref-width)
                                          1

@@ -113,7 +113,12 @@
                              [:paths {:desc "Paths of files to transform."
                                       :coerce []
                                       :default ["src" "test"]
-                                      :default-desc "src test"}]]}))))))
+                                      :default-desc "src test"}]]}))))
+    (is (= "  --deps/root The root"
+           (cli/format-opts {:spec [[:deps/root {:desc "The root"}]]})))
+    (is (= #:deps{:root "the-root"}
+           (cli/parse-opts ["--deps/root" "the-root"]
+                           {:spec [[:deps/root {:desc "The root"}]]})))))
 
 (deftest args-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "--"])))
