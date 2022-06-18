@@ -157,6 +157,63 @@ options and arguments:
 {:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
 ```
 
+## Spec
+
+This library can work with partial information to parse options. As such, the
+options to `parse-opts` and `parse-args` are optimized for terseness. However,
+when writing a CLI that supports automated printing of options, it is recommended to use the spec format:
+
+``` clojure
+(def spec {:from {:ref "<format>"
+                  :desc "The input format. <format> can be edn, json or transit."
+                  :coerce :keyword
+                  :alias :i
+                  :default-desc "edn"
+                  :default :edn}
+           :to {:ref "<format>"
+                :desc "The output format. <format> can be edn, json or transit."
+                :coerce :keyword
+                :alias :o
+                :default-desc "json"
+                :default :json}
+           :pretty {:desc "Pretty-print output."
+                    :alias :p}
+           :paths {:desc "Paths of files to transform."
+                   :coerce []
+                   :default ["src" "test"]
+                   :default-desc "src test"}})
+```
+
+You can pass the spec to `parse-opts` under the `:spec` key: `(parse-opts args {:spec spec})`.
+An explanation of each key:
+
+- `:ref`: a name which can be used as a reference in the description (`:desc`)
+- `:desc`: a description of the option.
+- `:coerce`: coerce string to given type.
+- `:alias`: mapping of short name to long name.
+- `:default`: default value.
+- `:default-desc`: a string representation of the default value.
+
+## Help
+
+Given the above `spec` you can print options as follows:
+
+``` clojure
+(println (cli/format-opts spec {:order [:from :to :paths :pretty]}))
+```
+
+This will print:
+
+```
+  -i, --from   <format> edn      The input format. <format> can be edn, json or transit.
+  -o, --to     <format> json     The output format. <format> can be edn, json or transit.
+      --paths           src test Paths of files to transform.
+  -p, --pretty                   Pretty-print output.
+```
+
+As options can often be re-used in multiple subcommands, you can determine the
+order _and_ selection of printed options with `:order`.
+
 ## Subcommands
 
 To handle subcommands, use

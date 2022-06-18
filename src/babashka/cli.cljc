@@ -95,6 +95,22 @@
       (update acc current-opt collect-fn arg)
       (assoc acc current-opt arg))))
 
+(defn spec->opts
+  "Converts spec into opts format."
+  [spec]
+  (reduce
+   (fn [acc [k {:keys [coerce alias]}]]
+     (cond-> acc
+       coerce (update :coerce assoc k coerce)
+       alias (update :aliases
+                     (fn [aliases]
+                       (when (contains? aliases alias)
+                         (throw (ex-info (str "Conflicting alias " alias " between " (get aliases alias) " and " k)
+                                         {:alias alias})))
+                       (assoc aliases alias k)))))
+   {}
+   spec))
+
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.
   Expected format: `[\"cmd_1\" ... \"cmd_n\" \":k_1\" \"v_1\" .. \":k_n\" \"v_n\"]`.
@@ -107,6 +123,7 @@
   Supported options:
   - `:coerce`: a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
   - `:aliases`: a map of short names to long names.
+  - `:spec`: a spec of options. See [spec]().
 
   Examples:
 
@@ -119,7 +136,9 @@
   "
   ([args] (parse-opts args {}))
   ([args opts]
-   (let [coerce-opts (:coerce opts)
+   (let [spec (:spec opts)
+         opts (or opts (spec->opts spec))
+         coerce-opts (:coerce opts)
          aliases (:aliases opts)
          collect (:collect opts)
          exec-args (:exec-args opts)
@@ -203,33 +222,33 @@
     (when (= prefix a)
       suffix)))
 
-(defn format-opts [{:keys [spec
-                           indent
-                           order]
-                    :or {indent 2}}]
+(defn format-opts [spec {:keys [indent
+                                order]
+                         :or {indent 2}}]
   (let [{:keys [alias-width long-opt-width default-width
-                placeholder-width]}
+                ref-width]}
         (reduce (fn [{:keys [alias-width long-opt-width default-width description-width
-                             placeholder-width]}
-                     [option {:keys [placeholder default description alias]}]]
+                             ref-width]}
+                     [option {:keys [ref default default-desc desc alias]}]]
                   (let [alias-width (max alias-width (if alias (count (name alias)) 0))
                         long-opt-width (max long-opt-width (count (name option)))
-                        placeholder-width (max placeholder-width (if placeholder (count (name placeholder)) 0))
-                        default-width (max default-width (if default (count (str default)) 0))
-                        description-width (max description-width (if description (count (str description)) 0))]
+                        ref-width (max ref-width (if ref (count (name ref)) 0))
+                        default-width (max default-width (if default (count (or (str default-desc)
+                                                                                (str default))) 0))
+                        description-width (max description-width (if desc (count (str desc)) 0))]
                     {:alias-width alias-width
                      :long-opt-width long-opt-width
                      :default-width default-width
                      :description-width description-width
-                     :placeholder-width placeholder-width}))
+                     :ref-width ref-width}))
                 {:alias-width 0
                  :long-opt-width 0
                  :default-width 0
                  :description-width 0
-                 :placeholder-width 0}
+                 :ref-width 0}
                 spec)]
     (str/join "\n"
-              (map (fn [[option {:keys [placeholder default description alias]}]]
+              (map (fn [[option {:keys [ref default default-desc desc alias]}]]
                      (with-out-str
                        (run! print (repeat indent " "))
                        (when alias (print (str "-" (name alias) ", ")))
@@ -240,37 +259,24 @@
                                                                 0)) " "))
                        (print (str "--" (name option)))
                        (run! print (repeat (+ 1 (- long-opt-width (count (name option)))) " "))
-                       (when placeholder (print placeholder))
-                       (let [spaces (+ (if (pos? placeholder-width)
+                       (when ref (print ref))
+                       (let [spaces (+ (if (pos? ref-width)
                                          1
-                                         0) (- placeholder-width (count (str placeholder))))]
+                                         0) (- ref-width (count (str ref))))]
                          (run! print (repeat spaces " ")))
-                       (print (str default))
-                       (run! print (repeat (+ (if (pos? default-width)
-                                                1
-                                                0) (- default-width (count (str default)))) " "))
-                       (print (str description))))
+                       (print (or default-desc (str default)))
+                       (let [spaces (+ (if (pos? default-width)
+                                         1
+                                         0) (- default-width (count (or default-desc
+                                                                        (str default)))))]
+                         ;; (prn :spaces spaces)
+                         (run! print (repeat spaces " ")))
+                       (print (str desc))))
                    (if order
                      (map (fn [k]
                             [k (get spec k)])
                           order)
                      spec)))))
-
-(defn spec->opts
-  "Converts spec into opts format."
-  [spec]
-  (reduce
-   (fn [acc [k {:keys [coerce alias]}]]
-     (cond-> acc
-       coerce (update :coerce assoc k coerce)
-       alias (update :aliases
-                     (fn [aliases]
-                       (when (contains? aliases alias)
-                         (throw (ex-info (str "Conflicting alias " alias " between " (get aliases alias) " and " k)
-                                         {:alias alias})))
-                       (assoc aliases alias k)))))
-   {}
-   spec))
 
 #_(println
    (format-opts

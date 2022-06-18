@@ -78,13 +78,27 @@
                                                  :collect {:verbose []}}))))
 
 (deftest spec-test
-  (is (= {:coerce {:from :keyword, :force :boolean}, :aliases {:i :from, :f :force}}
-         (cli/spec->opts {:from {:placeholder "FORMAT"
-                                 :description "The input format"
-                                 :coerce :keyword
-                                 :alias :i}
-                          :force {:coerce :boolean
-                                  :alias :f}}))))
+  (let [spec {:from {:ref "<format>"
+                     :desc "The input format. <format> can be edn, json or transit."
+                     :coerce :keyword
+                     :alias :i
+                     :default-desc "edn"
+                     :default :edn}
+              :to {:ref "<format>"
+                   :desc "The output format. <format> can be edn, json or transit."
+                   :coerce :keyword
+                   :alias :o
+                   :default-desc "json"
+                   :default :json}
+              :paths {:desc "Paths of files to transform."
+                      :coerce []
+                      :default ["src" "test"]
+                      :default-desc "src test"}
+              :pretty {:desc "Pretty-print output."
+                       :alias :p}}]
+    (println (cli/format-opts spec {:order [:from :to :paths :pretty]}))
+    (is (= {:coerce {:from :keyword, :to :keyword}, :aliases {:i :from, :o :to, :p :pretty}}
+           (cli/spec->opts spec)))))
 
 (deftest args-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "--"])))
