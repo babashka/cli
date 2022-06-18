@@ -176,8 +176,8 @@ when writing a CLI that supports automated printing of options, it is recommende
                     :alias        :o
                     :default-desc "json"
                     :default      :json}
-           :pretty {:desc  "Pretty-print output."
-                    :alias :p}
+           :pretty {:desc         "Pretty-print output."
+                    :alias        :p}
            :paths  {:desc         "Paths of files to transform."
                     :coerce       []
                     :default      ["src" "test"]
