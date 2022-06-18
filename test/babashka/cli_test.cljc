@@ -40,9 +40,9 @@
     (is (submap? {:org.babashka/cli {:cmds ["foo"]}} (meta res)))
     #_(is (submap? ["foo"] (cli/commands res))))
   (is (submap? '{:b 1}
-         (cli/parse-opts ["foo" ":b" "1"] {:coerce {:b parse-long}})))
+               (cli/parse-opts ["foo" ":b" "1"] {:coerce {:b parse-long}})))
   (is (submap? '{:b 1}
-         (cli/parse-opts ["foo" "--b" "1"] {:coerce {:b parse-long}})))
+               (cli/parse-opts ["foo" "--b" "1"] {:coerce {:b parse-long}})))
   (is (submap? '{:boo 1}
                (cli/parse-opts ["foo" ":b" "1"] {:aliases {:b :boo}
                                                  :coerce {:boo parse-long}})))
@@ -77,6 +77,44 @@
                (cli/parse-opts ["-v" "-v" "-v"] {:aliases {:v :verbose}
                                                  :collect {:verbose []}}))))
 
+(deftest spec-test
+  (let [spec {:from {:ref "<format>"
+                     :desc "The input format. <format> can be edn, json or transit."
+                     :coerce :keyword
+                     :alias :i
+                     :default-desc "edn"
+                     :default :edn}
+              :to {:ref "<format>"
+                   :desc "The output format. <format> can be edn, json or transit."
+                   :coerce :keyword
+                   :alias :o
+                   :default-desc "json"
+                   :default :json}
+              :pretty {:desc "Pretty-print output."
+                       :alias :p}
+              :paths {:desc "Paths of files to transform."
+                      :coerce []
+                      :default ["src" "test"]
+                      :default-desc "src test"}}]
+    (is (= (str/trim "  -i, --from   <format> edn      The input format. <format> can be edn, json or transit.
+  -o, --to     <format> json     The output format. <format> can be edn, json or transit.
+      --paths           src test Paths of files to transform.
+  -p, --pretty                   Pretty-print output.")
+           (str/trim (cli/format-opts {:spec spec
+                                      :order [:from :to :paths :pretty]}))))
+    (is (= {:coerce {:from :keyword, :to :keyword, :paths []}, :aliases {:i :from, :o :to, :p :pretty}}
+           (cli/spec->opts spec)))
+    (is (= (str/trim "
+  -p, --pretty          Pretty-print output.
+      --paths  src test Paths of files to transform.
+") (str/trim
+    (cli/format-opts {:spec [[:pretty {:desc "Pretty-print output."
+                                       :alias :p}]
+                             [:paths {:desc "Paths of files to transform."
+                                      :coerce []
+                                      :default ["src" "test"]
+                                      :default-desc "src test"}]]}))))))
+
 (deftest args-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "--"])))
   (let [res (cli/parse-opts ["--foo" "--" "a"])]
@@ -109,7 +147,7 @@
          (cli/dispatch disp-table ["dep" "search" "cheshire"])))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
-         (cli/parse-opts
-          ["--query" ":a" ":b" ":c"]
-          {:no-keyword-opts true
-           :coerce {:query [:edn]}}))))
+                                     (cli/parse-opts
+                                      ["--query" ":a" ":b" ":c"]
+                                      {:no-keyword-opts true
+                                       :coerce {:query [:edn]}}))))
