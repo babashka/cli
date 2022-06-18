@@ -203,18 +203,16 @@
     (when (= prefix a)
       suffix)))
 
-(defn format-opts [{:keys [opts
-                           spec
-                           indent]
+(defn format-opts [{:keys [spec
+                           indent
+                           order]
                     :or {indent 2}}]
   (let [{:keys [alias-width long-opt-width default-width
                 placeholder-width]}
         (reduce (fn [{:keys [alias-width long-opt-width default-width description-width
                              placeholder-width]}
-                     {option :name
-                      :keys [placeholder default description]}]
-                  (let [alias (get (:aliases opts) option)
-                        alias-width (max alias-width (if alias (count (name alias)) 0))
+                     [option {:keys [placeholder default description alias]}]]
+                  (let [alias-width (max alias-width (if alias (count (name alias)) 0))
                         long-opt-width (max long-opt-width (count (name option)))
                         placeholder-width (max placeholder-width (if placeholder (count (name placeholder)) 0))
                         default-width (max default-width (if default (count (str default)) 0))
@@ -231,42 +229,46 @@
                  :placeholder-width 0}
                 spec)]
     (str/join "\n"
-              (map (fn [{option :name
-                         :keys [placeholder default description]}]
-                     (let [alias (get (:aliases opts) option)]
-                       (with-out-str
-                         (run! print (repeat indent " "))
-                         (when alias (print (str "-" (name alias) ", ")))
-                         (run! print (repeat (- (+ (if (pos? alias-width)
-                                                     3 0)
-                                                   alias-width) (if alias
-                                                                  (+ 3 (count (name alias)))
-                                                                  0)) " "))
-                         (print (str "--" (name option)))
-                         (run! print (repeat (+ 1 (- long-opt-width (count (name option)))) " "))
-                         (when placeholder (print placeholder))
-                         (let [spaces (+ (if (pos? placeholder-width)
-                                           1
-                                           0) (- placeholder-width (count (str placeholder))))]
-                           (run! print (repeat spaces " ")))
-                         (print (str default))
-                         (run! print (repeat (+ (if (pos? default-width)
-                                                  1
-                                                  0) (- default-width (count (str default)))) " "))
-                         (print (str description)))))
-                   spec))))
-#_(println
+              (map (fn [[option {:keys [placeholder default description alias]}]]
+                     (with-out-str
+                       (run! print (repeat indent " "))
+                       (when alias (print (str "-" (name alias) ", ")))
+                       (run! print (repeat (- (+ (if (pos? alias-width)
+                                                   3 0)
+                                                 alias-width) (if alias
+                                                                (+ 3 (count (name alias)))
+                                                                0)) " "))
+                       (print (str "--" (name option)))
+                       (run! print (repeat (+ 1 (- long-opt-width (count (name option)))) " "))
+                       (when placeholder (print placeholder))
+                       (let [spaces (+ (if (pos? placeholder-width)
+                                         1
+                                         0) (- placeholder-width (count (str placeholder))))]
+                         (run! print (repeat spaces " ")))
+                       (print (str default))
+                       (run! print (repeat (+ (if (pos? default-width)
+                                                1
+                                                0) (- default-width (count (str default)))) " "))
+                       (print (str description))))
+                   (if order
+                     (map (fn [k]
+                               [k (get spec k)])
+                             order)
+                     spec)))))
+
+(println
  (format-opts
-  {:indent 3
-   :spec [{:name :force
-           :description "Force push"
-           :coerce :boolean
-           :alias :f}
-          {:name :from
-           :placeholder "FORMAT"
-           :default "yaml"
-           :description "The input format"}
-          ]}))
+  {:spec {:from {:placeholder "FORMAT"
+                 :description "The input format"
+                 :coerce :keyword
+                 :alias :i}
+          :force {:coerce :boolean
+                  :alias :f}}
+   :aliases {:force :f
+             :from :i}
+   :order [:force :from]}))
+
+#_(format-opts {:spec ... :order [:from :to] :indent 3})
 
 (defn dispatch
   "Subcommand dispatcher.
