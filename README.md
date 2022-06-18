@@ -258,7 +258,7 @@ writing extra boilerplate.
 In your `deps.edn` `:aliases` entry, add:
 
 ``` clojure
-:exec {:deps {org.babashka/cli {:mvn/version "0.2.19"}
+:exec {:deps {org.babashka/cli {:mvn/version "0.2.19"}}
        :main-opts ["-m" "babashka.cli.exec"]}
 ```
 
