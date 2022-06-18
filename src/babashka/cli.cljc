@@ -252,21 +252,35 @@
                        (print (str description))))
                    (if order
                      (map (fn [k]
-                               [k (get spec k)])
-                             order)
+                            [k (get spec k)])
+                          order)
                      spec)))))
 
-(println
- (format-opts
-  {:spec {:from {:placeholder "FORMAT"
-                 :description "The input format"
-                 :coerce :keyword
-                 :alias :i}
-          :force {:coerce :boolean
-                  :alias :f}}
-   :aliases {:force :f
-             :from :i}
-   :order [:force :from]}))
+(defn spec->opts
+  "Converts spec into opts format."
+  [spec]
+  (reduce
+   (fn [acc [k {:keys [coerce alias]}]]
+     (cond-> acc
+       coerce (update :coerce assoc k coerce)
+       alias (update :aliases
+                     (fn [aliases]
+                       (when (contains? aliases alias)
+                         (throw (ex-info (str "Conflicting alias " alias " between " (get aliases alias) " and " k)
+                                         {:alias alias})))
+                       (assoc aliases alias k)))))
+   {}
+   spec))
+
+#_(println
+   (format-opts
+    {:spec {:from {:placeholder "FORMAT"
+                   :description "The input format"
+                   :coerce :keyword
+                   :alias :i}
+            :force {:coerce :boolean
+                    :alias :f}}
+     :order [:force :from]}))
 
 #_(format-opts {:spec ... :order [:from :to] :indent 3})
 

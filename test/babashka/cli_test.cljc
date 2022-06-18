@@ -40,9 +40,9 @@
     (is (submap? {:org.babashka/cli {:cmds ["foo"]}} (meta res)))
     #_(is (submap? ["foo"] (cli/commands res))))
   (is (submap? '{:b 1}
-         (cli/parse-opts ["foo" ":b" "1"] {:coerce {:b parse-long}})))
+               (cli/parse-opts ["foo" ":b" "1"] {:coerce {:b parse-long}})))
   (is (submap? '{:b 1}
-         (cli/parse-opts ["foo" "--b" "1"] {:coerce {:b parse-long}})))
+               (cli/parse-opts ["foo" "--b" "1"] {:coerce {:b parse-long}})))
   (is (submap? '{:boo 1}
                (cli/parse-opts ["foo" ":b" "1"] {:aliases {:b :boo}
                                                  :coerce {:boo parse-long}})))
@@ -77,6 +77,15 @@
                (cli/parse-opts ["-v" "-v" "-v"] {:aliases {:v :verbose}
                                                  :collect {:verbose []}}))))
 
+(deftest spec-test
+  (is (= {:coerce {:from :keyword, :force :boolean}, :aliases {:i :from, :f :force}}
+         (cli/spec->opts {:from {:placeholder "FORMAT"
+                                 :description "The input format"
+                                 :coerce :keyword
+                                 :alias :i}
+                          :force {:coerce :boolean
+                                  :alias :f}}))))
+
 (deftest args-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "--"])))
   (let [res (cli/parse-opts ["--foo" "--" "a"])]
@@ -109,7 +118,7 @@
          (cli/dispatch disp-table ["dep" "search" "cheshire"])))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
-         (cli/parse-opts
-          ["--query" ":a" ":b" ":c"]
-          {:no-keyword-opts true
-           :coerce {:query [:edn]}}))))
+                                     (cli/parse-opts
+                                      ["--query" ":a" ":b" ":c"]
+                                      {:no-keyword-opts true
+                                       :coerce {:query [:edn]}}))))
