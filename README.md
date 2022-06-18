@@ -164,24 +164,24 @@ options to `parse-opts` and `parse-args` are optimized for terseness. However,
 when writing a CLI that supports automated printing of options, it is recommended to use the spec format:
 
 ``` clojure
-(def spec {:from {:ref "<format>"
-                  :desc "The input format. <format> can be edn, json or transit."
-                  :coerce :keyword
-                  :alias :i
-                  :default-desc "edn"
-                  :default :edn}
-           :to {:ref "<format>"
-                :desc "The output format. <format> can be edn, json or transit."
-                :coerce :keyword
-                :alias :o
-                :default-desc "json"
-                :default :json}
-           :pretty {:desc "Pretty-print output."
+(def spec {:from   {:ref          "<format>"
+                    :desc         "The input format. <format> can be edn, json or transit."
+                    :coerce       :keyword
+                    :alias        :i
+                    :default-desc "edn"
+                    :default      :edn}
+           :to     {:ref          "<format>"
+                    :desc         "The output format. <format> can be edn, json or transit."
+                    :coerce       :keyword
+                    :alias        :o
+                    :default-desc "json"
+                    :default      :json}
+           :pretty {:desc  "Pretty-print output."
                     :alias :p}
-           :paths {:desc "Paths of files to transform."
-                   :coerce []
-                   :default ["src" "test"]
-                   :default-desc "src test"}})
+           :paths  {:desc         "Paths of files to transform."
+                    :coerce       []
+                    :default      ["src" "test"]
+                    :default-desc "src test"}})
 ```
 
 You can pass the spec to `parse-opts` under the `:spec` key: `(parse-opts args {:spec spec})`.
