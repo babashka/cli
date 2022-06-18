@@ -2,6 +2,11 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.2.22
+
+- [#20](https://github.com/babashka/cli/issues/20): Preserve namespace in `format-opts` output.
+- Fix coercion with `:spec`.
+
 ## v0.2.21
 
 - `format-opts` for help output + [spec](https://github.com/babashka/cli#spec) format
