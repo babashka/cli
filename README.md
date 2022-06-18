@@ -212,7 +212,18 @@ This will print:
 ```
 
 As options can often be re-used in multiple subcommands, you can determine the
-order _and_ selection of printed options with `:order`.
+order _and_ selection of printed options with `:order`. If you don't want to use
+`:order` and simply want to present the options as written, you can also use a
+vector of vectors for the spec:
+
+``` clojure
+[[:pretty {:desc "Pretty-print output."
+           :alias :p}]
+ [:paths {:desc "Paths of files to transform."
+          :coerce []
+          :default ["src" "test"]
+          :default-desc "src test"}]]
+```
 
 ## Subcommands
 
