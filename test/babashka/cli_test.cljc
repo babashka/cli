@@ -90,15 +90,30 @@
                    :alias :o
                    :default-desc "json"
                    :default :json}
+              :pretty {:desc "Pretty-print output."
+                       :alias :p}
               :paths {:desc "Paths of files to transform."
                       :coerce []
                       :default ["src" "test"]
-                      :default-desc "src test"}
-              :pretty {:desc "Pretty-print output."
-                       :alias :p}}]
-    (println (cli/format-opts spec {:order [:from :to :paths :pretty]}))
-    (is (= {:coerce {:from :keyword, :to :keyword}, :aliases {:i :from, :o :to, :p :pretty}}
-           (cli/spec->opts spec)))))
+                      :default-desc "src test"}}]
+    (is (= (str/trim "  -i, --from   <format> edn      The input format. <format> can be edn, json or transit.
+  -o, --to     <format> json     The output format. <format> can be edn, json or transit.
+      --paths           src test Paths of files to transform.
+  -p, --pretty                   Pretty-print output.")
+           (str/trim (cli/format-opts {:spec spec
+                                      :order [:from :to :paths :pretty]}))))
+    (is (= {:coerce {:from :keyword, :to :keyword, :paths []}, :aliases {:i :from, :o :to, :p :pretty}}
+           (cli/spec->opts spec)))
+    (is (= (str/trim "
+  -p, --pretty          Pretty-print output.
+      --paths  src test Paths of files to transform.
+") (str/trim
+    (cli/format-opts {:spec [[:pretty {:desc "Pretty-print output."
+                                       :alias :p}]
+                             [:paths {:desc "Paths of files to transform."
+                                      :coerce []
+                                      :default ["src" "test"]
+                                      :default-desc "src test"}]]}))))))
 
 (deftest args-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "--"])))

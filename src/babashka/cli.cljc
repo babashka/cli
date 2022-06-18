@@ -222,9 +222,10 @@
     (when (= prefix a)
       suffix)))
 
-(defn format-opts [spec {:keys [indent
-                                order]
-                         :or {indent 2}}]
+(defn format-opts [{:keys [spec
+                           indent
+                           order]
+                    :or {indent 2}}]
   (let [{:keys [alias-width long-opt-width default-width
                 ref-width]}
         (reduce (fn [{:keys [alias-width long-opt-width default-width description-width
