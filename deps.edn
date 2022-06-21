@@ -1,7 +1,9 @@
 {:deps {org.clojure/clojure {:mvn/version "1.11.1"}
         funcool/promesa {:mvn/version "8.0.450"}}
  :aliases
- {:test ;; added by neil
+ {:examples {:extra-paths ["."]
+             :extra-deps {metosin/malli {:mvn/version "0.8.4"}}}
+  :test ;; added by neil
   {:extra-paths ["test"]
    :extra-deps {io.github.cognitect-labs/test-runner
                 {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
