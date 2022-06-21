@@ -1,7 +1,8 @@
 (ns build
   (:require
    [clojure.tools.build.api :as b]
-   [utils]))
+   [utils]
+   [clojure.string :as str]))
 
 (def lib 'org.babashka/cli)
 (def version (utils/format-version))
@@ -47,9 +48,13 @@
 
 (defn deploy [opts]
   (jar opts)
-  ((requiring-resolve 'deps-deploy.deps-deploy/deploy)
-    (merge {:installer :remote
-                       :artifact jar-file
-                       :pom-file (b/pom-path {:lib lib :class-dir class-dir})}
-                    opts))
+  (try ((requiring-resolve 'deps-deploy.deps-deploy/deploy)
+        (merge {:installer :remote
+                :artifact jar-file
+                :pom-file (b/pom-path {:lib lib :class-dir class-dir})}
+               opts))
+       (catch Exception e
+         (if-not (str/includes? (ex-message e) "redeploying non-snapshots is not allowed")
+           (throw e)
+           (println "This release was already deployed."))))
   opts)
