@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.2.23
+
+- #22: respect `:default` in `:spec`
+
 ## v0.2.22
 
 - [#20](https://github.com/babashka/cli/issues/20): Preserve namespace in `format-opts` output.
