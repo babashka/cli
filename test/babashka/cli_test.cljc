@@ -102,7 +102,10 @@
   -p, --pretty                   Pretty-print output.")
            (str/trim (cli/format-opts {:spec spec
                                       :order [:from :to :paths :pretty]}))))
-    (is (= {:coerce {:from :keyword, :to :keyword, :paths []}, :aliases {:i :from, :o :to, :p :pretty}}
+    (is (= {:coerce {:from :keyword,
+                     :to :keyword, :paths []},
+            :aliases {:i :from, :o :to, :p :pretty},
+            :exec-args {:from :edn, :to :json, :paths ["src" "test"]}}
            (cli/spec->opts spec)))
     (is (= (str/trim "
   -p, --pretty          Pretty-print output.
@@ -114,6 +117,8 @@
                                       :coerce []
                                       :default ["src" "test"]
                                       :default-desc "src test"}]]}))))
+    (is (= {:opts {:from :edn, :to :json, :paths ["src" "test"]}}
+           (cli/parse-args [] {:spec spec})))
     (is (= "  --deps/root The root"
            (cli/format-opts {:spec [[:deps/root {:desc "The root"}]]})))
     (is (= #:deps{:root "the-root"}

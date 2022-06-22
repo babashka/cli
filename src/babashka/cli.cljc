@@ -99,7 +99,7 @@
   "Converts spec into opts format."
   [spec]
   (reduce
-   (fn [acc [k {:keys [coerce alias]}]]
+   (fn [acc [k {:keys [coerce alias default]}]]
      (cond-> acc
        coerce (update :coerce assoc k coerce)
        alias (update :aliases
@@ -107,7 +107,8 @@
                        (when (contains? aliases alias)
                          (throw (ex-info (str "Conflicting alias " alias " between " (get aliases alias) " and " k)
                                          {:alias alias})))
-                       (assoc aliases alias k)))))
+                       (assoc aliases alias k)))
+       default (update :exec-args assoc k default)))
    {}
    spec))
 
@@ -137,8 +138,10 @@
   ([args] (parse-opts args {}))
   ([args opts]
    (let [spec (:spec opts)
-         opts (or (when spec (spec->opts spec))
-                  opts)
+         opts (if spec
+                (merge opts
+                       (when spec (spec->opts spec)))
+                opts)
          coerce-opts (:coerce opts)
          aliases (:aliases opts)
          collect (:collect opts)
