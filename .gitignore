@@ -7,3 +7,4 @@ target
 .lein-failures
 .lein-repl-history
 .clj-kondo/rewrite-clj
+.clj-kondo/funcool
