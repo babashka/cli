@@ -59,6 +59,7 @@ your exec functions into CLIs.
 ## Projects using babashka CLI
 
 - [jet](https://github.com/borkdude/jet)
+- [http-server](https://github.com/babashka/http-server)
 - [neil](https://github.com/babashka/neil)
 - [quickdoc](https://github.com/borkdude/quickdoc#clojure-cli)
 - [clj-new](https://github.com/seancorfield/clj-new#babashka-cli)

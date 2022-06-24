@@ -1,8 +1,8 @@
 (ns build
   (:require
+   [clojure.string :as str]
    [clojure.tools.build.api :as b]
-   [utils]
-   [clojure.string :as str]))
+   [utils]))
 
 (def lib 'org.babashka/cli)
 (def version (utils/format-version))
