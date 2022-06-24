@@ -45,10 +45,10 @@ The main ideas:
 - Open world assumption: passing extra arguments does not break and arguments
   can be re-used in multiple contexts.
 - Because the line between calling functions from the command line and Clojure
-  itself is blurred, validation of arguments should happen in the same way you'd
-  do it in Clojure, using your favorite tools (manually, spec, schema,
-  malli...). As such, the library only focuses on coercion (turning argument
-  strings into data), not on validation.
+  itself is blurred, validation of arguments should happen in your Clojure
+  function, using your favorite tools (manually, spec, schema, malli...). As
+  such, the library only focuses on coercion: turning argument strings into data
+  and then passes that data to your function.
 
 Both `:` and `--` are supported as the initial characters of a named option. See
 [options](https://github.com/babashka/cli#options) for more details.
