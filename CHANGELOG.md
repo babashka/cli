@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.2.24
+
+- Clean up unnecessary dependency
+
 ## v0.2.23
 
 - #22: respect `:default` in `:spec`
