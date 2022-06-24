@@ -33,25 +33,25 @@ or the more Unixy:
 $ cli command --long-opt1 v1 -o v2
 ```
 
-This library eases that style of command line parsing.
+The main ideas:
 
-It does not convert options into EDN automatically which, arguably, is more
-convenient for command line usage, especially on Windows. This library does
-offer a light-weight way to coerce strings.
+- Put as little effort as possible into turning a clojure function into a CLI,
+  similar to `-X` style invocations. For lazy people like me! If you are not
+  familiar with `clj -X`, read the docs
+  [here](https://clojure.org/reference/deps_and_cli#_execute_a_function).
+- But with a better UX by not having to use quotes on the command line as a
+  result of having to pass EDN directly: `:dir foo` instead of `:dir '"foo"'` or
+  who knows how to write the latter in `cmd.exe` or Powershell.
+- Open world assumption: passing extra arguments does not break and arguments
+  can be re-used in multiple contexts.
+- Because the line between calling functions from the command line and Clojure
+  itself is blurred, validation of arguments should happen in the same way you'd
+  do it in Clojure, using your favorite tools (manually, spec, schema,
+  malli...). As such, the library only focuses on coercion (turning argument
+  strings into data), not on validation.
 
 Both `:` and `--` are supported as the initial characters of a named option. See
 [options](https://github.com/babashka/cli#options) for more details.
-
-This library also supports calling exec-style functions, such that:
-
-``` clojure
-(defn foo [{:keys [foo bar] :as m}] (prn m))
-```
-
-``` clojure
-clojure -M:foo --foo --bar=yes
-{:foo true, :bar "yes"}
-```
 
 See [clojure CLI](https://github.com/babashka/cli#clojure-cli) for how to turn
 your exec functions into CLIs.
