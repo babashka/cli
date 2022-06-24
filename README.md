@@ -48,7 +48,7 @@ The main ideas:
   itself is blurred, validation of arguments should happen in your Clojure
   function, using your favorite tools (manually, spec, schema, malli...). As
   such, the library only focuses on coercion: turning argument strings into data
-  and then passes that data to your function.
+  which is then passed to your function.
 
 Both `:` and `--` are supported as the initial characters of a named option. See
 [options](https://github.com/babashka/cli#options) for more details.
