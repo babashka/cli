@@ -29,7 +29,7 @@ jobs:
         restore-keys: "${{ runner.os }}-deps-"
 
     - name: Setup Clojure
-      uses: DeLaGuardo/setup-clojure@7.0
+      uses: DeLaGuardo/setup-clojure@6.0
       with:
         bb: true
 
@@ -58,7 +58,7 @@ jobs:
         key: "${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}"
         restore-keys: "${{ runner.os }}-deps-"
     - name: Setup Clojure
-      uses: DeLaGuardo/setup-clojure@7.0
+      uses: DeLaGuardo/setup-clojure@6.0
       with:
         bb: true
 
