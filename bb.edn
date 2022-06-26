@@ -15,9 +15,6 @@
                           {:coerce {:toc parse-boolean
                                     :skip-bump parse-boolean}}))
 
-  clj {:doc "Invoke clojure"
-       :task (apply clojure *command-line-args*)}
-
   test {:doc "Run tests"
         :task (apply clojure "-M:test" *command-line-args*)}
 
