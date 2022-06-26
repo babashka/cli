@@ -23,8 +23,8 @@
 
 
 Auto-coerces `arg` to data according to the following scheme:
-  If `arg` is:
-  * `true` and `false`, it is coerced as boolean
+  If `arg`:
+  * is `true` or `false`, it is coerced as boolean
   * starts with number, it is coerced as a number (through `edn/read-string`)
   * starts with `:`, it is coerced as a keyword (through `edn/read-string`)
 <br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L112-L131)</sub>
