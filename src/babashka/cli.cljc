@@ -219,8 +219,9 @@
                    hyphen-opt? (= fst-char \-)
                    mode (or mode (when hyphen-opt? :hyphens))
                    ;; _ (prn :current-opt current-opt arg)
+                   fst-colon? (= \: fst-char)
                    kwd-opt? (and (not= :hyphens mode)
-                                 (= \: fst-char)
+                                 fst-colon?
                                  (or (not current-opt)
                                      (= added current-opt)))
                    mode (or mode
@@ -259,8 +260,12 @@
                    (if the-end?
                      [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt nil]
                      (recur (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg)
-                            current-opt
-                            current-opt
+                            (if (and (= :keywords mode)
+                                     fst-colon?)
+                              nil current-opt)
+                            (if (and (= :keywords mode)
+                                     fst-colon?)
+                              nil current-opt)
                             mode
                             (next args))))))))
          collect-fn (coerce-collect-fn collect last-opt (get coerce last-opt))]
