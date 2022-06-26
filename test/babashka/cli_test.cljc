@@ -36,7 +36,7 @@
 
 (deftest parse-opts-test
   (let [res (cli/parse-opts ["foo" ":b" "1"])]
-    (is (submap? '{:b "1"} res))
+    (is (submap? '{:b 1} res))
     (is (submap? {:org.babashka/cli {:cmds ["foo"]}} (meta res)))
     #_(is (submap? ["foo"] (cli/commands res))))
   (is (submap? '{:b 1}
@@ -164,4 +164,5 @@
 
 (deftest auto-coerce-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "true"])))
-  (is (submap? {:foo false} (cli/parse-opts ["--foo" "false"]))))
+  (is (submap? {:foo false} (cli/parse-opts ["--foo" "false"])))
+  (is (submap? {:foo 123} (cli/parse-opts ["--foo" "123"]))))

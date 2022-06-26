@@ -88,9 +88,21 @@
                                   curr-val))))
     acc))
 
-(defn auto-coerce [arg]
+#?(:clj
+   (defn- first-char ^Character [^String arg]
+     (when (pos? (.length arg))
+       (.charAt arg 0))))
+
+(defn auto-coerce
+  "Auto-coerces string value to data according to the following scheme:
+  * `true` and `false` are coerced as boolean
+  * values starting with a number are coerced as a number (through `edn/read-string`)"
+  [^String arg]
   (cond (or (= "true" arg)
             (= "false" arg))
+        (edn/read-string arg)
+        #?(:clj (some-> (first-char arg) (Character/isDigit))
+           :cljs (not (js/isNaN arg)))
         (edn/read-string arg)
         :else arg))
 
