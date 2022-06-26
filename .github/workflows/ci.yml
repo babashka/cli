@@ -39,6 +39,8 @@ jobs:
         bb clj -M:clj-1.10:test -i windows
         bb clj -M:clj-1.11:test -i windows
   test-cljs:
+    runs-on: ubuntu-latest
+
     steps:
     - name: "Checkout code"
       uses: "actions/checkout@v2"
