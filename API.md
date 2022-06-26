@@ -27,7 +27,7 @@ Auto-coerces `s` to data. Does not coerce when `s` is not a string.
   If `s`:
   * is `true` or `false`, it is coerced as boolean
   * starts with number, it is coerced as a number (through `edn/read-string`)
-  * starts with `:`, it is coerced as a keyword (through `parse-keyword``)
+  * starts with `:`, it is coerced as a keyword (through `parse-keyword`)
 <br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L119-L141)</sub>
 ## `coerce`
 ``` clojure

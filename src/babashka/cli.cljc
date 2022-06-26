@@ -121,7 +121,7 @@
   If `s`:
   * is `true` or `false`, it is coerced as boolean
   * starts with number, it is coerced as a number (through `edn/read-string`)
-  * starts with `:`, it is coerced as a keyword (through `parse-keyword``)"
+  * starts with `:`, it is coerced as a keyword (through `parse-keyword`)"
   [s]
   (if (string? s)
     (try
