@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.3.29
+
+- Improve auto-coercion and keyword arguments
+
 ## v0.3.28
 
 - Accept both `:foo` and `foo` as string to be coerced into `:foo` keyword.
