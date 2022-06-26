@@ -1,12 +1,27 @@
 (ns babashka.cli
+  (:refer-clojure :exclude [parse-boolean parse-long parse-double])
   (:require
    [clojure.edn :as edn]
    [clojure.string :as str]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(defn nil->error [x]
+(defn- nil->error [x]
   (if (nil? x) ::error x))
+
+(defn- parse-with-pred [x pred]
+  (let [v (edn/read-string x)]
+    (when (pred v)
+      v)))
+
+(defn- parse-boolean [x]
+  (parse-with-pred x boolean?))
+
+(defn- parse-long [x]
+  (parse-with-pred x int?))
+
+(defn- parse-double [x]
+  (parse-with-pred x double?))
 
 (defn coerce
   "Coerce string `s` using `f`. Does not coerce when `s` is not a string.
@@ -88,23 +103,28 @@
                                   curr-val))))
     acc))
 
-#?(:clj
-   (defn- first-char ^Character [^String arg]
-     (when (pos? (.length arg))
-       (.charAt arg 0))))
+(defn- first-char ^Character [^String arg]
+  (when (pos? #?(:clj (.length arg)
+                 :cljs (.-length arg)))
+    (.charAt arg 0)))
 
 (defn auto-coerce
-  "Auto-coerces string value to data according to the following scheme:
-  * `true` and `false` are coerced as boolean
-  * values starting with a number are coerced as a number (through `edn/read-string`)"
+  "Auto-coerces `arg` to data according to the following scheme:
+  If `arg` is ...
+  * `true` and `false`, it is coerced as boolean
+  * starts with number, it is coerced as a number (through `edn/read-string`)
+  * starts with `:`, it is coerced as a keyword (through `edn/read-string`)"
   [^String arg]
-  (cond (or (= "true" arg)
-            (= "false" arg))
-        (edn/read-string arg)
-        #?(:clj (some-> (first-char arg) (Character/isDigit))
-           :cljs (not (js/isNaN arg)))
-        (edn/read-string arg)
-        :else arg))
+  (let [fst-char (first-char arg)]
+    (cond (or (= "true" arg)
+              (= "false" arg))
+          (edn/read-string arg)
+          #?(:clj (some-> fst-char (Character/isDigit))
+             :cljs (not (js/isNaN arg)))
+          (edn/read-string arg)
+          (= \: fst-char)
+          (edn/read-string arg)
+          :else arg)))
 
 (defn- add-val [acc current-opt collect-fn coerce-fn arg]
   (let [arg (if coerce-fn (coerce arg coerce-fn)
