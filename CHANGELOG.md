@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.3.27
+
+- `cli/auto-coerce` should not coerce when input is not a string
+
 ## v0.3.26
 
 - Compatibility with Clojure 1.9 and older versions of ClojureScript

@@ -169,4 +169,5 @@
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "true"])))
   (is (submap? {:foo false} (cli/parse-opts ["--foo" "false"])))
   (is (submap? {:foo 123} (cli/parse-opts ["--foo" "123"])))
-  (is (submap? {:foo :bar} (cli/parse-opts ["--foo" ":bar"]))))
+  (is (submap? {:foo :bar} (cli/parse-opts ["--foo" ":bar"])))
+  (is (= 1 (cli/auto-coerce 1))))

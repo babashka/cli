@@ -110,25 +110,28 @@
     (.charAt arg 0)))
 
 (defn auto-coerce
-  "Auto-coerces `arg` to data according to the following scheme:
-  If `arg`:
+  "Auto-coerces `s` to data. Does not coerce when `s` is not a string.
+  If `s`:
   * is `true` or `false`, it is coerced as boolean
   * starts with number, it is coerced as a number (through `edn/read-string`)
   * starts with `:`, it is coerced as a keyword (through `edn/read-string`)"
-  [^String arg]
-  (try
-    (let [fst-char (first-char arg)]
-      (cond (or (= "true" arg)
-                (= "false" arg))
-            (edn/read-string arg)
-            #?(:clj (some-> fst-char (Character/isDigit))
-               :cljs (not (js/isNaN arg)))
-            (edn/read-string arg)
-            (= \: fst-char)
-            (edn/read-string arg)
-            :else arg))
-    (catch #?(:clj Exception
-              :cljs :default) _ arg)))
+  [s]
+  (if (string? s)
+    (try
+      (let [s ^String s
+            fst-char (first-char s)]
+        (cond (or (= "true" s)
+                  (= "false" s))
+              (edn/read-string s)
+              #?(:clj (some-> fst-char (Character/isDigit))
+                 :cljs (not (js/isNaN s)))
+              (edn/read-string s)
+              (= \: fst-char)
+              (edn/read-string s)
+              :else s))
+      (catch #?(:clj Exception
+                :cljs :default) _ s))
+    s))
 
 (defn- add-val [acc current-opt collect-fn coerce-fn arg]
   (let [arg (if coerce-fn (coerce arg coerce-fn)
