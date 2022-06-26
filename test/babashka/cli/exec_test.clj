@@ -3,10 +3,11 @@
   (:require
    [babashka.cli-test :refer [submap?]]
    [babashka.cli.exec :refer [-main]]
+   [clojure.edn :as edn]
    [clojure.test :refer [deftest is]]))
 
 (defn foo
-  {:org.babashka/cli {:coerce {:b parse-long}}}
+  {:org.babashka/cli {:coerce {:b edn/read-string}}}
   ;; map argument:
   [m]
   ;; return map argument:
