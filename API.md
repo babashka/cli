@@ -5,6 +5,7 @@
     -  [`dispatch`](#dispatch) - Subcommand dispatcher.
     -  [`format-opts`](#format-opts)
     -  [`parse-args`](#parse-args) - Same as <code>parse-opts</code> but separates parsed opts into <code>:opts</code> and adds
+    -  [`parse-keyword`](#parse-keyword) - Parse keyword from <code>s</code>
     -  [`parse-opts`](#parse-opts) - Parse the command line arguments <code>args</code>, a seq of strings.
     -  [`spec->opts`](#spec->opts) - Converts spec into opts format.
 -  [`babashka.cli.exec`](#babashkacliexec) 
@@ -26,8 +27,8 @@ Auto-coerces `s` to data. Does not coerce when `s` is not a string.
   If `s`:
   * is `true` or `false`, it is coerced as boolean
   * starts with number, it is coerced as a number (through `edn/read-string`)
-  * starts with `:`, it is coerced as a keyword (through `edn/read-string`)
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L112-L134)</sub>
+  * starts with `:`, it is coerced as a keyword (through `parse-keyword``)
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L119-L141)</sub>
 ## `coerce`
 ``` clojure
 
@@ -39,7 +40,7 @@ Coerce string `s` using `f`. Does not coerce when `s` is not a string.
   `f` may be a keyword (`:boolean`, `:int`, `:double`, `:symbol`,
   `:keyword`) or a function. When `f` return `nil`, this is
   interpreted as a parse failure and throws.
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L27-L59)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L39-L71)</sub>
 ## `dispatch`
 ``` clojure
 
@@ -73,14 +74,14 @@ Subcommand dispatcher.
   This function does not throw. Use an empty `:cmds` vector to always match.
 
   Examples: see [README.md](README.md#subcommands).
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L352-L399)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L359-L406)</sub>
 ## `format-opts`
 ``` clojure
 
 (format-opts {:keys [spec indent order], :or {indent 2}})
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L283-L338)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L290-L345)</sub>
 ## `parse-args`
 ``` clojure
 
@@ -91,7 +92,16 @@ Subcommand dispatcher.
 
 Same as [`parse-opts`](#parse-opts) but separates parsed opts into `:opts` and adds
   `:cmds` and `:rest-args` on the top level instead of metadata.
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L256-L263)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L263-L270)</sub>
+## `parse-keyword`
+``` clojure
+
+(parse-keyword s)
+```
+
+
+Parse keyword from `s`. Ignores leading `:`.
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L32-L37)</sub>
 ## `parse-opts`
 ``` clojure
 
@@ -122,7 +132,7 @@ Parse the command line arguments `args`, a seq of strings.
   ;; => {:bar 1}
   ```
   
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L160-L254)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L167-L261)</sub>
 ## `spec->opts`
 ``` clojure
 
@@ -131,7 +141,7 @@ Parse the command line arguments `args`, a seq of strings.
 
 
 Converts spec into opts format.
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L143-L158)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L150-L165)</sub>
 # babashka.cli.exec 
 
 
