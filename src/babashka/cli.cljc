@@ -24,6 +24,18 @@
 (defn- parse-double [x]
   (parse-with-pred x double?))
 
+(defn- first-char ^Character [^String arg]
+  (when (pos? #?(:clj (.length arg)
+                 :cljs (.-length arg)))
+    (.charAt arg 0)))
+
+(defn parse-keyword
+  "Parse keyword from `s`. Ignores leading `:`."
+  [s]
+  (if (= \: (first-char s))
+    (keyword (subs s 1))
+    (keyword s)))
+
 (defn coerce
   "Coerce string `s` using `f`. Does not coerce when `s` is not a string.
   `f` may be a keyword (`:boolean`, `:int`, `:double`, `:symbol`,
@@ -38,7 +50,7 @@
              (:int :long) (comp nil->error parse-long)
              :double (comp nil->error parse-double)
              :symbol symbol
-             :keyword keyword
+             :keyword parse-keyword
              :string identity
              :edn edn/read-string
              ;; default
@@ -104,17 +116,12 @@
                                   curr-val))))
     acc))
 
-(defn- first-char ^Character [^String arg]
-  (when (pos? #?(:clj (.length arg)
-                 :cljs (.-length arg)))
-    (.charAt arg 0)))
-
 (defn auto-coerce
   "Auto-coerces `s` to data. Does not coerce when `s` is not a string.
   If `s`:
   * is `true` or `false`, it is coerced as boolean
   * starts with number, it is coerced as a number (through `edn/read-string`)
-  * starts with `:`, it is coerced as a keyword (through `edn/read-string`)"
+  * starts with `:`, it is coerced as a keyword (through `parse-keyword``)"
   [s]
   (if (string? s)
     (try
@@ -127,7 +134,7 @@
                  :cljs (not (js/isNaN s)))
               (edn/read-string s)
               (= \: fst-char)
-              (edn/read-string s)
+              (parse-keyword s)
               :else s))
       (catch #?(:clj Exception
                 :cljs :default) _ s))
