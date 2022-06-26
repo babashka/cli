@@ -36,16 +36,18 @@
     (keyword (subs s 1))
     (keyword s)))
 
+(defn- coerce-coerce-fn [f]
+  (if (coll? f)
+    (first f)
+    f))
+
 (defn coerce
   "Coerce string `s` using `f`. Does not coerce when `s` is not a string.
   `f` may be a keyword (`:boolean`, `:int`, `:double`, `:symbol`,
   `:keyword`) or a function. When `f` return `nil`, this is
   interpreted as a parse failure and throws."
   [s f]
-  (let [f (if (coll? f)
-            (or (first f)
-                :string) f)
-        f* (case f
+  (let [f* (case f
              :boolean (comp nil->error parse-boolean)
              (:int :long) (comp nil->error parse-long)
              :double (comp nil->error parse-double)
@@ -141,7 +143,8 @@
     s))
 
 (defn- add-val [acc current-opt collect-fn coerce-fn arg]
-  (let [arg (if coerce-fn (coerce arg coerce-fn)
+  (let [arg (if (and coerce-fn
+                     (not (coll? coerce-fn))) (coerce arg coerce-fn)
                 (auto-coerce arg))]
     (if collect-fn
       (update acc current-opt collect-fn arg)
@@ -206,20 +209,25 @@
          (loop [acc (or exec-args {})
                 current-opt nil
                 added nil
-                no-keyword-opts no-keyword-opts
+                mode (when no-keyword-opts :hyphens)
                 args (seq opts)]
            (if-not args
              [acc current-opt added]
              (let [^String arg (first args)
                    collect-fn (coerce-collect-fn collect current-opt (get coerce-opts current-opt))
-                   char
-                   (when (pos? #?(:clj (.length arg)
-                                  :cljs (.-length arg)))
-                     (str (.charAt arg 0)))
-                   hyphen-opt? (= char "-")
-                   no-keyword-opts (or no-keyword-opts hyphen-opt?)]
+                   fst-char (first-char arg)
+                   hyphen-opt? (= fst-char \-)
+                   mode (or mode (when hyphen-opt? :hyphens))
+                   ;; _ (prn :current-opt current-opt arg)
+                   kwd-opt? (and (not= :hyphens mode)
+                                 (= \: fst-char)
+                                 (or (not current-opt)
+                                     (= added current-opt)))
+                   mode (or mode
+                            (when kwd-opt?
+                              :keywords))]
                (if (or hyphen-opt?
-                       (when-not no-keyword-opts (= char ":")))
+                       kwd-opt?)
                  (let [long-opt? (str/starts-with? arg "--")
                        the-end? (and long-opt? (= "--" arg))]
                    (if the-end?
@@ -237,9 +245,9 @@
                            k (get aliases k k)]
                        (if arg
                          (recur (process-previous acc current-opt added collect-fn)
-                                k nil no-keyword-opts (cons arg (rest args)))
+                                k nil mode (cons arg (rest args)))
                          (recur (process-previous acc current-opt added collect-fn)
-                                k added no-keyword-opts (next args))))))
+                                k added mode (next args))))))
                  (let [coerce-opt (get coerce-opts current-opt)
                        the-end? (or
                                  (and (= :boolean coerce-opt)
@@ -250,10 +258,10 @@
                                       (not collect-fn)))]
                    (if the-end?
                      [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt nil]
-                     (recur (add-val acc current-opt collect-fn coerce-opt arg)
+                     (recur (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg)
                             current-opt
                             current-opt
-                            no-keyword-opts
+                            mode
                             (next args))))))))
          collect-fn (coerce-collect-fn collect last-opt (get coerce last-opt))]
      (-> (process-previous opts last-opt added collect-fn)
