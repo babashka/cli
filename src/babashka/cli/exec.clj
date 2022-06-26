@@ -46,7 +46,12 @@
         [f args] (if fq?
                    [f args]
                    [(symbol (str ns) (first args)) (rest args)])
-        f (requiring-resolve f)
+        req-resolve (resolve 'clojure.core/requiring-resolve)
+        f (try (or (when req-resolve
+                     (req-resolve f))
+                   (do (require ns)
+                       (resolve f)))
+               (catch Exception _ nil))
         _ (assert f (str "Could not find var: " f))
         ns-opts (:org.babashka/cli (meta (find-ns ns)))
         fn-opts (:org.babashka/cli (meta f))
