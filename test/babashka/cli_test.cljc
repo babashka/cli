@@ -2,7 +2,9 @@
   (:require
    [babashka.cli :as cli]
    [clojure.string :as str]
-   [clojure.test :refer [deftest is testing]]))
+   [clojure.test :refer [deftest is testing]]
+   #?(:clj [clojure.edn :as edn]
+      :cljs [cljs.reader :as edn])))
 
 (defn normalize-filename [s]
   (str/replace s "\\" "/"))
@@ -30,7 +32,7 @@
     :else (= m1 m2)))
 
 (defn foo
-  {:babashka/cli {:coerce {:b parse-long}}}
+  {:babashka/cli {:coerce {:b edn/read-string}}}
   [{:keys [b]}]
   {:b b})
 
@@ -40,18 +42,19 @@
     (is (submap? {:org.babashka/cli {:cmds ["foo"]}} (meta res)))
     #_(is (submap? ["foo"] (cli/commands res))))
   (is (submap? '{:b 1}
-               (cli/parse-opts ["foo" ":b" "1"] {:coerce {:b parse-long}})))
+               (cli/parse-opts ["foo" ":b" "1"] {:coerce {:b edn/read-string}})))
   (is (submap? '{:b 1}
-               (cli/parse-opts ["foo" "--b" "1"] {:coerce {:b parse-long}})))
+               (cli/parse-opts ["foo" "--b" "1"] {:coerce {:b edn/read-string}})))
   (is (submap? '{:boo 1}
                (cli/parse-opts ["foo" ":b" "1"] {:aliases {:b :boo}
-                                                 :coerce {:boo parse-long}})))
+                                                 :coerce {:boo edn/read-string}})))
   (is (submap? '{:boo 1 :foo true}
                (cli/parse-opts ["--boo=1" "--foo"]
-                               {:coerce {:boo parse-long}})))
+                               {:coerce {:boo edn/read-string}})))
   (is (try (cli/parse-opts [":b" "dude"] {:coerce {:b :long}})
            false
-           (catch Exception e
+           (catch #?(:clj Exception
+                     :cljs :default) e
              (= {:input "dude", :coerce-fn :long} (ex-data e)))))
   (is (submap? {:a [1 1]}
                (cli/parse-opts ["-a" "1" "-a" "1"] {:collect {:a []} :coerce {:a :long}})))

@@ -13,4 +13,13 @@
           slipset/deps-deploy {:mvn/version "0.2.0"}}
    :extra-paths ["." ".build"]
    :ns-default build
-   :main-opts ["-m" "babashka.cli.exec"]}}}
+   :main-opts ["-m" "babashka.cli.exec"]}
+
+  :clj-1.9 {:extra-deps {org.clojure/clojure {:mvn/version "1.9.0"}}}
+  :clj-1.10 {:extra-deps {org.clojure/clojure {:mvn/version "1.10.3"}}}
+  :clj-1.11 {:extra-deps {org.clojure/clojure {:mvn/version "1.11.1"}}}
+
+  :cljs-test
+  {:extra-deps {olical/cljs-test-runner {:mvn/version "3.7.0"}}
+   :extra-paths ["test" "cljs-test-runner-out/gen"]
+   :main-opts ["-m" "cljs-test-runner.main" "-d" "test"]}}}

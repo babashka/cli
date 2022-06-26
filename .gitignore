@@ -8,3 +8,4 @@ target
 .lein-repl-history
 .clj-kondo/rewrite-clj
 .clj-kondo/funcool
+cljs-test-runner-out

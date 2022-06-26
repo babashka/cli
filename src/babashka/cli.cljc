@@ -1,7 +1,8 @@
 (ns babashka.cli
   (:refer-clojure :exclude [parse-boolean parse-long parse-double])
   (:require
-   [clojure.edn :as edn]
+   #?(:clj [clojure.edn :as edn]
+      :cljs [cljs.reader :as edn])
    [clojure.string :as str]))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -110,21 +111,24 @@
 
 (defn auto-coerce
   "Auto-coerces `arg` to data according to the following scheme:
-  If `arg` is ...
+  If `arg` is:
   * `true` and `false`, it is coerced as boolean
   * starts with number, it is coerced as a number (through `edn/read-string`)
   * starts with `:`, it is coerced as a keyword (through `edn/read-string`)"
   [^String arg]
-  (let [fst-char (first-char arg)]
-    (cond (or (= "true" arg)
-              (= "false" arg))
-          (edn/read-string arg)
-          #?(:clj (some-> fst-char (Character/isDigit))
-             :cljs (not (js/isNaN arg)))
-          (edn/read-string arg)
-          (= \: fst-char)
-          (edn/read-string arg)
-          :else arg)))
+  (try
+    (let [fst-char (first-char arg)]
+      (cond (or (= "true" arg)
+                (= "false" arg))
+            (edn/read-string arg)
+            #?(:clj (some-> fst-char (Character/isDigit))
+               :cljs (not (js/isNaN arg)))
+            (edn/read-string arg)
+            (= \: fst-char)
+            (edn/read-string arg)
+            :else arg))
+    (catch #?(:clj Exception
+              :cljs :default) _ arg)))
 
 (defn- add-val [acc current-opt collect-fn coerce-fn arg]
   (let [arg (if coerce-fn (coerce arg coerce-fn)

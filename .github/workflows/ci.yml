@@ -1,0 +1,67 @@
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  test-jvm:
+    strategy:
+      matrix:
+        java-version: ["8", "11", "17"]
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: "Checkout code"
+      uses: "actions/checkout@v2"
+
+    - name: Prepare java
+      uses: actions/setup-java@v2
+      with:
+        distribution: "adopt"
+        java-version: ${{ matrix.java-version }}
+
+    - name: "Restore Cache"
+      uses: "actions/cache@v1"
+      with:
+        path: "~/.m2/repository"
+        key: "${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}"
+        restore-keys: "${{ runner.os }}-deps-"
+
+    - name: Setup Clojure
+      uses: DeLaGuardo/setup-clojure@3.6
+      with:
+        bb: true
+
+    - name: Run tests
+      run: |
+        bb clj -M:clj-1.9:test -i windows
+        bb clj -M:clj-1.10:test -i windows
+        bb clj -M:clj-1.11:test -i windows
+  test-cljs:
+    steps:
+    - name: "Checkout code"
+      uses: "actions/checkout@v2"
+
+    - name: Prepare java
+      uses: actions/setup-java@v2
+      with:
+        distribution: "adopt"
+        java-version: ${{ matrix.java-version }}
+
+    - name: "Restore Cache"
+      uses: "actions/cache@v1"
+      with:
+        path: "~/.m2/repository"
+        key: "${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}"
+        restore-keys: "${{ runner.os }}-deps-"
+    - name: Setup Clojure
+      uses: DeLaGuardo/setup-clojure@3.6
+      with:
+        bb: true
+
+    - name: Run tests
+      run: |
+        bb clj -M:clj-1.9:test -i windows
+        bb clj -M:clj-1.10:test -i windows
+        bb clj -M:clj-1.11:test -i windows

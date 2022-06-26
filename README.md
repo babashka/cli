@@ -50,8 +50,9 @@ The main ideas:
   such, the library only focuses on coercion: turning argument strings into data
   which is then passed to your function.
 
-Both `:` and `--` are supported as the initial characters of a named option. See
-[options](https://github.com/babashka/cli#options) for more details.
+Both `:` and `--` are supported as the initial characters of a named option, but
+cannot be mixed. See [options](https://github.com/babashka/cli#options) for more
+details.
 
 See [clojure CLI](https://github.com/babashka/cli#clojure-cli) for how to turn
 your exec functions into CLIs.
@@ -130,6 +131,13 @@ Long options also support the syntax `--foo=bar`:
 (cli/parse-opts ["--foo=bar"])
 ;;=> {:foo "bar"}
 ```
+
+### Auto-coercion
+
+Since `v0.2.25` babashka CLI auto-coerces values that have no explicit coercion
+with
+[`auto-coerce`](https://github.com/babashka/cli/blob/main/API.md#auto-coerce):
+it automatically tries to convert booleans, numbers and keywords.
 
 ## Arguments
 

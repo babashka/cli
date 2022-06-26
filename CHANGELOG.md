@@ -2,13 +2,21 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.3.26
+
+- Compatibility with Clojure 1.9 and older versions of ClojureScript
+
+## v0.2.25
+
+- [#10](https://github.com/babashka/cli/issues/10): Auto-coerce values using [`cli/auto-coerce`](https://github.com/babashka/cli/blob/main/API.md#auto-coerce)
+
 ## v0.2.24
 
 - Clean up unnecessary dependency
 
 ## v0.2.23
 
-- #22: respect `:default` in `:spec`
+- [#22](https://github.com/babashka/cli/issues/22): respect `:default` in `:spec`
 
 ## v0.2.22
 

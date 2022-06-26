@@ -15,8 +15,14 @@
                           {:coerce {:toc parse-boolean
                                     :skip-bump parse-boolean}}))
 
+  clj {:doc "Invoke clojure"
+       :task (apply clojure *command-line-args*)}
+
   test {:doc "Run tests"
         :task (apply clojure "-M:test" *command-line-args*)}
+
+  cljs-test {:doc "Run CLJS tests"
+             :task (apply clojure "-M:cljs-test" *command-line-args*)}
 
   quickdoc {:doc "Invoke quickdoc"
             :requires ([quickdoc.api :as api])
