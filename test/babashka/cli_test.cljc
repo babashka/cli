@@ -161,3 +161,7 @@
                                       ["--query" ":a" ":b" ":c"]
                                       {:no-keyword-opts true
                                        :coerce {:query [:edn]}}))))
+
+(deftest auto-coerce-test
+  (is (submap? {:foo true} (cli/parse-opts ["--foo" "true"])))
+  (is (submap? {:foo false} (cli/parse-opts ["--foo" "false"]))))

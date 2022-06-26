@@ -88,9 +88,15 @@
                                   curr-val))))
     acc))
 
+(defn auto-coerce [arg]
+  (cond (or (= "true" arg)
+            (= "false" arg))
+        (edn/read-string arg)
+        :else arg))
+
 (defn- add-val [acc current-opt collect-fn coerce-fn arg]
   (let [arg (if coerce-fn (coerce arg coerce-fn)
-                arg)]
+                (auto-coerce arg))]
     (if collect-fn
       (update acc current-opt collect-fn arg)
       (assoc acc current-opt arg))))
@@ -154,6 +160,7 @@
          (loop [acc (or exec-args {})
                 current-opt nil
                 added nil
+                no-keyword-opts no-keyword-opts
                 args (seq opts)]
            (if-not args
              [acc current-opt added]
@@ -162,9 +169,11 @@
                    char
                    (when (pos? #?(:clj (.length arg)
                                   :cljs (.-length arg)))
-                     (str (.charAt arg 0)))]
-               (if (or (when-not no-keyword-opts (= char ":"))
-                       (= char "-"))
+                     (str (.charAt arg 0)))
+                   hyphen-opt? (= char "-")
+                   no-keyword-opts (or no-keyword-opts hyphen-opt?)]
+               (if (or hyphen-opt?
+                       (when-not no-keyword-opts (= char ":")))
                  (let [long-opt? (str/starts-with? arg "--")
                        the-end? (and long-opt? (= "--" arg))]
                    (if the-end?
@@ -181,8 +190,10 @@
                            k (keyword kname)
                            k (get aliases k k)]
                        (if arg
-                         (recur (process-previous acc current-opt added collect-fn) k nil (cons arg (rest args)))
-                         (recur (process-previous acc current-opt added collect-fn) k added (next args))))))
+                         (recur (process-previous acc current-opt added collect-fn)
+                                k nil no-keyword-opts (cons arg (rest args)))
+                         (recur (process-previous acc current-opt added collect-fn)
+                                k added no-keyword-opts (next args))))))
                  (let [coerce-opt (get coerce-opts current-opt)
                        the-end? (or
                                  (and (= :boolean coerce-opt)
@@ -196,6 +207,7 @@
                      (recur (add-val acc current-opt collect-fn coerce-opt arg)
                             current-opt
                             current-opt
+                            no-keyword-opts
                             (next args))))))))
          collect-fn (coerce-collect-fn collect last-opt (get coerce last-opt))]
      (-> (process-previous opts last-opt added collect-fn)
