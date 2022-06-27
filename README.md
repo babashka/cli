@@ -242,8 +242,8 @@ To handle subcommands, use
 An example. Say we want to create a CLI that can be called as:
 
 ``` clojure
-$ cli copy <file> --dry-run
-$ cli delete <file> --recursive --depth 3
+$ example copy <file> --dry-run
+$ example delete <file> --recursive --depth 3
 ```
 
 This can be accomplished by doing the following:
@@ -273,13 +273,13 @@ This can be accomplished by doing the following:
 Calling the `example` namespace's `-main` function can be done using `clojure -M -m example` or `bb -m example`.
 The last entry in the `dispatch-table` always matches and calls the help function.
 
-When running `bb -m example --help`, `dispatch` calls `help` which returns:
+When running `clj -M -m example --help`, `dispatch` calls `help` which returns:
 
 ``` clojure
 {:opts {:help true}, :dispatch [], :fn :help}
 ```
 
-When running `bb -m example copy the-file --dry-run`, `dispatch` calls `copy`,
+When running `clj -M -m example copy the-file --dry-run`, `dispatch` calls `copy`,
 which returns:
 
 ``` clojure
@@ -287,7 +287,7 @@ which returns:
  :dispatch ["copy"], :fn :copy}
 ```
 
-When running `bb -m example delete the-file --depth 3`, `dispatch` calls `delete` which returns:
+When running `clj -M -m example delete the-file --depth 3`, `dispatch` calls `delete` which returns:
 
 ``` clojure
 {:cmds ["delete" "the-file"], :opts {:depth 3, :file "the-file"},
