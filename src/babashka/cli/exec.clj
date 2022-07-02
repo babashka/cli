@@ -8,6 +8,13 @@
 #_:clj-kondo/ignore
 (def ^:private ^:dynamic *basis* "For testing" nil)
 
+(defmacro req-resolve [ns f]
+  (if (resolve 'clojure.core/requiring-resolve)
+    ;; in bb, requiring-resolve must be used in function position currently
+    `(clojure.core/requiring-resolve ~f)
+    `(do (require ~ns)
+         (resolve ~f))))
+
 (defn -main
   "Main entrypoint for command line usage.
   Expects a namespace and var name followed by zero or more key value
@@ -46,11 +53,7 @@
         [f args] (if fq?
                    [f args]
                    [(symbol (str ns) (first args)) (rest args)])
-        req-resolve (resolve 'clojure.core/requiring-resolve)
-        f (try (or (when req-resolve
-                     (req-resolve f))
-                   (do (require ns)
-                       (resolve f)))
+        f (try (req-resolve ns f)
                (catch Exception _ nil))
         _ (assert f (str "Could not find var: " f))
         ns-opts (:org.babashka/cli (meta (find-ns ns)))

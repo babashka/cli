@@ -2,6 +2,11 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.3.31
+
+- Improve `babashka.cli.exec` for babashka
+- Improve auto-parsing
+
 ## v0.3.29
 
 - Improve auto-coercion and keyword arguments

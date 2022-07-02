@@ -177,4 +177,6 @@
   (testing "auto-coerce multiple keywords in keywords mode"
     (is (submap? {:foo [:bar :baz]} (cli/parse-opts [":foo" ":bar" ":foo" ":baz"] {:coerce {:foo []}}))))
   (is (= 1 (cli/auto-coerce 1)))
+  (is (= "1. This is a title." (cli/auto-coerce "1. This is a title.")))
+  (is (= ":1. This is a title." (cli/auto-coerce ":1. This is a title.")))
 )

@@ -7,22 +7,41 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(defn- nil->error [x]
-  (if (nil? x) ::error x))
-
-(defn- parse-with-pred [x pred]
-  (let [v (edn/read-string x)]
-    (when (pred v)
-      v)))
+(defn throw-unexpected [s]
+  (throw (ex-info (str "Unexpected format: " s) {:s s})))
 
 (defn- parse-boolean [x]
-  (parse-with-pred x boolean?))
+  #?(:clj (Boolean/parseBoolean x)
+     :cljs (let [v (js/JSON.parse x)]
+             (if (boolean? v)
+               v
+               (throw-unexpected x)))))
 
 (defn- parse-long [x]
-  (parse-with-pred x int?))
+  #?(:clj (Long/parseLong x)
+     :cljs (let [v (js/JSON.parse x)]
+             (if (int? v)
+               v
+               (throw-unexpected x)))))
 
 (defn- parse-double [x]
-  (parse-with-pred x double?))
+  #?(:clj (Double/parseDouble x)
+     :cljs (let [v (js/JSON.parse x)]
+             (if (double? v)
+               v
+               (throw-unexpected x)))))
+
+(defn- parse-number [x]
+  #?(:clj (let [rdr (java.io.PushbackReader. (java.io.StringReader. x))
+                v (edn/read {:eof ::eof} rdr)
+                eof? (identical? ::eof (edn/read  {:eof ::eof} rdr))]
+            (if (and eof? (number? v))
+              v
+              (throw-unexpected x)))
+     :cljs (let [v (js/JSON.parse x)]
+             (if (number? v)
+               v
+               (throw-unexpected x)))))
 
 (defn- first-char ^Character [^String arg]
   (when (pos? #?(:clj (.length arg)
@@ -41,6 +60,30 @@
     (first f)
     f))
 
+(defn auto-coerce
+  "Auto-coerces `s` to data. Does not coerce when `s` is not a string.
+  If `s`:
+  * is `true` or `false`, it is coerced as boolean
+  * starts with number, it is coerced as a number (through `edn/read-string`)
+  * starts with `:`, it is coerced as a keyword (through `parse-keyword`)"
+  [s]
+  (if (string? s)
+    (try
+      (let [s ^String s
+            fst-char (first-char s)]
+        (cond (or (= "true" s)
+                  (= "false" s))
+              (parse-boolean s)
+              #?(:clj (some-> fst-char (Character/isDigit))
+                 :cljs (not (js/isNaN s)))
+              (parse-number s)
+              (and (= \: fst-char) (re-matches #"\:?[a-zA-Z0-9]+" s))
+              (parse-keyword s)
+              :else s))
+      (catch #?(:clj Exception
+                :cljs :default) _ s))
+    s))
+
 (defn coerce
   "Coerce string `s` using `f`. Does not coerce when `s` is not a string.
   `f` may be a keyword (`:boolean`, `:int`, `:double`, `:symbol`,
@@ -48,17 +91,20 @@
   interpreted as a parse failure and throws."
   [s f]
   (let [f* (case f
-             :boolean (comp nil->error parse-boolean)
-             (:int :long) (comp nil->error parse-long)
-             :double (comp nil->error parse-double)
+             :boolean parse-boolean
+             (:int :long) parse-long
+             :double parse-double
+             :number parse-number
              :symbol symbol
              :keyword parse-keyword
              :string identity
              :edn edn/read-string
+             :auto auto-coerce
              ;; default
              f)]
     (if (string? s)
-      (let [v (f* s)]
+      (let [v (try (f* s)
+                   (catch #?(:clj Exception :cljs :default) _ ::error))]
         (if (= ::error v)
           (throw (ex-info (str "Coerce failure: cannot transform input " (pr-str s)
                                (if (keyword? f)
@@ -117,30 +163,6 @@
                                   (collect-fn curr-val true)
                                   curr-val))))
     acc))
-
-(defn auto-coerce
-  "Auto-coerces `s` to data. Does not coerce when `s` is not a string.
-  If `s`:
-  * is `true` or `false`, it is coerced as boolean
-  * starts with number, it is coerced as a number (through `edn/read-string`)
-  * starts with `:`, it is coerced as a keyword (through `parse-keyword`)"
-  [s]
-  (if (string? s)
-    (try
-      (let [s ^String s
-            fst-char (first-char s)]
-        (cond (or (= "true" s)
-                  (= "false" s))
-              (edn/read-string s)
-              #?(:clj (some-> fst-char (Character/isDigit))
-                 :cljs (not (js/isNaN s)))
-              (edn/read-string s)
-              (= \: fst-char)
-              (parse-keyword s)
-              :else s))
-      (catch #?(:clj Exception
-                :cljs :default) _ s))
-    s))
 
 (defn- add-val [acc current-opt collect-fn coerce-fn arg]
   (let [arg (if (and coerce-fn
