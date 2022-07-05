@@ -208,7 +208,7 @@ An explanation of each key:
 Given the above `spec` you can print options as follows:
 
 ``` clojure
-(println (cli/format-opts spec {:order [:from :to :paths :pretty]}))
+(println (cli/format-opts {:spec spec :order [:from :to :paths :pretty]}))
 ```
 
 This will print:
