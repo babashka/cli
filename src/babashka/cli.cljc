@@ -334,7 +334,7 @@
                   (let [alias-width (max alias-width (if alias (count (kw->str alias)) 0))
                         long-opt-width (max long-opt-width (count (kw->str option)))
                         ref-width (max ref-width (if ref (count (str ref)) 0))
-                        default-width (max default-width (if default (count (or (str default-desc)
+                        default-width (max default-width (if default (count (or default-desc
                                                                                 (str default))) 0))
                         description-width (max description-width (if desc (count (str desc)) 0))]
                     {:alias-width alias-width
