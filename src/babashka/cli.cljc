@@ -336,7 +336,7 @@
                         ref-width (max ref-width (if ref (count (str ref)) 0))
                         default? (or default-desc default)
                         default-width (max default-width (if default? (count (or default-desc
-                                                                                 default)) 0))
+                                                                                 (-> default str not-empty))) 0))
                         description-width (max description-width (if desc (count (str desc)) 0))]
                     {:alias-width alias-width
                      :long-opt-width long-opt-width
