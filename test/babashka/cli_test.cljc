@@ -104,7 +104,7 @@
       --paths           src test Paths of files to transform.
   -p, --pretty                   Pretty-print output.")
            (str/trim (cli/format-opts {:spec spec
-                                      :order [:from :to :paths :pretty]}))))
+                                       :order [:from :to :paths :pretty]}))))
     (is (= {:coerce {:from :keyword,
                      :to :keyword, :paths []},
             :aliases {:i :from, :o :to, :p :pretty},
@@ -120,13 +120,13 @@
                                       :coerce []
                                       :default ["src" "test"]
                                       :default-desc "src test"}]]}))))
-    (is (= {:opts {:from :edn, :to :json, :paths ["src" "test"]}}
-           (cli/parse-args [] {:spec spec})))
-    (is (= "  --deps/root The root"
-           (cli/format-opts {:spec [[:deps/root {:desc "The root"}]]})))
-    (is (= #:deps{:root "the-root"}
-           (cli/parse-opts ["--deps/root" "the-root"]
-                           {:spec [[:deps/root {:desc "The root"}]]})))))
+   (is (= {:opts {:from :edn, :to :json, :paths ["src" "test"]}}
+          (cli/parse-args [] {:spec spec})))
+   (is (= "  --deps/root The root"
+          (cli/format-opts {:spec [[:deps/root {:desc "The root"}]]})))
+   (is (= #:deps{:root "the-root"}
+          (cli/parse-opts ["--deps/root" "the-root"]
+                          {:spec [[:deps/root {:desc "The root"}]]})))))
 
 (deftest args-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "--"])))
@@ -134,8 +134,8 @@
     (is (submap? {:foo true} res))
     (is (submap? {:org.babashka/cli {:args ["a"]}} (meta res))))
   (is (= {:args ["do" "something" "--now"], :opts {:classpath "src"}}
-         (cli/parse-args ["--classpath" "src" "do" "something" "--now"]
-                         )))
+         (cli/parse-args ["--classpath" "src" "do" "something" "--now"])))
+
   (is (= {:cmds ["do" "something"], :opts {:now true}}
          (cli/parse-args ["do" "something" "--now"])))
   (is (= {:args ["ssh://foo"], :cmds ["git" "push"], :opts {:force true}}
@@ -178,5 +178,13 @@
     (is (submap? {:foo [:bar :baz]} (cli/parse-opts [":foo" ":bar" ":foo" ":baz"] {:coerce {:foo []}}))))
   (is (= 1 (cli/auto-coerce 1)))
   (is (= "1. This is a title." (cli/auto-coerce "1. This is a title.")))
-  (is (= ":1. This is a title." (cli/auto-coerce ":1. This is a title.")))
-)
+  (is (= ":1. This is a title." (cli/auto-coerce ":1. This is a title."))))
+
+(deftest format-opts-test
+  (testing "default width with default and default-desc"
+    (is (= "  -f, --foo <foo> yupyupyupyup Thingy\n  -b, --bar <bar> Mos def      Barbarbar"
+           (cli/format-opts
+             {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
+                           :desc "Thingy"}
+                     :bar {:alias :b, :default "sure", :ref "<bar>"
+                           :desc "Barbarbar" :default-desc "Mos def"}}})))))
