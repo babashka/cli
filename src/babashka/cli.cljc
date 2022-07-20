@@ -202,6 +202,7 @@
   - `:coerce`: a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
   - `:aliases`: a map of short names to long names.
   - `:spec`: a spec of options. See [spec]().
+  - `:strict`: (bool) throw an exception if there are options not defined in the spec.
 
   Examples:
 
@@ -224,6 +225,7 @@
          collect (:collect opts)
          exec-args (:exec-args opts)
          no-keyword-opts (:no-keyword-opts opts)
+         strict? (and spec (:strict opts))
          [cmds opts] (split-with #(not (or (when-not no-keyword-opts (str/starts-with? % ":"))
                                            (str/starts-with? % "-"))) args)
          cmds (some-> (seq cmds) vec)
@@ -261,14 +263,17 @@
                      (let [kname (if long-opt?
                                    (subs arg 2)
                                    (str/replace arg #"^(:|-|)" ""))
-                           [kname arg] (if long-opt?
-                                         (str/split kname #"=")
-                                         [kname])
-                           k (keyword kname)
-                           k (get aliases k k)]
-                       (if arg
+                           [kname arg-val] (if long-opt?
+                                             (str/split kname #"=")
+                                             [kname])
+                           k     (keyword kname)
+                           k     (get aliases k k)]
+                       (when (and strict? (not (get spec k)))
+                         (throw (ex-info (str "Unknown option " arg)
+                                         spec)))
+                       (if arg-val
                          (recur (process-previous acc current-opt added collect-fn)
-                                k nil mode (cons arg (rest args)))
+                                k nil mode (cons arg-val (rest args)))
                          (recur (process-previous acc current-opt added collect-fn)
                                 k added mode (next args))))))
                  (let [coerce-opt (get coerce-opts current-opt)
