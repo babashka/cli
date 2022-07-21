@@ -70,24 +70,30 @@
     (is (= {:foo "bar" :baz "qux"} (cli/parse-opts ["--foo=bar" "--baz" "qux"]))))
   (testing ":closed true w/ spec allows opts & aliases in spec"
     (is (= {:foo "bar" :baz true}
-           (cli/parse-opts ["--foo=bar" "-b"]
-                           {:spec {:foo {} :baz {:alias :b}}
-                            :closed true}))))
+           (cli/parse-opts ["--foo=bar" "-b"] {:spec   {:foo {} :baz {:alias :b}}
+                                               :closed true}))))
   (testing ":closed true w/ spec throws w/ opt that is not a key nor alias in spec"
     (is (thrown-with-msg? #?(:clj Exception :cljs :default) #"Unknown option -b"
                           (cli/parse-opts ["--foo=bar" "-b"]
-                                          {:spec {:foo {}}
+                                          {:spec   {:foo {}}
                                            :closed true}))))
-  (testing ":closed #{:foo} w/ only :foo in opts is allowed"
+  (testing ":closed #{:foo} w/ only --foo in opts is allowed"
     (is (= {:foo "bar"} (cli/parse-opts ["--foo=bar"]
                                         {:closed #{:foo}}))))
-  (testing ":closed #{:foo :bar} w/ only :bar in opts is allowed"
+  (testing ":closed #{:foo :bar} w/ only --bar in opts is allowed"
     (is (= {:bar true} (cli/parse-opts ["--bar"]
                                        {:closed #{:foo :bar}}))))
-  (testing ":closed #{:foo} w/ :foo & :bar in opts throws exception"
+  (testing ":closed #{:foo} w/ --foo & --bar in opts throws exception"
     (is (thrown-with-msg? #?(:clj Exception :cljs :default) #"Unknown option --bar"
                           (cli/parse-opts ["--foo" "--bar"]
-                                          {:closed #{:foo}})))))
+                                          {:closed #{:foo}}))))
+  (testing ":closed true w/ :aliases {:f :foo} w/ only -f in opts is allowed"
+    (is (= {:foo true} (cli/parse-opts ["-f"]
+                                       {:aliases {:f :foo}
+                                        :closed  true}))))
+  (testing ":closed true w/ :coerce {:foo :long} w/ only --foo=1 in opts is allowed"
+    (is (= {:foo 1} (cli/parse-opts ["--foo=1"] {:coerce {:foo :long}
+                                                 :closed true})))))
 
 (deftest parse-opts-collect-test
   (is (submap? '{:paths ["src" "test"]}

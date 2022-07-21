@@ -202,7 +202,7 @@
   - `:coerce`: a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
   - `:aliases`: a map of short names to long names.
   - `:spec`: a spec of options. See [spec]().
-  - `:closed`: (bool or set of keys) throw an exception if there are options not defined in the spec (if true) or the set of keys.
+  - `:closed`: (bool or set of keys) throw an exception if there are options not defined in :spec, :aliases, and/or :coerce (if true) or the set of keys.
 
   Examples:
 
@@ -228,7 +228,7 @@
          exec-args (:exec-args opts)
          no-keyword-opts (:no-keyword-opts opts)
          closed (if (= true (:closed opts))
-                  (some-> spec keys (concat (keys aliases)) set)
+                  (some-> spec keys (concat (keys aliases)) (concat (keys coerce-opts)) set)
                   (:closed opts))
          [cmds opts] (split-with #(not (or (when-not no-keyword-opts (str/starts-with? % ":"))
                                            (str/starts-with? % "-"))) args)
