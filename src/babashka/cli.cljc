@@ -202,15 +202,17 @@
   - `:coerce`: a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
   - `:aliases`: a map of short names to long names.
   - `:spec`: a spec of options. See [spec]().
-  - `:strict`: (bool) throw an exception if there are options not defined in the spec.
+  - `:closed`: (bool or set of keys) throw an exception if there are options not defined in the spec (if true) or the set of keys.
 
   Examples:
 
   ```clojure
-  (parse-opts [\"foo\" \":bar\" \"1])
+  (parse-opts [\"foo\" \":bar\" \"1\"])
   ;; => {:bar \"1\", :org.babashka/cli {:cmds [\"foo\"]}}
-  (parse-args [\":b\" \"1] {:aliases {:b :bar} :coerce {:bar parse-long}})
+  (parse-args [\":b\" \"1\"] {:aliases {:b :bar} :coerce {:bar parse-long}})
   ;; => {:bar 1}
+  (parse-args [\"--baz\" \"--qux\"] {:spec {:baz {:desc \"Baz\"} :closed true})
+  ;; => throws 'Unknown option --qux' exception b/c there is no :qux key in the spec
   ```
   "
   ([args] (parse-opts args {}))
@@ -225,7 +227,9 @@
          collect (:collect opts)
          exec-args (:exec-args opts)
          no-keyword-opts (:no-keyword-opts opts)
-         strict? (and spec (:strict opts))
+         closed (if (= true (:closed opts))
+                  (some-> spec keys (concat (keys aliases)) set)
+                  (:closed opts))
          [cmds opts] (split-with #(not (or (when-not no-keyword-opts (str/starts-with? % ":"))
                                            (str/starts-with? % "-"))) args)
          cmds (some-> (seq cmds) vec)
@@ -268,9 +272,9 @@
                                              [kname])
                            k     (keyword kname)
                            k     (get aliases k k)]
-                       (when (and strict? (not (get spec k)))
+                       (when (and closed (not (get closed k)))
                          (throw (ex-info (str "Unknown option " arg)
-                                         spec)))
+                                         {:closed closed})))
                        (if arg-val
                          (recur (process-previous acc current-opt added collect-fn)
                                 k nil mode (cons arg-val (rest args)))
