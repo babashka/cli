@@ -202,14 +202,17 @@
   - `:coerce`: a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
   - `:aliases`: a map of short names to long names.
   - `:spec`: a spec of options. See [spec]().
+  - `:closed`: (bool or set of keys) throw an exception if there are options not defined in :spec, :aliases, and/or :coerce (if true) or the set of keys.
 
   Examples:
 
   ```clojure
-  (parse-opts [\"foo\" \":bar\" \"1])
+  (parse-opts [\"foo\" \":bar\" \"1\"])
   ;; => {:bar \"1\", :org.babashka/cli {:cmds [\"foo\"]}}
-  (parse-args [\":b\" \"1] {:aliases {:b :bar} :coerce {:bar parse-long}})
+  (parse-args [\":b\" \"1\"] {:aliases {:b :bar} :coerce {:bar parse-long}})
   ;; => {:bar 1}
+  (parse-args [\"--baz\" \"--qux\"] {:spec {:baz {:desc \"Baz\"} :closed true})
+  ;; => throws 'Unknown option --qux' exception b/c there is no :qux key in the spec
   ```
   "
   ([args] (parse-opts args {}))
@@ -224,6 +227,9 @@
          collect (:collect opts)
          exec-args (:exec-args opts)
          no-keyword-opts (:no-keyword-opts opts)
+         closed (if (= true (:closed opts))
+                  (some-> spec keys (concat (keys aliases)) (concat (keys coerce-opts)) set)
+                  (:closed opts))
          [cmds opts] (split-with #(not (or (when-not no-keyword-opts (str/starts-with? % ":"))
                                            (str/starts-with? % "-"))) args)
          cmds (some-> (seq cmds) vec)
@@ -261,14 +267,17 @@
                      (let [kname (if long-opt?
                                    (subs arg 2)
                                    (str/replace arg #"^(:|-|)" ""))
-                           [kname arg] (if long-opt?
-                                         (str/split kname #"=")
-                                         [kname])
-                           k (keyword kname)
-                           k (get aliases k k)]
-                       (if arg
+                           [kname arg-val] (if long-opt?
+                                             (str/split kname #"=")
+                                             [kname])
+                           k     (keyword kname)
+                           k     (get aliases k k)]
+                       (when (and closed (not (get closed k)))
+                         (throw (ex-info (str "Unknown option " arg)
+                                         {:closed closed})))
+                       (if arg-val
                          (recur (process-previous acc current-opt added collect-fn)
-                                k nil mode (cons arg (rest args)))
+                                k nil mode (cons arg-val (rest args)))
                          (recur (process-previous acc current-opt added collect-fn)
                                 k added mode (next args))))))
                  (let [coerce-opt (get coerce-opts current-opt)
