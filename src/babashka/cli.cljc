@@ -7,7 +7,7 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(defn throw-unexpected [s]
+(defn- throw-unexpected [s]
   (throw (ex-info (str "Unexpected format: " s) {:s s})))
 
 (defn- parse-boolean [x]
@@ -199,10 +199,10 @@
   under the `:org.babashka/cli` key in the metadata.
 
   Supported options:
-  - `:coerce`: a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
-  - `:aliases`: a map of short names to long names.
-  - `:spec`: a spec of options. See [spec]().
-  - `:closed`: (bool or set of keys) throw an exception if there are options not defined in :spec, :aliases, and/or :coerce (if true) or the set of keys.
+  *`:coerce`: a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
+  * `:aliases` - a map of short names to long names.
+  * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
+  * `:closed` - `true` or set of keys. Throw on first parsed option not in set of keys or keys of `:spec`, `:coerce` and `:aliases` combined.
 
   Examples:
 

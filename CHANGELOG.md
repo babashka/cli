@@ -2,6 +2,12 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.3.32
+
+- Support `:closed` in `parse-args` / `parse-opts` for throwing on unrecognized
+  options.
+- Fix default-width calculation in format-opts
+
 ## v0.3.31
 
 - Improve `babashka.cli.exec` for babashka

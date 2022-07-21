@@ -8,7 +8,7 @@
 #_:clj-kondo/ignore
 (def ^:private ^:dynamic *basis* "For testing" nil)
 
-(defmacro req-resolve [ns f]
+(defmacro ^:private req-resolve [ns f]
   (if (resolve 'clojure.core/requiring-resolve)
     ;; in bb, requiring-resolve must be used in function position currently
     `(clojure.core/requiring-resolve ~f)
