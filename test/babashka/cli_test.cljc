@@ -171,14 +171,16 @@
   (is (= {:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
          (cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:coerce {:paths []}})))
   (is
-   (= {:opts {:foo foo, :bar "bar", :baz true}}
-      (cli/parse-args ["foo" "bar" "--baz"] {:args->opts [:foo :bar] :coerce {:foo :symbol}})))
+   (submap?
+    {:opts {:foo 'foo, :bar "bar", :baz true}}
+    (cli/parse-args ["foo" "bar" "--baz"] {:args->opts [:foo :bar] :coerce {:foo :symbol}})))
   (is
-   (= {:opts {:foo foo, :bar "bar", :baz true}}
-      (cli/parse-args ["--baz" "foo" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}})))
+   (submap? {:opts {:foo 'foo, :bar "bar", :baz true}}
+            (cli/parse-args ["--baz" "foo" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}})))
   (is
-   (= {:opts {:foo foo, :bar "bar", :baz true}}
-      (cli/parse-args ["foo" "--baz" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}}))))
+   (submap?
+    {:opts {:foo 'foo, :bar "bar", :baz true}}
+    (cli/parse-args ["foo" "--baz" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}}))))
 
 (deftest dispatch-test
   (let [f (fn [m]
