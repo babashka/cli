@@ -334,7 +334,6 @@
                    (let [coerce-opt (get coerce-opts current-opt)
                          the-end? (or
                                    (and (= :boolean coerce-opt)
-                                        (not added)
                                         (not= arg "true")
                                         (not= arg "false"))
                                    (and (= added current-opt)
@@ -348,7 +347,6 @@
                                  {:args args})
                                {:args args})
                              new-args? (not= args new-args)]
-                         #_(when new-args? (prn args '-> new-args))
                          (if new-args?
                            (recur acc current-opt added mode new-args a->o)
                            [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt nil]))
