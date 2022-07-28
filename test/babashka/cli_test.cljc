@@ -177,11 +177,14 @@
         g (constantly :rest)
         table [{:cmds ["add" "dep"] :fn f}
                     {:cmds ["dep" "add"] :fn f}
-                    {:cmds ["dep" "search"] :fn f :cmds-opts [:search-term]}
+                    {:cmds ["dep" "search"] :fn f :args->opts [:search-term]}
                     {:cmds [] :fn g}]]
     (is (submap?
-         {:rest-cmds ["cheshire/cheshire"], :opts {}}
+         {:args ["cheshire/cheshire"], :opts {}}
          (cli/dispatch table ["add" "dep" "cheshire/cheshire"])))
+    (is (submap?
+         {:args ["cheshire/cheshire"], :opts {:force true}}
+         (cli/dispatch table ["add" "dep" "--force" "cheshire/cheshire"] {:coerce {:force :boolean}})))
     (is (submap?
          {:dispatch ["dep" "search"]
           :opts {:search-term "cheshire"}}

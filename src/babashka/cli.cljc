@@ -192,13 +192,14 @@
 (defn parse-cmds
   "Parses sub-commands (arguments not starting with an option prefix) and returns a map with:
   * `:cmds` - The parsed subcommands
-  * `:opts` - The remaining (unparsed) arguments"
+  * `:args` - The remaining (unparsed) arguments"
   ([args] (parse-cmds args nil))
   ([args {:keys [no-keyword-opts]}]
-   (let [[cmds opts] (split-with #(not (or (when-not no-keyword-opts (str/starts-with? % ":"))
-                                           (str/starts-with? % "-"))) args)]
+   (let [[cmds args]
+         (split-with #(not (or (when-not no-keyword-opts (str/starts-with? % ":"))
+                               (str/starts-with? % "-"))) args)]
      {:cmds cmds
-      :opts opts})))
+      :args args})))
 
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.
@@ -241,14 +242,14 @@
          closed (if (= true (:closed opts))
                   (some-> spec keys (concat (keys aliases)) (concat (keys coerce-opts)) set)
                   (:closed opts))
-         {:keys [cmds opts]} (parse-cmds args)
+         {:keys [cmds args]} (parse-cmds args)
          cmds (some-> (seq cmds) vec)
          [opts last-opt added]
          (loop [acc (or exec-args {})
                 current-opt nil
                 added nil
                 mode (when no-keyword-opts :hyphens)
-                args (seq opts)]
+                args (seq args)]
            (if-not args
              [acc current-opt added]
              (let [^String arg (first args)
@@ -333,11 +334,6 @@
     [parsed-opts]
     (-> parsed-opts meta :org.babashka/cli :rest-args))
 
-(defn- split [a b]
-  (let [[prefix suffix] (split-at (count a) b)]
-    (when (= prefix a)
-      suffix)))
-
 (defn- kw->str [kw]
   (subs (str kw) 1))
 
@@ -411,6 +407,11 @@
 
 #_(format-opts {:spec ... :order [:from :to] :indent 3})
 
+(defn- split [a b]
+  (let [[prefix suffix] (split-at (count a) b)]
+    (when (= prefix a)
+      suffix)))
+
 (defn dispatch
   "Subcommand dispatcher.
 
@@ -430,32 +431,41 @@
   `parse-args` applied to `args` enhanced with:
 
   * `:dispatch` - the matching commands
-  * `:rest-cmds` - any remaining cmds
+  * `:args` - concatenation of unparsed commands and args
+  * `:rest-cmds`: DEPRECATED, do not rely on this, it will be removed in a future version
 
-  Any trailing commands can be matched as options using `:cmds-opts`.
+  Unparsed commands can args be matched as options using `:args->opts`.
 
   This function does not throw. Use an empty `:cmds` vector to always match.
 
   Examples: see [README.md](README.md#subcommands)."
   ([table args] (dispatch table args nil))
   ([table args opts]
-   (let [{:keys [cmds opts] :as m} (parse-args args opts)]
+   (let [{:keys [cmds args] :as m} (parse-cmds args opts)]
      (reduce (fn [_ {dispatch :cmds
                      f :fn
-                     cmds-opts :cmds-opts}]
-               (when-let [suffix (split dispatch cmds)]
-                 (let [rest-cmds (some-> suffix seq vec)
-                       [rest-cmds extra-opts] (if (and rest-cmds cmds-opts)
-                                                (let [cnt (min (count rest-cmds)
-                                                               (count cmds-opts))]
-                                                  [(drop cnt rest-cmds)
-                                                   (zipmap cmds-opts rest-cmds)])
-                                                [rest-cmds nil])
-                       opts (if extra-opts
-                              (merge opts extra-opts)
-                              opts)]
-                   (reduced (f (assoc m
-                                      :rest-cmds rest-cmds
-                                      :opts opts
-                                      :dispatch dispatch))))))
+                     :as sub-opts}]
+               (let [args->opts (or (:args->opts sub-opts)
+                                    (:cmds-opts sub-opts))]
+                 (when-let [suffix (split dispatch cmds)]
+                   (let [rest-cmds (some-> suffix seq vec)
+                         {:keys [opts args]} (parse-args args opts)
+                         args (concat rest-cmds args)
+                         [args extra-opts] (if args->opts
+                                             (if (seq args)
+                                               (let [cnt (min (count args)
+                                                              (count args->opts))]
+                                                 [(drop cnt args)
+                                                  (zipmap args->opts args)])
+                                               [args nil])
+                                             [args nil])
+                         opts (if extra-opts
+                                (merge opts extra-opts)
+                                opts)]
+                     (reduced (f (assoc m
+                                        :args args
+                                        ;; deprecated name: will be removed in the future!
+                                        :rest-cmds args
+                                        :opts opts
+                                        :dispatch dispatch)))))))
              nil table))))
