@@ -203,26 +203,20 @@
       :args args})))
 
 (defn- args->opts
-  [args args->opts coerce-opts]
-  (let [[args opts args->opts]
+  [args args->opts]
+  (let [[new-args args->opts]
         (if args->opts
           (if (seq args)
-            (let [cnt (min (count args)
-                           (count args->opts))]
-              [(drop cnt args)
-               (zipmap args->opts (map (fn [k v]
-                                         (if-let [cf (get coerce-opts k)]
-                                           (coerce v cf)
-                                           v))
-                                       args->opts
-                                       args))
+            (let [arg-count (count args)
+                  cnt (min arg-count
+                           (bounded-count arg-count args->opts))]
+              [(concat (interleave args->opts args)
+                       (drop cnt args))
                (drop cnt args->opts)])
-            [args nil args->opts])
-          [args nil args->opts])]
-    {:args args
-     :opts opts
+            [args args->opts])
+          [args args->opts])]
+    {:args new-args
      :args->opts args->opts}))
-
 
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.
@@ -267,25 +261,26 @@
                   (some-> spec keys (concat (keys aliases)) (concat (keys coerce-opts)) set)
                   (:closed opts))
          {:keys [cmds args]} (parse-cmds args)
-         {extra-opts :opts
-          cmds :args
+         {new-args :args
           a->o :args->opts}
          (if-let [a->o (or (:args->opts opts)
                            ;; DEPRECATED:
                            (:cmds-opts opts))]
-           (args->opts cmds a->o (:coerce opts))
-           {:opts nil
-            :args cmds})
-         cmds (some-> (seq cmds) vec)
+           (args->opts cmds a->o)
+           {:args->opts nil
+            :args args})
+         [cmds args] (if (not= new-args args)
+                      [nil (concat new-args args)]
+                      [cmds args])
          [opts last-opt added]
-         (loop [acc (merge-opts (or exec-args {}) extra-opts)
+         (loop [acc (or exec-args {})
                 current-opt nil
                 added nil
                 mode (when no-keyword-opts :hyphens)
                 args (seq args)]
            (if-not args
              [acc current-opt added]
-             (let [^String arg (first args)
+             (let [^String arg (str (first args))
                    collect-fn (coerce-collect-fn collect current-opt (get coerce-opts current-opt))
                    fst-char (first-char arg)
                    hyphen-opt? (= fst-char \-)
@@ -333,16 +328,16 @@
                                  (and (= added current-opt)
                                       (not collect-fn)))]
                    (if the-end?
-                     (let [{extra-opts :opts
-                            args :args} (if args
-                                          (if a->o
-                                            (args->opts args a->o (:coerce opts))
-                                            {:args args})
-                                          {:args args})
-                           acc (if extra-opts
-                                 (merge-opts acc extra-opts)
-                                 acc)]
-                       [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt nil])
+                     (let [{new-args :args} (if args
+                                              (if a->o
+                                                (args->opts args a->o)
+                                                {:args args})
+                                              {:args args})
+                           new-args? (not= args new-args)]
+                       (when new-args? (prn args '-> new-args))
+                       (if new-args?
+                         nil #_(recur acc nil nil mode new-args)
+                         [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt nil]))
                      (recur (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg)
                             (if (and (= :keywords mode)
                                      fst-colon?)

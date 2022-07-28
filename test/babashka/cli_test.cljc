@@ -148,28 +148,31 @@
                                       :coerce []
                                       :default ["src" "test"]
                                       :default-desc "src test"}]]}))))
-   (is (= {:opts {:from :edn, :to :json, :paths ["src" "test"]}}
-          (cli/parse-args [] {:spec spec})))
-   (is (= "  --deps/root The root"
-          (cli/format-opts {:spec [[:deps/root {:desc "The root"}]]})))
-   (is (= #:deps{:root "the-root"}
-          (cli/parse-opts ["--deps/root" "the-root"]
-                          {:spec [[:deps/root {:desc "The root"}]]})))))
+    (is (submap?
+         {:opts {:from :edn, :to :json, :paths ["src" "test"]}}
+         (cli/parse-args [] {:spec spec})))
+    (is (submap? "  --deps/root The root"
+                 (cli/format-opts {:spec [[:deps/root {:desc "The root"}]]})))
+    (is (submap?
+         #:deps{:root "the-root"}
+         (cli/parse-opts ["--deps/root" "the-root"]
+                         {:spec [[:deps/root {:desc "The root"}]]})))))
 
 (deftest args-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "--"])))
   (let [res (cli/parse-opts ["--foo" "--" "a"])]
     (is (submap? {:foo true} res))
     (is (submap? {:org.babashka/cli {:args ["a"]}} (meta res))))
-  (is (= {:args ["do" "something" "--now"], :opts {:classpath "src"}}
-         (cli/parse-args ["--classpath" "src" "do" "something" "--now"])))
+  (is (submap? {:args ["do" "something" "--now"], :opts {:classpath "src"}}
+               (cli/parse-args ["--classpath" "src" "do" "something" "--now"])))
 
   (is (= {:cmds ["do" "something"], :opts {:now true}}
          (cli/parse-args ["do" "something" "--now"])))
-  (is (= {:args ["ssh://foo"], :cmds ["git" "push"], :opts {:force true}}
+  (is (submap? {:args ["ssh://foo"], :cmds ["git" "push"], :opts {:force true}}
          (cli/parse-args ["git" "push" "--force" "ssh://foo"] {:coerce {:force :boolean}})))
-  (is (= {:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
-         (cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:coerce {:paths []}})))
+  (is (submap?
+       {:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
+       (cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:coerce {:paths []}})))
   (is
    (submap?
     {:opts {:foo 'foo, :bar "bar", :baz true}}
@@ -180,7 +183,8 @@
   (is
    (submap?
     {:opts {:foo 'foo, :bar "bar", :baz true}}
-    (cli/parse-args ["foo" "--baz" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}}))))
+    (cli/parse-args ["foo" "--baz" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}})))
+  (is (= {:foo [1 2]} (cli/parse-opts ["1" "2"] {:args->opts [:foo :foo] :coerce {:foo [:int]}}))))
 
 (deftest dispatch-test
   (let [f (fn [m]
@@ -239,7 +243,7 @@
   (testing "default width with default and default-desc"
     (is (= "  -f, --foo <foo> yupyupyupyup Thingy\n  -b, --bar <bar> Mos def      Barbarbar"
            (cli/format-opts
-             {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
-                           :desc "Thingy"}
-                     :bar {:alias :b, :default "sure", :ref "<bar>"
-                           :desc "Barbarbar" :default-desc "Mos def"}}})))))
+            {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
+                          :desc "Thingy"}
+                    :bar {:alias :b, :default "sure", :ref "<bar>"
+                          :desc "Barbarbar" :default-desc "Mos def"}}})))))
