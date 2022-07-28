@@ -476,9 +476,9 @@
   * `:args` - concatenation of unparsed commands and args
   * `:rest-cmds`: DEPRECATED, this will be removed in a future version
 
-  TODO: what about coercion!
-
   This function does not throw. Use an empty `:cmds` vector to always match.
+
+  Each entry in the table may have additional `parse-args` options.
 
   Examples: see [README.md](README.md#subcommands)."
   ([table args] (dispatch table args nil))
