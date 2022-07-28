@@ -39,7 +39,7 @@
 (deftest parse-opts-test
   (let [res (cli/parse-opts ["foo" ":b" "1"])]
     (is (submap? '{:b 1} res))
-    (is (submap? {:org.babashka/cli {:cmds ["foo"]}} (meta res)))
+    (is (submap? {:org.babashka/cli {:args ["foo"]}} (meta res)))
     #_(is (submap? ["foo"] (cli/commands res))))
   (is (submap? '{:b 1}
                (cli/parse-opts ["foo" ":b" "1"] {:coerce {:b edn/read-string}})))
@@ -148,44 +148,77 @@
                                       :coerce []
                                       :default ["src" "test"]
                                       :default-desc "src test"}]]}))))
-   (is (= {:opts {:from :edn, :to :json, :paths ["src" "test"]}}
-          (cli/parse-args [] {:spec spec})))
-   (is (= "  --deps/root The root"
-          (cli/format-opts {:spec [[:deps/root {:desc "The root"}]]})))
-   (is (= #:deps{:root "the-root"}
-          (cli/parse-opts ["--deps/root" "the-root"]
-                          {:spec [[:deps/root {:desc "The root"}]]})))))
+    (is (submap?
+         {:opts {:from :edn, :to :json, :paths ["src" "test"]}}
+         (cli/parse-args [] {:spec spec})))
+    (is (submap? "  --deps/root The root"
+                 (cli/format-opts {:spec [[:deps/root {:desc "The root"}]]})))
+    (is (submap?
+         #:deps{:root "the-root"}
+         (cli/parse-opts ["--deps/root" "the-root"]
+                         {:spec [[:deps/root {:desc "The root"}]]})))))
 
 (deftest args-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "--"])))
   (let [res (cli/parse-opts ["--foo" "--" "a"])]
     (is (submap? {:foo true} res))
     (is (submap? {:org.babashka/cli {:args ["a"]}} (meta res))))
-  (is (= {:args ["do" "something" "--now"], :opts {:classpath "src"}}
-         (cli/parse-args ["--classpath" "src" "do" "something" "--now"])))
+  (is (submap? {:args ["do" "something" "--now"], :opts {:classpath "src"}}
+               (cli/parse-args ["--classpath" "src" "do" "something" "--now"])))
 
-  (is (= {:cmds ["do" "something"], :opts {:now true}}
+  (is (= {:args ["do" "something"], :opts {:now true}}
          (cli/parse-args ["do" "something" "--now"])))
-  (is (= {:args ["ssh://foo"], :cmds ["git" "push"], :opts {:force true}}
-         (cli/parse-args ["git" "push" "--force" "ssh://foo"] {:coerce {:force :boolean}})))
-  (is (= {:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
-         (cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:coerce {:paths []}}))))
+  (is (submap? {:args ["ssh://foo"], :opts {:force true}}
+               (cli/parse-args ["--force" "ssh://foo"] {:coerce {:force :boolean}})))
+  (is (submap? {:args ["ssh://foo"], :opts {:force true}}
+               (cli/parse-args ["ssh://foo" "--force"] {:coerce {:force :boolean}})))
+  (is (submap?
+       {:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
+       (cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:coerce {:paths []}})))
+  (is
+   (submap?
+    {:opts {:foo 'foo, :bar "bar", :baz true}}
+    (cli/parse-args ["foo" "bar" "--baz"] {:args->opts [:foo :bar] :coerce {:foo :symbol}})))
+  (is
+   (submap? {:opts {:foo 'foo, :bar "bar", :baz true}}
+            (cli/parse-args ["--baz" "foo" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}})))
+  (is
+   (submap?
+    {:opts {:foo 'foo, :bar "bar", :baz true}}
+    (cli/parse-args ["foo" "--baz" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}})))
+  (is (= {:foo [1 2]} (cli/parse-opts ["1" "2"] {:args->opts [:foo :foo] :coerce {:foo [:int]}}))))
 
 (deftest dispatch-test
   (let [f (fn [m]
             m)
         g (constantly :rest)
-        disp-table [{:cmds ["add" "dep"] :fn f}
-                    {:cmds ["dep" "add"] :fn f}
-                    {:cmds ["dep" "search"] :fn f :cmds-opts [:search-term]}
-                    {:cmds [] :fn g}]]
+        table [{:cmds ["add" "dep"] :fn f :coerce {:overwrite :boolean}}
+               {:cmds ["dep" "add"] :fn f :spec {:overwrite {:coerce :boolean}}}
+               {:cmds ["dep" "search"]
+                :fn f :args->opts [:search-term :precision]
+                :coerce {:precision :int}}
+               {:cmds [] :fn g}]]
     (is (submap?
-         {:rest-cmds ["cheshire/cheshire"], :opts {}}
-         (cli/dispatch disp-table ["add" "dep" "cheshire/cheshire"])))
+         {:args ["cheshire/cheshire"], :opts {}}
+         (cli/dispatch table ["add" "dep" "cheshire/cheshire"])))
+    (is (submap?
+         {:args ["cheshire/cheshire"], :opts {:overwrite true}}
+         (cli/dispatch table ["add" "dep" "--overwrite" "cheshire/cheshire"])))
+    (is (submap?
+         {:args ["cheshire/cheshire"], :opts {:overwrite true}}
+         (cli/dispatch table ["dep" "add" "--overwrite" "cheshire/cheshire"])))
+    (is (submap?
+         {:args ["cheshire/cheshire"], :opts {:force true}}
+         (cli/dispatch table ["add" "dep" "--force" "cheshire/cheshire"] {:coerce {:force :boolean}})))
     (is (submap?
          {:dispatch ["dep" "search"]
           :opts {:search-term "cheshire"}}
-         (cli/dispatch disp-table ["dep" "search" "cheshire"])))))
+         (cli/dispatch table ["dep" "search" "cheshire"])))
+    (is (submap?
+         {:dispatch ["dep" "search"]
+          :opts {:search-term "cheshire"
+                 :precision 100}}
+         (cli/dispatch table ["dep" "search" "cheshire" "100"])))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
@@ -212,7 +245,7 @@
   (testing "default width with default and default-desc"
     (is (= "  -f, --foo <foo> yupyupyupyup Thingy\n  -b, --bar <bar> Mos def      Barbarbar"
            (cli/format-opts
-             {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
-                           :desc "Thingy"}
-                     :bar {:alias :b, :default "sure", :ref "<bar>"
-                           :desc "Barbarbar" :default-desc "Mos def"}}})))))
+            {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
+                          :desc "Thingy"}
+                    :bar {:alias :b, :default "sure", :ref "<bar>"
+                          :desc "Barbarbar" :default-desc "Mos def"}}})))))
