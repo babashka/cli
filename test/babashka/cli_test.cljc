@@ -175,13 +175,20 @@
   (let [f (fn [m]
             m)
         g (constantly :rest)
-        table [{:cmds ["add" "dep"] :fn f}
-                    {:cmds ["dep" "add"] :fn f}
-                    {:cmds ["dep" "search"] :fn f :args->opts [:search-term]}
-                    {:cmds [] :fn g}]]
+        table [{:cmds ["add" "dep"] :fn f :coerce {:overwrite :boolean}}
+               {:cmds ["dep" "add"] :fn f :spec {:overwrite {:coerce :boolean}}}
+               {:cmds ["dep" "search"]
+                :fn f :args->opts [:search-term]}
+               {:cmds [] :fn g}]]
     (is (submap?
          {:args ["cheshire/cheshire"], :opts {}}
          (cli/dispatch table ["add" "dep" "cheshire/cheshire"])))
+    (is (submap?
+         {:args ["cheshire/cheshire"], :opts {:overwrite true}}
+         (cli/dispatch table ["add" "dep" "--overwrite" "cheshire/cheshire"])))
+    (is (submap?
+         {:args ["cheshire/cheshire"], :opts {:overwrite true}}
+         (cli/dispatch table ["dep" "add" "--overwrite" "cheshire/cheshire"])))
     (is (submap?
          {:args ["cheshire/cheshire"], :opts {:force true}}
          (cli/dispatch table ["add" "dep" "--force" "cheshire/cheshire"] {:coerce {:force :boolean}})))

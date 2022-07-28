@@ -3,7 +3,8 @@
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
-   [clojure.string :as str]))
+   [clojure.string :as str]
+   [babashka.cli.internal :refer [merge-opts]]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -432,9 +433,10 @@
 
   * `:dispatch` - the matching commands
   * `:args` - concatenation of unparsed commands and args
-  * `:rest-cmds`: DEPRECATED, do not rely on this, it will be removed in a future version
+  * `:rest-cmds`: DEPRECATED, this will be removed in a future version
 
-  Unparsed commands can args be matched as options using `:args->opts`.
+  Unparsed commands can args be consumed as options using `:args->opts`.
+  TODO: what about coercion!
 
   This function does not throw. Use an empty `:cmds` vector to always match.
 
@@ -449,7 +451,7 @@
                                     (:cmds-opts sub-opts))]
                  (when-let [suffix (split dispatch cmds)]
                    (let [rest-cmds (some-> suffix seq vec)
-                         {:keys [opts args]} (parse-args args opts)
+                         {:keys [opts args]} (parse-args args (merge-opts opts sub-opts))
                          args (concat rest-cmds args)
                          [args extra-opts] (if args->opts
                                              (if (seq args)
