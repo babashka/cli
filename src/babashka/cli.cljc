@@ -348,9 +348,9 @@
                                  {:args args})
                                {:args args})
                              new-args? (not= args new-args)]
-                         (when new-args? (prn args '-> new-args))
+                         #_(when new-args? (prn args '-> new-args))
                          (if new-args?
-                           (recur acc nil current-opt mode new-args a->o)
+                           (recur acc current-opt added mode new-args a->o)
                            [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt nil]))
                        (recur (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg)
                               (if (and (= :keywords mode)
