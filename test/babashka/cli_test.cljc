@@ -39,7 +39,7 @@
 (deftest parse-opts-test
   (let [res (cli/parse-opts ["foo" ":b" "1"])]
     (is (submap? '{:b 1} res))
-    (is (submap? {:org.babashka/cli {:cmds ["foo"]}} (meta res)))
+    (is (submap? {:org.babashka/cli {:args ["foo"]}} (meta res)))
     #_(is (submap? ["foo"] (cli/commands res))))
   (is (submap? '{:b 1}
                (cli/parse-opts ["foo" ":b" "1"] {:coerce {:b edn/read-string}})))
@@ -166,10 +166,12 @@
   (is (submap? {:args ["do" "something" "--now"], :opts {:classpath "src"}}
                (cli/parse-args ["--classpath" "src" "do" "something" "--now"])))
 
-  (is (= {:cmds ["do" "something"], :opts {:now true}}
+  (is (= {:args ["do" "something"], :opts {:now true}}
          (cli/parse-args ["do" "something" "--now"])))
-  (is (submap? {:args ["ssh://foo"], :cmds ["git" "push"], :opts {:force true}}
-         (cli/parse-args ["git" "push" "--force" "ssh://foo"] {:coerce {:force :boolean}})))
+  (is (submap? {:args ["ssh://foo"], :opts {:force true}}
+               (cli/parse-args ["--force" "ssh://foo"] {:coerce {:force :boolean}})))
+  (is (submap? {:args ["ssh://foo"], :opts {:force true}}
+               (cli/parse-args ["ssh://foo" "--force"] {:coerce {:force :boolean}})))
   (is (submap?
        {:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
        (cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:coerce {:paths []}})))

@@ -220,15 +220,15 @@
 
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.
-  Expected format: `[\"cmd_1\" ... \"cmd_n\" \":k_1\" \"v_1\" .. \":k_n\" \"v_n\"]`.
   Instead of a leading `:` either `--` or `-` may be used as well.
 
-  Return value: a map with parsed opts. Additional data such as
-  initial subcommands and remaining args after `--` are available
-  under the `:org.babashka/cli` key in the metadata.
+  Return value: a map with parsed opts.
+
+  Additional data such as arguments (not corresponding to any options)
+  are available under the `:org.babashka/cli` key in the metadata.
 
   Supported options:
-  *`:coerce`: a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
+  * `:coerce`: a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
   * `:aliases` - a map of short names to long names.
   * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
   * `:closed` - `true` or set of keys. Throw on first parsed option not in set of keys or keys of `:spec`, `:coerce` and `:aliases` combined.
@@ -363,7 +363,10 @@
          collect-fn (coerce-collect-fn collect last-opt (get coerce last-opt))]
      (-> (process-previous opts last-opt added collect-fn)
          (cond->
-             cmds (vary-meta assoc-in [:org.babashka/cli :cmds] cmds))))))
+             (seq cmds)
+           (vary-meta update-in [:org.babashka/cli :args]
+                      (fn [args]
+                        (into (vec cmds) args))))))))
 
 (defn parse-args
   "Same as `parse-opts` but separates parsed opts into `:opts` and adds
