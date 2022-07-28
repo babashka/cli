@@ -490,7 +490,8 @@
                (when-let [suffix (split dispatch cmds)]
                  (let [rest-cmds (some-> suffix seq vec)
                        args (concat rest-cmds args)
-                       {:keys [opts args]} (parse-args args (merge-opts opts sub-opts))]
+                       {:keys [opts args cmds]} (parse-args args (merge-opts opts sub-opts))
+                       args (concat cmds args)]
                    (reduced (f (assoc m
                                       :args args
                                       ;; deprecated name: will be removed in the future!
