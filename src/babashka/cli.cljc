@@ -189,6 +189,17 @@
    {}
    spec))
 
+(defn parse-cmds
+  "Parses sub-commands (arguments not starting with an option prefix) and returns a map with:
+  * `:cmds` - The parsed subcommands
+  * `:opts` - The remaining (unparsed) arguments"
+  ([args] (parse-cmds args nil))
+  ([args {:keys [no-keyword-opts]}]
+   (let [[cmds opts] (split-with #(not (or (when-not no-keyword-opts (str/starts-with? % ":"))
+                                           (str/starts-with? % "-"))) args)]
+     {:cmds cmds
+      :opts opts})))
+
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.
   Expected format: `[\"cmd_1\" ... \"cmd_n\" \":k_1\" \"v_1\" .. \":k_n\" \"v_n\"]`.
@@ -230,8 +241,7 @@
          closed (if (= true (:closed opts))
                   (some-> spec keys (concat (keys aliases)) (concat (keys coerce-opts)) set)
                   (:closed opts))
-         [cmds opts] (split-with #(not (or (when-not no-keyword-opts (str/starts-with? % ":"))
-                                           (str/starts-with? % "-"))) args)
+         {:keys [cmds opts]} (parse-cmds args)
          cmds (some-> (seq cmds) vec)
          [opts last-opt added]
          (loop [acc (or exec-args {})

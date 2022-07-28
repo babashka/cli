@@ -175,17 +175,17 @@
   (let [f (fn [m]
             m)
         g (constantly :rest)
-        disp-table [{:cmds ["add" "dep"] :fn f}
+        table [{:cmds ["add" "dep"] :fn f}
                     {:cmds ["dep" "add"] :fn f}
                     {:cmds ["dep" "search"] :fn f :cmds-opts [:search-term]}
                     {:cmds [] :fn g}]]
     (is (submap?
          {:rest-cmds ["cheshire/cheshire"], :opts {}}
-         (cli/dispatch disp-table ["add" "dep" "cheshire/cheshire"])))
+         (cli/dispatch table ["add" "dep" "cheshire/cheshire"])))
     (is (submap?
          {:dispatch ["dep" "search"]
           :opts {:search-term "cheshire"}}
-         (cli/dispatch disp-table ["dep" "search" "cheshire"])))))
+         (cli/dispatch table ["dep" "search" "cheshire"])))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
