@@ -175,7 +175,10 @@
       (cli/parse-args ["foo" "bar" "--baz"] {:args->opts [:foo :bar] :coerce {:foo :symbol}})))
   (is
    (= {:opts {:foo foo, :bar "bar", :baz true}}
-      (cli/parse-args ["--baz" "foo" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}}))))
+      (cli/parse-args ["--baz" "foo" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}})))
+  (is
+   (= {:opts {:foo foo, :bar "bar", :baz true}}
+      (cli/parse-args ["foo" "--baz" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}}))))
 
 (deftest dispatch-test
   (let [f (fn [m]

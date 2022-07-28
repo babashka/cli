@@ -269,11 +269,13 @@
          {:keys [cmds args]} (parse-cmds args)
          {extra-opts :opts
           cmds :args
-          args->opts :args->opts}
-         (if-let [a->o (:args->opts opts)]
+          a->o :args->opts}
+         (if-let [a->o (or (:args->opts opts)
+                           ;; DEPRECATED:
+                           (:cmds-opts opts))]
            (args->opts cmds a->o (:coerce opts))
            {:opts nil
-            :cmds cmds})
+            :args cmds})
          cmds (some-> (seq cmds) vec)
          [opts last-opt added]
          (loop [acc (merge-opts (or exec-args {}) extra-opts)
@@ -333,8 +335,8 @@
                    (if the-end?
                      (let [{extra-opts :opts
                             args :args} (if args
-                                          (if args->opts
-                                            (babashka.cli/args->opts args args->opts (:coerce opts))
+                                          (if a->o
+                                            (args->opts args a->o (:coerce opts))
                                             {:args args})
                                           {:args args})
                            acc (if extra-opts
@@ -485,27 +487,14 @@
      (reduce (fn [_ {dispatch :cmds
                      f :fn
                      :as sub-opts}]
-               (let [args->opts (or (:args->opts sub-opts)
-                                    (:cmds-opts sub-opts))]
-                 (when-let [suffix (split dispatch cmds)]
-                   (let [rest-cmds (some-> suffix seq vec)
-                         args (concat rest-cmds args)
-                         {:keys [opts args]} (parse-args args (merge-opts opts sub-opts))
-                         [args extra-opts] (if args->opts
-                                             (if (seq args)
-                                               (let [cnt (min (count args)
-                                                              (count args->opts))]
-                                                 [(drop cnt args)
-                                                  (zipmap args->opts args)])
-                                               [args nil])
-                                             [args nil])
-                         opts (if extra-opts
-                                (merge opts extra-opts)
-                                opts)]
-                     (reduced (f (assoc m
-                                        :args args
-                                        ;; deprecated name: will be removed in the future!
-                                        :rest-cmds args
-                                        :opts opts
-                                        :dispatch dispatch)))))))
+               (when-let [suffix (split dispatch cmds)]
+                 (let [rest-cmds (some-> suffix seq vec)
+                       args (concat rest-cmds args)
+                       {:keys [opts args]} (parse-args args (merge-opts opts sub-opts))]
+                   (reduced (f (assoc m
+                                      :args args
+                                      ;; deprecated name: will be removed in the future!
+                                      :rest-cmds args
+                                      :opts opts
+                                      :dispatch dispatch))))))
              nil table))))
