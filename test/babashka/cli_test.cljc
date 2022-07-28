@@ -169,7 +169,13 @@
   (is (= {:args ["ssh://foo"], :cmds ["git" "push"], :opts {:force true}}
          (cli/parse-args ["git" "push" "--force" "ssh://foo"] {:coerce {:force :boolean}})))
   (is (= {:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
-         (cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:coerce {:paths []}}))))
+         (cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:coerce {:paths []}})))
+  (is
+   (= {:opts {:foo foo, :bar "bar", :baz true}}
+      (cli/parse-args ["foo" "bar" "--baz"] {:args->opts [:foo :bar] :coerce {:foo :symbol}})))
+  (is
+   (= {:opts {:foo foo, :bar "bar", :baz true}}
+      (cli/parse-args ["--baz" "foo" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}}))))
 
 (deftest dispatch-test
   (let [f (fn [m]
@@ -178,7 +184,8 @@
         table [{:cmds ["add" "dep"] :fn f :coerce {:overwrite :boolean}}
                {:cmds ["dep" "add"] :fn f :spec {:overwrite {:coerce :boolean}}}
                {:cmds ["dep" "search"]
-                :fn f :args->opts [:search-term]}
+                :fn f :args->opts [:search-term :precision]
+                :coerce {:precision :int}}
                {:cmds [] :fn g}]]
     (is (submap?
          {:args ["cheshire/cheshire"], :opts {}}
@@ -195,7 +202,12 @@
     (is (submap?
          {:dispatch ["dep" "search"]
           :opts {:search-term "cheshire"}}
-         (cli/dispatch table ["dep" "search" "cheshire"])))))
+         (cli/dispatch table ["dep" "search" "cheshire"])))
+    (is (submap?
+         {:dispatch ["dep" "search"]
+          :opts {:search-term "cheshire"
+                 :precision 100}}
+         (cli/dispatch table ["dep" "search" "cheshire" "100"])))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts

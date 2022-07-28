@@ -202,6 +202,25 @@
      {:cmds cmds
       :args args})))
 
+(defn- args->opts
+  [args args->opts coerce-opts]
+  (let [[args opts] (if args->opts
+                      (if (seq args)
+                        (let [cnt (min (count args)
+                                       (count args->opts))]
+                          [(drop cnt args)
+                           (zipmap args->opts (map (fn [k v]
+                                                     (if-let [cf (get coerce-opts k)]
+                                                       (coerce v cf)
+                                                       v))
+                                                   args->opts
+                                                   args))])
+                        [args nil])
+                      [args nil])]
+    {:args args
+     :opts opts}))
+
+
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.
   Expected format: `[\"cmd_1\" ... \"cmd_n\" \":k_1\" \"v_1\" .. \":k_n\" \"v_n\"]`.
@@ -216,6 +235,7 @@
   * `:aliases` - a map of short names to long names.
   * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
   * `:closed` - `true` or set of keys. Throw on first parsed option not in set of keys or keys of `:spec`, `:coerce` and `:aliases` combined.
+  * `:args->opts` - consume unparsed commands and args as options
 
   Examples:
 
@@ -244,9 +264,11 @@
                   (some-> spec keys (concat (keys aliases)) (concat (keys coerce-opts)) set)
                   (:closed opts))
          {:keys [cmds args]} (parse-cmds args)
+         {extra-opts :opts
+          cmds :args} (args->opts cmds (:args->opts opts) (:coerce opts))
          cmds (some-> (seq cmds) vec)
          [opts last-opt added]
-         (loop [acc (or exec-args {})
+         (loop [acc (merge-opts (or exec-args {}) extra-opts)
                 current-opt nil
                 added nil
                 mode (when no-keyword-opts :hyphens)
@@ -435,7 +457,6 @@
   * `:args` - concatenation of unparsed commands and args
   * `:rest-cmds`: DEPRECATED, this will be removed in a future version
 
-  Unparsed commands can args be consumed as options using `:args->opts`.
   TODO: what about coercion!
 
   This function does not throw. Use an empty `:cmds` vector to always match.
@@ -451,8 +472,8 @@
                                     (:cmds-opts sub-opts))]
                  (when-let [suffix (split dispatch cmds)]
                    (let [rest-cmds (some-> suffix seq vec)
-                         {:keys [opts args]} (parse-args args (merge-opts opts sub-opts))
                          args (concat rest-cmds args)
+                         {:keys [opts args]} (parse-args args (merge-opts opts sub-opts))
                          [args extra-opts] (if args->opts
                                              (if (seq args)
                                                (let [cnt (min (count args)
