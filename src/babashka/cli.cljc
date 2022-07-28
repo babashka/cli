@@ -282,84 +282,84 @@
            (if-not args
              [acc current-opt added]
              (let [^String arg (first args)
-                   opt? (keyword? arg)
-                   collect-fn (when-not opt?
-                                (coerce-collect-fn collect current-opt (get coerce-opts current-opt)))
-                   fst-char (when-not opt?
-                              (first-char arg))
-                   hyphen-opt? (when-not opt? (= fst-char \-))
-                   mode (or mode (when hyphen-opt? :hyphens))
-                   ;; _ (prn :current-opt current-opt arg)
-                   fst-colon? (when-not opt?
-                                (= \: fst-char))
-                   kwd-opt? (when-not opt?
-                              (and (not= :hyphens mode)
-                                   fst-colon?
-                                   (or (not current-opt)
-                                       (= added current-opt))))
-                   mode (or mode
-                            (when-not opt?
-                              (when kwd-opt?
-                                :keywords)))]
+                   opt? (keyword? arg)]
                (if opt?
-                 (recur (process-previous acc current-opt added collect-fn)
+                 (recur (process-previous acc current-opt added nil)
                         arg added mode (next args)
                         a->o)
-                 (if (or hyphen-opt?
-                         kwd-opt?)
-                   (let [long-opt? (str/starts-with? arg "--")
-                         the-end? (and long-opt? (= "--" arg))]
-                     (if the-end?
-                       (let [nargs (next args)]
-                         [(cond-> acc
-                            nargs (vary-meta assoc-in [:org.babashka/cli :args] (vec nargs)))
-                          current-opt added])
-                       (let [kname (if long-opt?
-                                     (subs arg 2)
-                                     (str/replace arg #"^(:|-|)" ""))
-                             [kname arg-val] (if long-opt?
-                                               (str/split kname #"=")
-                                               [kname])
-                             k     (keyword kname)
-                             k     (get aliases k k)]
-                         (when (and closed (not (get closed k)))
-                           (throw (ex-info (str "Unknown option " arg)
-                                           {:closed closed})))
-                         (if arg-val
-                           (recur (process-previous acc current-opt added collect-fn)
-                                  k nil mode (cons arg-val (rest args)) a->o)
-                           (recur (process-previous acc current-opt added collect-fn)
-                                  k added mode (next args)
-                                  a->o)))))
-                   (let [coerce-opt (get coerce-opts current-opt)
-                         the-end? (or
-                                   (and (= :boolean coerce-opt)
-                                        (not= arg "true")
-                                        (not= arg "false"))
-                                   (and (= added current-opt)
-                                        (not collect-fn)))]
-                     (if the-end?
-                       (let [{new-args :args
-                              a->o :args->opts}
-                             (if args
-                               (if a->o
-                                 (args->opts args a->o)
+                 (let [collect-fn (when-not opt?
+                                    (coerce-collect-fn collect current-opt (get coerce-opts current-opt)))
+                       fst-char (when-not opt?
+                                  (first-char arg))
+                       hyphen-opt? (when-not opt? (= fst-char \-))
+                       mode (or mode (when hyphen-opt? :hyphens))
+                       ;; _ (prn :current-opt current-opt arg)
+                       fst-colon? (when-not opt?
+                                    (= \: fst-char))
+                       kwd-opt? (when-not opt?
+                                  (and (not= :hyphens mode)
+                                       fst-colon?
+                                       (or (not current-opt)
+                                           (= added current-opt))))
+                       mode (or mode
+                                (when-not opt?
+                                  (when kwd-opt?
+                                    :keywords)))]
+                   (if (or hyphen-opt?
+                           kwd-opt?)
+                     (let [long-opt? (str/starts-with? arg "--")
+                           the-end? (and long-opt? (= "--" arg))]
+                       (if the-end?
+                         (let [nargs (next args)]
+                           [(cond-> acc
+                              nargs (vary-meta assoc-in [:org.babashka/cli :args] (vec nargs)))
+                            current-opt added])
+                         (let [kname (if long-opt?
+                                       (subs arg 2)
+                                       (str/replace arg #"^(:|-|)" ""))
+                               [kname arg-val] (if long-opt?
+                                                 (str/split kname #"=")
+                                                 [kname])
+                               k     (keyword kname)
+                               k     (get aliases k k)]
+                           (when (and closed (not (get closed k)))
+                             (throw (ex-info (str "Unknown option " arg)
+                                             {:closed closed})))
+                           (if arg-val
+                             (recur (process-previous acc current-opt added collect-fn)
+                                    k nil mode (cons arg-val (rest args)) a->o)
+                             (recur (process-previous acc current-opt added collect-fn)
+                                    k added mode (next args)
+                                    a->o)))))
+                     (let [coerce-opt (get coerce-opts current-opt)
+                           the-end? (or
+                                     (and (= :boolean coerce-opt)
+                                          (not= arg "true")
+                                          (not= arg "false"))
+                                     (and (= added current-opt)
+                                          (not collect-fn)))]
+                       (if the-end?
+                         (let [{new-args :args
+                                a->o :args->opts}
+                               (if args
+                                 (if a->o
+                                   (args->opts args a->o)
+                                   {:args args})
                                  {:args args})
-                               {:args args})
-                             new-args? (not= args new-args)]
-                         (if new-args?
-                           (recur acc current-opt added mode new-args a->o)
-                           [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt nil]))
-                       (recur (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg)
-                              (if (and (= :keywords mode)
-                                       fst-colon?)
-                                nil current-opt)
-                              (if (and (= :keywords mode)
-                                       fst-colon?)
-                                nil current-opt)
-                              mode
-                              (next args)
-                              a->o))))))))
+                               new-args? (not= args new-args)]
+                           (if new-args?
+                             (recur acc current-opt added mode new-args a->o)
+                             [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt nil]))
+                         (recur (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg)
+                                (if (and (= :keywords mode)
+                                         fst-colon?)
+                                  nil current-opt)
+                                (if (and (= :keywords mode)
+                                         fst-colon?)
+                                  nil current-opt)
+                                mode
+                                (next args)
+                                a->o)))))))))
          collect-fn (coerce-collect-fn collect last-opt (get coerce last-opt))]
      (-> (process-previous opts last-opt added collect-fn)
          (cond->
