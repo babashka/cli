@@ -3,10 +3,15 @@
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
-   [babashka.cli.internal :refer [merge-opts]]
+   [babashka.cli.internal :as internal]
    [clojure.string :as str]))
 
 #?(:clj (set! *warn-on-reflection* true))
+
+(defn merge-opts
+  "Merges babashka CLI options."
+  [m & ms]
+  (reduce #(merge-with internal/merge* %1 %2) m ms))
 
 (defn- throw-unexpected [s]
   (throw (ex-info (str "Unexpected format: " s) {:s s})))

@@ -1,7 +1,6 @@
 (ns babashka.cli.exec
   (:require
-   [babashka.cli :refer [coerce parse-opts]]
-   [babashka.cli.internal :refer [merge-opts]]
+   [babashka.cli :refer [coerce parse-opts merge-opts]]
    [clojure.edn :as edn]
    [clojure.string :as str]))
 

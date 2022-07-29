@@ -6,12 +6,10 @@
        (or (sequential? x)
            (set? x))))
 
-(defn- merge* [x y]
+(defn merge* [x y]
   (cond (and (map? x) (map? y)) (merge x y)
         (and (into-able? x)
              (into-able? y))
         (into x y)
         :else y))
 
-(defn merge-opts [m & ms]
-  (reduce #(merge-with merge* %1 %2) m ms))
