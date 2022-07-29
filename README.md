@@ -263,13 +263,13 @@ This can be accomplished by doing the following:
 (defn help [m]
   (assoc m :fn :help))
 
-(def dispatch-table
-  [{:cmds ["copy"] :cmds-opts [:file] :fn copy}
-   {:cmds ["delete"] :cmds-opts [:file] :fn delete}
-   {:cmds [] :fn help}])
+(def table
+  [{:cmds ["copy"]   :fn copy   :args->opts [:file]}
+   {:cmds ["delete"] :fn delete :args->opts [:file]}
+   {:cmds []         :fn help}])
 
 (defn -main [& args]
-  (cli/dispatch dispatch-table args {:coerce {:depth :long}}))
+  (cli/dispatch table args {:coerce {:depth :long}}))
 ```
 
 Calling the `example` namespace's `-main` function can be done using `clojure -M -m example` or `bb -m example`.
@@ -298,6 +298,15 @@ When running `clj -M -m example delete the-file --depth 3`, `dispatch` calls `de
 
 See [neil](https://github.com/babashka/neil) for a real world example of a CLI
 that uses subcommands.
+
+Additional `parse-arg` options may be passed in each table entry:
+
+``` clojure
+(def table
+  [{:cmds ["copy"]   :fn copy   :args->opts [:file] :aliases {:f :file :closed true}}
+   {:cmds ["delete"] :fn delete :args->opts [:file]}
+   {:cmds []         :fn help}])
+```
 
 ## Babashka tasks
 
