@@ -141,12 +141,14 @@ it automatically tries to convert booleans, numbers and keywords.
 
 ## Arguments
 
-To parse (trailing) arguments, use `parse-args`. E.g. to parse the `git` syntax
-for `push` + `--force`:
+To parse (trailing) arguments, use `parse-args`. E.g. to parse arguments for the `git push` command:
 
 ``` clojure
-(cli/parse-args ["git" "push" "--force" "ssh://foo"] {:coerce {:force :boolean}})
-;;=> {:args ["ssh://foo"], :cmds ["git" "push"], :opts {:force true}}
+(cli/parse-args ["--force" "ssh://foo"] {:coerce {:force :boolean}})
+;;=> {:args ["ssh://foo"], :opts {:force true}}
+
+(cli/parse-args ["ssh://foo" "--force"] {:coerce {:force :boolean}})
+;;=> {:args ["ssh://foo"], :opts {:force true}}
 ```
 
 Note that this library can only disambiguate correctly between values for
@@ -154,8 +156,8 @@ options and trailing arguments with enough `:coerce` information
 available. Without the `:force :boolean` info, we get:
 
 ``` clojure
-(cli/parse-args ["git" "push" "--force" "ssh://foo"])
-{:cmds ["git" "push"], :opts {:force "ssh://foo"}}
+(cli/parse-args ["--force" "ssh://foo"])
+{:opts {:force "ssh://foo"}}
 ```
 
 In case of ambiguity `--` may also be used to communicate the boundary between
