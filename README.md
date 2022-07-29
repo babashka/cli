@@ -303,7 +303,7 @@ Additional `parse-arg` options may be passed in each table entry:
 
 ``` clojure
 (def table
-  [{:cmds ["copy"]   :fn copy   :args->opts [:file] :aliases {:f :file :closed true}}
+  [{:cmds ["copy"]   :fn copy   :args->opts [:file] :aliases {:f :file :restrict true}}
    {:cmds ["delete"] :fn delete :args->opts [:file]}
    {:cmds []         :fn help}])
 ```

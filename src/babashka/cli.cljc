@@ -208,9 +208,9 @@
 
   Supported options:
   * `:coerce`: a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
-  * `:aliases` - a map of short names to long names.
+  * `:alias` - a map of short names to long names.
   * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
-  * `:closed` - `true` or set of keys. Throw on first parsed option not in set of keys or keys of `:spec`, `:coerce` and `:aliases` combined.
+  * `:restrict` - `true` or coll of keys. Throw on first parsed option not in set of keys or keys of `:spec` and `:coerce` combined.
   * `:require`: a coll of options that are required
   * `:args->opts` - consume unparsed commands and args as options
 
@@ -221,7 +221,7 @@
   ;; => {:bar \"1\", :org.babashka/cli {:cmds [\"foo\"]}}
   (parse-args [\":b\" \"1\"] {:aliases {:b :bar} :coerce {:bar parse-long}})
   ;; => {:bar 1}
-  (parse-args [\"--baz\" \"--qux\"] {:spec {:baz {:desc \"Baz\"} :closed true})
+  (parse-args [\"--baz\" \"--qux\"] {:spec {:baz {:desc \"Baz\"} :restrict true})
   ;; => throws 'Unknown option --qux' exception b/c there is no :qux key in the spec
   ```
   "
@@ -233,14 +233,18 @@
                        (when spec (spec->opts spec)))
                 opts)
          coerce-opts (:coerce opts)
-         aliases (:aliases opts)
+         aliases (or
+                  (:alias opts)
+                  (:aliases opts))
          collect (:collect opts)
          require (:require opts)
          exec-args (:exec-args opts)
          no-keyword-opts (:no-keyword-opts opts)
-         closed (if (= true (:closed opts))
+         restrict (or (:restrict opts)
+                      (:closed opts))
+         restrict (if (= true restrict)
                   (some-> spec keys (concat (keys aliases)) (concat (keys coerce-opts)) set)
-                  (:closed opts))
+                  (some-> restrict set))
          {:keys [cmds args]} (parse-cmds args)
          {new-args :args
           a->o :args->opts}
@@ -303,9 +307,6 @@
                                                  [kname])
                                k     (keyword kname)
                                k     (get aliases k k)]
-                           (when (and closed (not (get closed k)))
-                             (throw (ex-info (str "Unknown option " arg)
-                                             {:closed closed})))
                            (if arg-val
                              (recur (process-previous acc current-opt added collect-fn)
                                     k nil mode (cons arg-val (rest args)) a->o)
@@ -348,10 +349,17 @@
                     (vary-meta update-in [:org.babashka/cli :args]
                                (fn [args]
                                  (into (vec cmds) args)))))]
+     (when restrict
+       (doseq [k (keys opts)]
+         (when-not (contains? restrict k)
+           (throw (ex-info (str "Unknown option: " k)
+                           {:restrict restrict
+                            :option k})))))
      (when require
        (doseq [k require]
          (when-not (find opts k)
-           (throw (ex-info (str "Required option: " k) {:option k})))))
+           (throw (ex-info (str "Required option: " k) {:require require
+                                                        :option k})))))
      opts)))
 
 (defn parse-args

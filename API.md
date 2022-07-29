@@ -76,14 +76,14 @@ Subcommand dispatcher.
   Each entry in the table may have additional [`parse-args`](#parse-args) options.
 
   Examples: see [README.md](README.md#subcommands).
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L454-L498)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L462-L506)</sub>
 ## `format-opts`
 ``` clojure
 
 (format-opts {:keys [spec indent order], :or {indent 2}})
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L379-L435)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L387-L443)</sub>
 ## `parse-args`
 ``` clojure
 
@@ -94,7 +94,7 @@ Subcommand dispatcher.
 
 Same as [`parse-opts`](#parse-opts) but separates parsed opts into `:opts` and adds
   `:cmds` and `:rest-args` on the top level instead of metadata.
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L357-L364)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L365-L372)</sub>
 ## `parse-cmds`
 ``` clojure
 
@@ -134,9 +134,9 @@ Parse the command line arguments `args`, a seq of strings.
 
   Supported options:
   * `:coerce`: a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
-  * `:aliases` - a map of short names to long names.
+  * `:alias` - a map of short names to long names.
   * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
-  * `:closed` - `true` or set of keys. Throw on first parsed option not in set of keys or keys of `:spec`, `:coerce` and `:aliases` combined.
+  * `:restrict` - `true` or coll of keys. Throw on first parsed option not in set of keys or keys of `:spec` and `:coerce` combined.
   * `:require`: a coll of options that are required
   * `:args->opts` - consume unparsed commands and args as options
 
@@ -147,11 +147,11 @@ Parse the command line arguments `args`, a seq of strings.
   ;; => {:bar "1", :org.babashka/cli {:cmds ["foo"]}}
   (parse-args [":b" "1"] {:aliases {:b :bar} :coerce {:bar parse-long}})
   ;; => {:bar 1}
-  (parse-args ["--baz" "--qux"] {:spec {:baz {:desc "Baz"} :closed true})
+  (parse-args ["--baz" "--qux"] {:spec {:baz {:desc "Baz"} :restrict true})
   ;; => throws 'Unknown option --qux' exception b/c there is no :qux key in the spec
   ```
   
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L200-L355)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L200-L363)</sub>
 ## `spec->opts`
 ``` clojure
 

@@ -65,18 +65,18 @@
     (is (submap? '{:foo [a b]
                    :skip true}
                  (cli/parse-opts ["--skip" "--foo=a" "--foo=b"]
-                                 {:coerce {:foo [:symbol]}}))))
-  (testing ":closed true w/o spec behaves like not closed"
-    (is (= {:foo "bar" :baz "qux"} (cli/parse-opts ["--foo=bar" "--baz" "qux"]))))
-  (testing ":closed true w/ spec allows opts & aliases in spec"
+                                 {:coerce {:foo [:symbol]}})))))
+
+(deftest restrict-test
+  (testing ":restrict true w/ spec allows opts & aliases in spec"
     (is (= {:foo "bar" :baz true}
            (cli/parse-opts ["--foo=bar" "-b"] {:spec   {:foo {} :baz {:alias :b}}
-                                               :closed true}))))
+                                               :restrict true}))))
   (testing ":closed true w/ spec throws w/ opt that is not a key nor alias in spec"
-    (is (thrown-with-msg? #?(:clj Exception :cljs :default) #"Unknown option -b"
+    (is (thrown-with-msg? #?(:clj Exception :cljs :default) #"Unknown option: :b"
                           (cli/parse-opts ["--foo=bar" "-b"]
                                           {:spec   {:foo {}}
-                                           :closed true}))))
+                                           :restrict true}))))
   (testing ":closed #{:foo} w/ only --foo in opts is allowed"
     (is (= {:foo "bar"} (cli/parse-opts ["--foo=bar"]
                                         {:closed #{:foo}}))))
@@ -84,7 +84,7 @@
     (is (= {:bar true} (cli/parse-opts ["--bar"]
                                        {:closed #{:foo :bar}}))))
   (testing ":closed #{:foo} w/ --foo & --bar in opts throws exception"
-    (is (thrown-with-msg? #?(:clj Exception :cljs :default) #"Unknown option --bar"
+    (is (thrown-with-msg? #?(:clj Exception :cljs :default) #"Unknown option: :bar"
                           (cli/parse-opts ["--foo" "--bar"]
                                           {:closed #{:foo}}))))
   (testing ":closed true w/ :aliases {:f :foo} w/ only -f in opts is allowed"
