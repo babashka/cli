@@ -156,7 +156,7 @@
   "Converts spec into opts format."
   [spec]
   (reduce
-   (fn [acc [k {:keys [coerce alias default]}]]
+   (fn [acc [k {:keys [coerce alias default validate]}]]
      (cond-> acc
        coerce (update :coerce assoc k coerce)
        alias (update :alias
@@ -165,6 +165,7 @@
                          (throw (ex-info (str "Conflicting alias " alias " between " (get aliases alias) " and " k)
                                          {:alias alias})))
                        (assoc aliases alias k)))
+       validate (update :validate assoc k validate)
        default (update :exec-args assoc k default)))
    {}
    spec))
@@ -245,6 +246,7 @@
          restrict (if (= true restrict)
                     (some-> spec keys (concat (keys coerce-opts)) set)
                     (some-> restrict set))
+         validate (:validate opts)
          {:keys [cmds args]} (parse-cmds args)
          {new-args :args
           a->o :args->opts}
@@ -360,6 +362,23 @@
          (when-not (find opts k)
            (throw (ex-info (str "Required option: " k) {:require require
                                                         :option k})))))
+     (when validate
+       (doseq [[k vf] validate]
+         (let [f (or (and
+                      ;; we allow sets (typically of keywords) as predicates,
+                      ;; but maps are less commmon
+                      (map? vf)
+                      (:pred vf))
+                     vf)]
+           (when-let [[_ v] (find opts k)]
+             (when-not (f v)
+               (let [ex-msg-fn (or (:ex-msg vf)
+                                   (fn [{:keys [option value]}]
+                                     (str "Invalid value for option " option ": " value)))]
+                 (throw (ex-info (ex-msg-fn {:option k :value v})
+                                 {:validate validate
+                                  :option k
+                                  :value v}))))))))
      opts)))
 
 (defn parse-args

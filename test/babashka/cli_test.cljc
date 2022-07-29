@@ -256,3 +256,19 @@
   (is (thrown-with-msg?
        Exception #"Required option: :bar"
        (cli/parse-args ["-foo"] {:require [:bar]}))))
+
+(deftest validate-test
+  (is (thrown-with-msg? Exception #"Invalid value for option :foo:"
+                        (cli/parse-args ["--foo" "0"] {:validate {:foo pos?}})))
+  (is (thrown-with-msg? Exception #"Invalid value for option :foo:"
+                        (cli/parse-args ["--foo" ":bar"] {:validate {:foo #{:baz}}})))
+  (is (thrown-with-msg?
+       Exception #"Expected positive number for option :foo but got: 0"
+       (cli/parse-args
+        ["--foo" "0"]
+        {:validate {:foo {:pred pos?
+                          :ex-msg
+                          (fn
+                            [{:keys [option value]}]
+                            (str "Expected positive number for option "
+                                 option " but got: " value))}}}))))
