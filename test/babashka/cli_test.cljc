@@ -135,7 +135,7 @@
                                        :order [:from :to :paths :pretty]}))))
     (is (= {:coerce {:from :keyword,
                      :to :keyword, :paths []},
-            :aliases {:i :from, :o :to, :p :pretty},
+            :alias {:i :from, :o :to, :p :pretty},
             :exec-args {:from :edn, :to :json, :paths ["src" "test"]}}
            (cli/spec->opts spec)))
     (is (= (str/trim "

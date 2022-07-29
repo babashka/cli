@@ -159,7 +159,7 @@
    (fn [acc [k {:keys [coerce alias default]}]]
      (cond-> acc
        coerce (update :coerce assoc k coerce)
-       alias (update :aliases
+       alias (update :alias
                      (fn [aliases]
                        (when (contains? aliases alias)
                          (throw (ex-info (str "Conflicting alias " alias " between " (get aliases alias) " and " k)
@@ -243,8 +243,8 @@
          restrict (or (:restrict opts)
                       (:closed opts))
          restrict (if (= true restrict)
-                  (some-> spec keys (concat (keys aliases)) (concat (keys coerce-opts)) set)
-                  (some-> restrict set))
+                    (some-> spec keys (concat (keys aliases)) (concat (keys coerce-opts)) set)
+                    (some-> restrict set))
          {:keys [cmds args]} (parse-cmds args)
          {new-args :args
           a->o :args->opts}
@@ -441,18 +441,6 @@
                             [k (get spec k)])
                           order)
                      spec)))))
-
-#_(println
-   (format-opts
-    {:spec {:from {:placeholder "FORMAT"
-                   :description "The input format"
-                   :coerce :keyword
-                   :alias :i}
-            :force {:coerce :boolean
-                    :alias :f}}
-     :order [:force :from]}))
-
-#_(format-opts {:spec ... :order [:from :to] :indent 3})
 
 (defn- split [a b]
   (let [[prefix suffix] (split-at (count a) b)]

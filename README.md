@@ -93,7 +93,7 @@ Parse `{:port 1339}` from command line arguments:
 Use an alias (short option):
 
 ``` clojure
-(cli/parse-opts ["-p" "1339"] {:aliases {:p :port} :coerce {:port :long}})
+(cli/parse-opts ["-p" "1339"] {:alias {:p :port} :coerce {:port :long}})
 ;; {:port 1339}
 ```
 
@@ -120,7 +120,7 @@ Booleans need no explicit `true` value and `:coerce` option:
 (cli/parse-opts ["--verbose"])
 ;;=> {:verbose true}
 
-(cli/parse-opts ["-v" "-v" "-v"] {:aliases {:v :verbose}
+(cli/parse-opts ["-v" "-v" "-v"] {:alias {:v :verbose}
                                   :coerce {:verbose []}})
 ;;=> {:verbose [true true true]}
 ```
@@ -303,7 +303,7 @@ Additional `parse-arg` options may be passed in each table entry:
 
 ``` clojure
 (def table
-  [{:cmds ["copy"]   :fn copy   :args->opts [:file] :aliases {:f :file :restrict true}}
+  [{:cmds ["copy"]   :fn copy   :args->opts [:file] :alias {:f :file :restrict true}}
    {:cmds ["delete"] :fn delete :args->opts [:file]}
    {:cmds []         :fn help}])
 ```
@@ -491,7 +491,7 @@ In `deps.edn` create an alias:
                       lambdaisland/kaocha {:mvn/version "1.66.1034"}}
          :exec-fn kaocha.runner/exec-fn
          :exec-args {} ;; insert default arguments here
-         :org.babashka/cli {:aliases {:watch :watch?
+         :org.babashka/cli {:alias {:watch :watch?
                                       :fail-fast :fail-fast?}
                             :coerce {:skip-meta :keyword
                                      :kaocha/reporter [:symbol]}}
@@ -560,7 +560,7 @@ In `~/.lein/profiles.clj` put:
                              {:exec-args {:env {:description "My project"}}
                               :coerce {:verbose :long
                                        :args []}
-                              :aliases {:f :force}}
+                              :alias {:f :force}}
                              "clj-new"]}}}
 ```
 
