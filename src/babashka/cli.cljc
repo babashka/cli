@@ -243,7 +243,7 @@
          restrict (or (:restrict opts)
                       (:closed opts))
          restrict (if (= true restrict)
-                    (some-> spec keys (concat (keys aliases)) (concat (keys coerce-opts)) set)
+                    (some-> spec keys (concat (keys coerce-opts)) set)
                     (some-> restrict set))
          {:keys [cmds args]} (parse-cmds args)
          {new-args :args
