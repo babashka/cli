@@ -249,3 +249,10 @@
                           :desc "Thingy"}
                     :bar {:alias :b, :default "sure", :ref "<bar>"
                           :desc "Barbarbar" :default-desc "Mos def"}}})))))
+
+#?(:cljs (def Exception js/Error))
+
+(deftest require-test
+  (is (thrown-with-msg?
+       Exception #"Required option: :bar"
+       (cli/parse-args ["-foo"] {:require [:bar]}))))

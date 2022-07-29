@@ -3,8 +3,8 @@
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
-   [clojure.string :as str]
-   [babashka.cli.internal :refer [merge-opts]]))
+   [babashka.cli.internal :refer [merge-opts]]
+   [clojure.string :as str]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -119,27 +119,6 @@
           v))
       s)))
 
-#_{:aliases {:f :foo} ;; representing like this takes care of potential conflicts
-   :coerce {:f :boolean}
-   :collect {:f []}
-   :doc {:f "A cool options"}}
-
-;; possibly we could have gone with, is there any benefit in doing so?
-;; we could support this in the future, if it turns out to be more beneficial
-;; by detecting the `:org.babashka/cli` key which indicates the "by options" schema
-#_{:foo {:coerce :boolean
-         :collect []
-         :doc "A cool option"}
-   :org.babashka/cli {:aliases {:s :syms}
-                      :other :options}}
-
-;; but note in neil we have this:
-#_{:coerce {:deps-deploy parse-boolean
-            :as symbol
-            :alias keyword
-            :limit parse-long}}
-;; which confirms my belief that this is the optimal format for common use cases!
-
 (defn- coerce->collect [k]
   (when (coll? k)
     (empty k)))
@@ -232,6 +211,7 @@
   * `:aliases` - a map of short names to long names.
   * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
   * `:closed` - `true` or set of keys. Throw on first parsed option not in set of keys or keys of `:spec`, `:coerce` and `:aliases` combined.
+  * `:require`: a coll of options that are required
   * `:args->opts` - consume unparsed commands and args as options
 
   Examples:
@@ -255,6 +235,7 @@
          coerce-opts (:coerce opts)
          aliases (:aliases opts)
          collect (:collect opts)
+         require (:require opts)
          exec-args (:exec-args opts)
          no-keyword-opts (:no-keyword-opts opts)
          closed (if (= true (:closed opts))
@@ -360,13 +341,18 @@
                                 mode
                                 (next args)
                                 a->o)))))))))
-         collect-fn (coerce-collect-fn collect last-opt (get coerce last-opt))]
-     (-> (process-previous opts last-opt added collect-fn)
-         (cond->
-             (seq cmds)
-           (vary-meta update-in [:org.babashka/cli :args]
-                      (fn [args]
-                        (into (vec cmds) args))))))))
+         collect-fn (coerce-collect-fn collect last-opt (get coerce last-opt))
+         opts (-> (process-previous opts last-opt added collect-fn)
+                  (cond->
+                      (seq cmds)
+                    (vary-meta update-in [:org.babashka/cli :args]
+                               (fn [args]
+                                 (into (vec cmds) args)))))]
+     (when require
+       (doseq [k require]
+         (when-not (find opts k)
+           (throw (ex-info (str "Required option: " k) {:option k})))))
+     opts)))
 
 (defn parse-args
   "Same as `parse-opts` but separates parsed opts into `:opts` and adds
