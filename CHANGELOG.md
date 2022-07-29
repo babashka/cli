@@ -4,12 +4,13 @@ For breaking changes, check [here](#breaking-changes).
 
 ## v0.3.33
 
-- Renamed `:aliases` to `:alias` (with backwards compatibility)
-- Renamed `:closed` to `:restrict` (with backwards compatibility)
 - Added `:require` to throw on missing options
 - Added `:validate` to throw on invalid options
 - Support `parse-opts` options in `dispatch` table entries
 - Add `:args->opts` in `parse-opts` to consume positional arguments as options
+- Renamed `:aliases` to `:alias` (with backwards compatibility)
+- Renamed `:closed` to `:restrict` (with backwards compatibility)
+- Renamed `:cmds-opts` to `args->opts` (with backwards compatibility)
 
 ## v0.3.32
 
