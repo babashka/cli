@@ -262,6 +262,8 @@
                         (cli/parse-args ["--foo" "0"] {:validate {:foo pos?}})))
   (is (thrown-with-msg? Exception #"Invalid value for option :foo:"
                         (cli/parse-args ["--foo" ":bar"] {:validate {:foo #{:baz}}})))
+  (is (thrown-with-msg? Exception #"Invalid value for option :foo:"
+                        (cli/parse-args ["--foo" ":bar"] {:spec {:foo {:validate #{:baz}}}})))
   (is (thrown-with-msg?
        Exception #"Expected positive number for option :foo but got: 0"
        (cli/parse-args
