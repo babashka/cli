@@ -168,6 +168,45 @@ options and arguments:
 {:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
 ```
 
+## Restrict
+
+Use the `:restrict` option to restrict options to only those explicitly mentioned in configuration:
+
+``` clojure
+(cli/parse-args ["--foo"] {:restrict [:bar]})
+;;=>
+Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:357).
+Unknown option: :foo
+```
+
+## Require
+
+Use the `:require` option to throw an error when an option is not present:
+
+``` clojure
+(cli/parse-args ["--foo"] {:require [:bar]})
+;;=>
+Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:363).
+Required option: :bar
+```
+
+## Validate
+
+``` clojure
+(cli/parse-args ["--foo" "0"] {:validate {:foo pos?}})
+Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:378).
+Invalid value for option :foo: 0
+```
+
+To gain more control over the error message, use `:pred` and `:ex-msg`:
+
+``` clojure
+(cli/parse-args ["--foo" "0"] {:validate {:foo {:pred pos? :ex-msg (fn [m] (str "Not a positive number: " (:value m)))}}})
+;;=>
+Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:378).
+Not a positive number: 0
+```
+
 ## Spec
 
 This library can work with partial information to parse options. As such, the
