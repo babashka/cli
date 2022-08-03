@@ -185,7 +185,8 @@ To fold positional arguments into the parsed options, you can use `:args->opts`:
 ;;=> {:url "ssh://foo", :force true}
 ```
 
-If you want to fold a variable amount of arguments, you can use `repeat`:
+If you want to fold a variable amount of arguments, you can coerce into a vector
+and specify the variable number of arguments with `repeat`:
 
 ``` clojure
 (def cli-opts {:coerce {:bar []} :args->opts (cons :foo (repeat :bar))})
