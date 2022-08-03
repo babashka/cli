@@ -141,7 +141,8 @@ it automatically tries to convert booleans, numbers and keywords.
 
 ## Arguments
 
-To parse (trailing) arguments, use `parse-args`. E.g. to parse arguments for the `git push` command:
+To parse positional arguments, you can use `parse-args` and/or the `:args->opts`
+option. E.g. to parse arguments for the `git push` command:
 
 ``` clojure
 (cli/parse-args ["--force" "ssh://foo"] {:coerce {:force :boolean}})
@@ -166,6 +167,30 @@ options and arguments:
 ``` clojure
 (cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:coerce {:paths []}})
 {:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
+```
+
+### :args->opts
+
+To fold positional arguments into the parsed options, you can use `:args->opts`:
+
+``` clojure
+(def cli-opts {:coerce {:force :boolean} :args->opts [:url]})
+
+(cli/parse-opts ["--force" "ssh://foo"] cli-opts)
+;;=> {:force true, :url "ssh://foo"}
+```
+
+``` clojure
+(cli/parse-opts ["ssh://foo" "--force"] cli-opts)
+;;=> {:url "ssh://foo", :force true}
+```
+
+If you want to fold a variable amount of arguments, you can use `repeat`:
+
+``` clojure
+(def cli-opts {:coerce {:bar []} :args->opts (cons :foo (repeat :bar))})
+(cli/parse-opts ["arg1" "arg2" "arg3" "arg4"] cli-opts)
+;;=> {:foo "arg1", :bar ["arg2" "arg3" "arg4"]}
 ```
 
 ## Restrict
