@@ -52,9 +52,9 @@
         [f args] (if fq?
                    [f args]
                    [(symbol (str ns) (first args)) (rest args)])
-        f (try (req-resolve ns f)
-               (catch Exception _ nil))
-        _ (assert f (str "Could not find var: " f))
+        f* f
+        f (req-resolve ns f)
+        _ (assert (ifn? f) (str "Could not resolve function: " f*))
         ns-opts (:org.babashka/cli (meta (find-ns ns)))
         fn-opts (:org.babashka/cli (meta f))
         exec-args (merge-opts

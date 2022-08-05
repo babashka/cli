@@ -411,7 +411,7 @@ writing extra boilerplate.
 In your `deps.edn` `:aliases` entry, add:
 
 ``` clojure
-:exec {:deps {org.babashka/cli {:mvn/version "0.3.34"}}
+:exec {:extra-deps {org.babashka/cli {:mvn/version "0.3.34"}}
        :main-opts ["-m" "babashka.cli.exec"]}
 ```
 
@@ -447,7 +447,7 @@ babashka CLI.
 An example that specializes `babashka.cli` usage to a function:
 
 ``` clojure
-:prn {:deps {org.babashka/cli {:mvn/version "0.3.34"}}
+:prn {:extra-deps {org.babashka/cli {:mvn/version "0.3.34"}}
       :main-opts ["-m" "babashka.cli.exec" "clojure.core" "prn"]}
 ```
 
@@ -459,7 +459,7 @@ $ clojure -M:prn --foo=bar --baz
 You can also pre-define the exec function in `:exec-fn`:
 
 ``` clojure
-:prn {:deps {org.babashka/cli {:mvn/version "0.3.34"}}
+:prn {:extra-deps {org.babashka/cli {:mvn/version "0.3.34"}}
       :exec-fn clojure.core/prn
       :main-opts ["-m" "babashka.cli.exec"]}
 ```
