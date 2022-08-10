@@ -235,8 +235,9 @@
   ([args opts]
    (let [spec (:spec opts)
          opts (if spec
-                (merge opts
-                       (when spec (spec->opts spec)))
+                (merge-opts
+                 opts
+                 (spec->opts spec))
                 opts)
          coerce-opts (:coerce opts)
          aliases (or

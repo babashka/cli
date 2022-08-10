@@ -65,7 +65,10 @@
     (is (submap? '{:foo [a b]
                    :skip true}
                  (cli/parse-opts ["--skip" "--foo=a" "--foo=b"]
-                                 {:coerce {:foo [:symbol]}})))))
+                                 {:coerce {:foo [:symbol]}}))))
+  (testing "merging spec + other opts"
+    (is (submap? '{:foo dude, :exec my/fn}
+                 (cli/parse-opts ["--foo" "dude" "--exec" "my/fn"] {:spec {:foo {:coerce :symbol}} :coerce {:exec :symbol}})))))
 
 (deftest restrict-test
   (testing ":restrict true w/ spec allows opts & aliases in spec"
