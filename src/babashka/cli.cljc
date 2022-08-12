@@ -217,7 +217,8 @@
   * `:alias` - a map of short names to long names.
   * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
   * `:restrict` - `true` or coll of keys. Throw on first parsed option not in set of keys or keys of `:spec` and `:coerce` combined.
-  * `:require` - a coll of options that are required
+  * `:require` - a coll of options that are required. See [require](https://github.com/babashka/cli#restrict).
+  * `:validate` - a map of validator functions. See [validate](https://github.com/babashka/cli#validate).
   * `:exec-args` - a map of default args. Will be overridden by args specified in `args`.
   * `:no-keyword-opts` - `true`. Support only `--foo`-style opts (i.e. `:foo` will not work).
   * `:args->opts` - consume unparsed commands and args as options
