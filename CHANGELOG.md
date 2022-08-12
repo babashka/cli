@@ -2,6 +2,11 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## Unreleased
+
+- Added `:error-fn` to handle errors
+- Support `:require` in specs
+
 ## v0.3.33
 
 - Added `:require` to throw on missing options
