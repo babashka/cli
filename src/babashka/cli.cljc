@@ -171,7 +171,7 @@
                          (throw (ex-info (str "Conflicting alias " alias " between " (get aliases alias) " and " k)
                                          {:alias alias})))
                        (assoc aliases alias k)))
-       require (update :require conj k)
+       require (update :require (fnil #(conj % k) #{}))
        validate (update :validate assoc k validate)
        default (update :exec-args assoc k default)))
    {}
