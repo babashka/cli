@@ -307,3 +307,36 @@
                    :validate {:foo {:pred pos?
                                     :ex-msg ex-msg-fn}}}
                   (ex-data e)))))))
+
+(deftest error-fn-test
+  (let [errors (atom #{})]
+    (cli/parse-args ["--b" "0"
+                     "--c" "nope!"
+                     "--extra" "bad!"]
+                    {:error-fn (fn [error] (swap! errors conj error))
+                     :restrict true
+                     :spec {:a {:require true}
+                            :b {:validate pos?}
+                            :c {:coerce :long}}})
+    (is (= #{{:type :org.babashka/cli
+              :cause :validate
+              :msg "Invalid value for option :b: 0"
+              :option :b
+              :value 0
+              :validate {:b pos?}}
+             {:type :org.babashka/cli
+              :cause :coerce
+              :msg "Coerce failure: cannot transform input \"nope!\" to long"
+              :option :c
+              :value "nope!"}
+             {:type :org.babashka/cli
+              :cause :restrict
+              :msg "Unknown option: :extra"
+              :option :extra
+              :restrict #{:a :b :c}}
+             {:type :org.babashka/cli
+              :cause :require
+              :msg (str "Required option: :a")
+              :require #{:a}
+              :option :a}}
+           @errors))))
