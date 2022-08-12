@@ -161,7 +161,7 @@
   "Converts spec into opts format."
   [spec]
   (reduce
-   (fn [acc [k {:keys [coerce alias default validate]}]]
+   (fn [acc [k {:keys [coerce alias default require validate]}]]
      (cond-> acc
        coerce (update :coerce assoc k coerce)
        alias (update :alias
@@ -170,6 +170,7 @@
                          (throw (ex-info (str "Conflicting alias " alias " between " (get aliases alias) " and " k)
                                          {:alias alias})))
                        (assoc aliases alias k)))
+       require (update :require conj k)
        validate (update :validate assoc k validate)
        default (update :exec-args assoc k default)))
    {}

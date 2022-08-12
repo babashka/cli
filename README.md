@@ -285,6 +285,9 @@ An explanation of each key:
 - `:alias`: mapping of short name to long name.
 - `:default`: default value.
 - `:default-desc`: a string representation of the default value.
+- `:require`: `true` make this opt required.
+- `:validate`: a function used to validate the value of this opt (as described
+  in the [Validate](#validate) section).
 
 ## Help
 
