@@ -350,7 +350,7 @@
                              [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt nil]))
                          (recur (try
                                   (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg)
-                                  (catch ExceptionInfo e
+                                  (catch #?(:clj ExceptionInfo :cljs :default) e
                                     (error-fn {:type :org.babashka/cli
                                                :cause :coerce
                                                :msg (.getMessage e)
