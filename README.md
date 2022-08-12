@@ -233,6 +233,22 @@ Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:378).
 Not a positive number: 0
 ```
 
+## Adding defaults args
+
+You can supply default args with `:exec-args`:
+
+``` clojure
+(cli/parse-args ["--foo" "0"] {:exec-args {:bar 1}})
+;;=> {:foo 0, :bar 1}
+```
+
+Note that args specified in `args` will override defaults in `:exec-args`:
+
+``` clojure
+(cli/parse-args ["--foo" "0" "--bar" "42"] {:exec-args {:bar 1}})
+;;=> {:foo 0, :bar 42}
+```
+
 ## Spec
 
 This library can work with partial information to parse options. As such, the

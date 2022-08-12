@@ -213,11 +213,13 @@
   are available under the `:org.babashka/cli` key in the metadata.
 
   Supported options:
-  * `:coerce`: a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
+  * `:coerce` - a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
   * `:alias` - a map of short names to long names.
   * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
   * `:restrict` - `true` or coll of keys. Throw on first parsed option not in set of keys or keys of `:spec` and `:coerce` combined.
-  * `:require`: a coll of options that are required
+  * `:require` - a coll of options that are required
+  * `:exec-args` - a map of default args. Will be overridden by args specified in `args`.
+  * `:no-keyword-opts` - `true`. Support only `--foo`-style opts (i.e. `:foo` will not work).
   * `:args->opts` - consume unparsed commands and args as options
 
   Examples:
