@@ -355,7 +355,9 @@
                                                :cause :coerce
                                                :msg (.getMessage e)
                                                :option current-opt
-                                               :value arg})))
+                                               :value arg})
+                                    ;; Since we've encountered an error, don't add this opt
+                                    acc))
                                 (if (and (= :keywords mode)
                                          fst-colon?)
                                   nil current-opt)
