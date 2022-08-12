@@ -352,7 +352,7 @@
                                   (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg)
                                   (catch ExceptionInfo e
                                     (error-fn {:type :org.babashka/cli
-                                               :cause :coercion-failed
+                                               :cause :coerce
                                                :msg (.getMessage e)
                                                :option current-opt
                                                :value arg})))
@@ -376,7 +376,7 @@
        (doseq [k (keys opts)]
          (when-not (contains? restrict k)
            (error-fn {:type :org.babashka/cli
-                      :cause :restricted
+                      :cause :restrict
                       :msg (str "Unknown option: " k)
                       :restrict restrict
                       :option k}))))
@@ -384,7 +384,7 @@
        (doseq [k require]
          (when-not (find opts k)
            (error-fn {:type :org.babashka/cli
-                      :cause :missing-required
+                      :cause :require
                       :msg (str "Required option: " k)
                       :require require
                       :option k}))))
@@ -402,7 +402,7 @@
                                    (fn [{:keys [option value]}]
                                      (str "Invalid value for option " option ": " value)))]
                  (error-fn {:type :org.babashka/cli
-                            :cause :validation-failed
+                            :cause :validate
                             :msg (ex-msg-fn {:option k :value v})
                             :validate validate
                             :option k

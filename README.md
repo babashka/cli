@@ -261,10 +261,10 @@ You may supply a custom error handler function with `:error-fn`. The function
 will be called with a map containing the following keys:
 - `:type` - `:org.babashka/cli` (for filtering out other types of errors).
 - `:cause` - one of:
-  - `:restricted` - a restricted option was encountered.
-  - `:missing-required` - a required option was missing.
-  - `:validation-failed` - validation failed for an option.
-  - `:coercion-failed` - coercion failed for an option.
+  - `:restrict` - a restricted option was encountered.
+  - `:require` - a required option was missing.
+  - `:validate` - validation failed for an option.
+  - `:coerce` - coercion failed for an option.
 - `:msg` - default error message.
 - `:option` - the option being parsed when the error occurred.
 
