@@ -4,7 +4,8 @@
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    [babashka.cli.internal :as internal]
-   [clojure.string :as str]))
+   [clojure.string :as str])
+  #?(:clj (:import (clojure.lang ExceptionInfo))))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -257,6 +258,9 @@
                     (some-> spec keys (concat (keys coerce-opts)) set)
                     (some-> restrict set))
          validate (:validate opts)
+         error-fn (or (:error-fn opts)
+                      (fn [{:keys [msg] :as data}]
+                        (throw (ex-info msg data))))
          {:keys [cmds args]} (parse-cmds args)
          {new-args :args
           a->o :args->opts}
@@ -344,7 +348,14 @@
                            (if new-args?
                              (recur acc current-opt added mode new-args a->o)
                              [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt nil]))
-                         (recur (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg)
+                         (recur (try
+                                  (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg)
+                                  (catch ExceptionInfo e
+                                    (error-fn {:type :org.babashka/cli
+                                               :cause :coercion-failed
+                                               :msg (.getMessage e)
+                                               :option current-opt
+                                               :value arg})))
                                 (if (and (= :keywords mode)
                                          fst-colon?)
                                   nil current-opt)
@@ -364,14 +375,19 @@
      (when restrict
        (doseq [k (keys opts)]
          (when-not (contains? restrict k)
-           (throw (ex-info (str "Unknown option: " k)
-                           {:restrict restrict
-                            :option k})))))
+           (error-fn {:type :org.babashka/cli
+                      :cause :restricted
+                      :msg (str "Unknown option: " k)
+                      :restrict restrict
+                      :option k}))))
      (when require
        (doseq [k require]
          (when-not (find opts k)
-           (throw (ex-info (str "Required option: " k) {:require require
-                                                        :option k})))))
+           (error-fn {:type :org.babashka/cli
+                      :cause :missing-required
+                      :msg (str "Required option: " k)
+                      :require require
+                      :option k}))))
      (when validate
        (doseq [[k vf] validate]
          (let [f (or (and
@@ -385,10 +401,12 @@
                (let [ex-msg-fn (or (:ex-msg vf)
                                    (fn [{:keys [option value]}]
                                      (str "Invalid value for option " option ": " value)))]
-                 (throw (ex-info (ex-msg-fn {:option k :value v})
-                                 {:validate validate
-                                  :option k
-                                  :value v}))))))))
+                 (error-fn {:type :org.babashka/cli
+                            :cause :validation-failed
+                            :msg (ex-msg-fn {:option k :value v})
+                            :validate validate
+                            :option k
+                            :value v})))))))
      opts)))
 
 (defn parse-args
