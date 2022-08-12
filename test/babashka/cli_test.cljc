@@ -51,11 +51,13 @@
   (is (submap? '{:boo 1 :foo true}
                (cli/parse-opts ["--boo=1" "--foo"]
                                {:coerce {:boo edn/read-string}})))
-  (is (try (cli/parse-opts [":b" "dude"] {:coerce {:b :long}})
-           false
-           (catch #?(:clj Exception
-                     :cljs :default) e
-             (= {:input "dude", :coerce-fn :long} (ex-data e)))))
+  (try (cli/parse-opts [":b" "dude"] {:coerce {:b :long}})
+       false
+       (catch #?(:clj Exception
+                 :cljs :default) e
+         (is (submap?
+              {:type :org.babashka/cli, :cause :coercion-failed, :msg "Coerce failure: cannot transform input \"dude\" to long", :option :b, :value "dude"}
+              (ex-data e)))))
   (is (submap? {:a [1 1]}
                (cli/parse-opts ["-a" "1" "-a" "1"] {:collect {:a []} :coerce {:a :long}})))
   (is (submap? {:foo :bar
