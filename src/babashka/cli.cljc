@@ -353,7 +353,7 @@
                                   (catch #?(:clj ExceptionInfo :cljs :default) e
                                     (error-fn {:type :org.babashka/cli
                                                :cause :coerce
-                                               :msg (.getMessage e)
+                                               :msg (ex-message e)
                                                :option current-opt
                                                :value arg})
                                     ;; Since we've encountered an error, don't add this opt
