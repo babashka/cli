@@ -269,17 +269,17 @@ will be called with a map containing the following keys:
 - `:option` - the option being parsed when the error occurred.
 
 The following keys are present depending on which error type was encountered:
-- `:type :restricted`
+- `:cause :restrict`
   - `:restrict` - the value of the `:restrict` opt to `parse-args` (see the
     [Restrict](#restrict) section).
-- `:type :missing-required`
+- `:cause :require`
   - `:require` - the value of the `:require` opt to `parse-args` (see the
     [Require](#require) section).
-- `:type :validation-failed`
+- `:cause :validate`
   - `:value` - the value of the option that failed validation.
   - `:validate` - the value of the `:validate` opt to `parse-args` (see the
     [Validate](#validate) section).
-- `:type :coercion-failed`
+- `:cause :coerce`
   - `:value` - the value of the option that failed coercion.
   - `:coerce-fn` - the coercion function used.
 
