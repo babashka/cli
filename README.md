@@ -268,7 +268,7 @@ will be called with a map containing the following keys:
 - `:msg` - default error message.
 - `:option` - the option being parsed when the error occurred.
 
-The following keys are present depending on which error type was encountered:
+The following keys are present depending on `:cause`:
 - `:cause :restrict`
   - `:restrict` - the value of the `:restrict` opt to `parse-args` (see the
     [Restrict](#restrict) section).
