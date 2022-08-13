@@ -233,7 +233,7 @@ Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:378).
 Not a positive number: 0
 ```
 
-## Adding defaults args
+## Adding default args
 
 You can supply default args with `:exec-args`:
 
@@ -247,6 +247,72 @@ Note that args specified in `args` will override defaults in `:exec-args`:
 ``` clojure
 (cli/parse-args ["--foo" "0" "--bar" "42"] {:exec-args {:bar 1}})
 ;;=> {:foo 0, :bar 42}
+```
+
+## Error handling
+
+By default, an exception will be thrown in the following situations:
+- A restricted option is encountered
+- A required option is missing
+- Validation fails for an option
+- Coercion fails for an option
+
+You may supply a custom error handler function with `:error-fn`. The function
+will be called with a map containing the following keys:
+- `:type` - `:org.babashka/cli` (for filtering out other types of errors).
+- `:cause` - one of:
+  - `:restrict` - a restricted option was encountered.
+  - `:require` - a required option was missing.
+  - `:validate` - validation failed for an option.
+  - `:coerce` - coercion failed for an option.
+- `:msg` - default error message.
+- `:option` - the option being parsed when the error occurred.
+
+The following keys are present depending on which error type was encountered:
+- `:type :restricted`
+  - `:restrict` - the value of the `:restrict` opt to `parse-args` (see the
+    [Restrict](#restrict) section).
+- `:type :missing-required`
+  - `:require` - the value of the `:require` opt to `parse-args` (see the
+    [Require](#require) section).
+- `:type :validation-failed`
+  - `:value` - the value of the option that failed validation.
+  - `:validate` - the value of the `:validate` opt to `parse-args` (see the
+    [Validate](#validate) section).
+- `:type :coercion-failed`
+  - `:value` - the value of the option that failed coercion.
+  - `:coerce-fn` - the coercion function used.
+
+It is recommended to either throw an exception or otherwise exit in the error
+handler function, unless you want to collect all of the errors and act on them
+in the end (see `babashka.cli-test/error-fn-test` for an example of this).
+
+For example:
+
+``` clojure
+(cli/parse-opts
+ []
+ (let [spec {:foo {:desc "You know what this is."
+             :ref "<val>"}}]
+   {:spec spec
+    :error-fn
+    (fn [{:keys [type cause msg option] :as data}]
+      (if (= :org.babashka/cli type)
+        (case cause
+          :missing-required
+          (println
+           (format "Missing required argument:\n%s"
+                   (cli/format-opts {:spec (select-keys spec [option])})))
+          (println msg))
+        (throw (ex-info msg data)))
+      (System/exit 1))}))
+```
+
+would print:
+
+```
+Missing required argument:
+  --foo <val> You know what this is.
 ```
 
 ## Spec
@@ -285,6 +351,9 @@ An explanation of each key:
 - `:alias`: mapping of short name to long name.
 - `:default`: default value.
 - `:default-desc`: a string representation of the default value.
+- `:require`: `true` make this opt required.
+- `:validate`: a function used to validate the value of this opt (as described
+  in the [Validate](#validate) section).
 
 ## Help
 

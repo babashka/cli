@@ -55,7 +55,12 @@
            false
            (catch #?(:clj Exception
                      :cljs :default) e
-             (= {:input "dude", :coerce-fn :long} (ex-data e)))))
+             (= {:type :org.babashka/cli
+                 :cause :coerce
+                 :msg "Coerce failure: cannot transform input \"dude\" to long"
+                 :option :b
+                 :value "dude"}
+                (ex-data e)))))
   (is (submap? {:a [1 1]}
                (cli/parse-opts ["-a" "1" "-a" "1"] {:collect {:a []} :coerce {:a :long}})))
   (is (submap? {:foo :bar
@@ -75,11 +80,19 @@
     (is (= {:foo "bar" :baz true}
            (cli/parse-opts ["--foo=bar" "-b"] {:spec   {:foo {} :baz {:alias :b}}
                                                :restrict true}))))
-  (testing ":closed true w/ spec throws w/ opt that is not a key nor alias in spec"
-    (is (thrown-with-msg? #?(:clj Exception :cljs :default) #"Unknown option: :b"
-                          (cli/parse-opts ["--foo=bar" "-b"]
-                                          {:spec   {:foo {}}
-                                           :restrict true}))))
+  (testing ":restrict true w/ spec throws w/ opt that is not a key nor alias in spec"
+    (is (try (cli/parse-opts ["--foo=bar" "-b"]
+                             {:spec   {:foo {}}
+                              :restrict true})
+             false
+             (catch #?(:clj Exception
+                       :cljs :default) e
+               (= {:type :org.babashka/cli
+                   :cause :restrict
+                   :msg "Unknown option: :b"
+                   :option :b
+                   :restrict #{:foo}}
+                  (ex-data e))))))
   (testing ":closed #{:foo} w/ only --foo in opts is allowed"
     (is (= {:foo "bar"} (cli/parse-opts ["--foo=bar"]
                                         {:closed #{:foo}}))))
@@ -87,9 +100,17 @@
     (is (= {:bar true} (cli/parse-opts ["--bar"]
                                        {:closed #{:foo :bar}}))))
   (testing ":closed #{:foo} w/ --foo & --bar in opts throws exception"
-    (is (thrown-with-msg? #?(:clj Exception :cljs :default) #"Unknown option: :bar"
-                          (cli/parse-opts ["--foo" "--bar"]
-                                          {:closed #{:foo}}))))
+    (is (try (cli/parse-opts ["--foo" "--bar"]
+                             {:closed #{:foo}})
+             false
+             (catch #?(:clj Exception
+                       :cljs :default) e
+               (= {:type :org.babashka/cli
+                   :cause :restrict
+                   :msg "Unknown option: :bar"
+                   :option :bar
+                   :restrict #{:foo}}
+                  (ex-data e))))))
   (testing ":closed true w/ :aliases {:f :foo} w/ only -f in opts is allowed"
     (is (= {:foo true} (cli/parse-opts ["-f"]
                                        {:aliases {:f :foo}
@@ -267,13 +288,55 @@
                         (cli/parse-args ["--foo" ":bar"] {:validate {:foo #{:baz}}})))
   (is (thrown-with-msg? Exception #"Invalid value for option :foo:"
                         (cli/parse-args ["--foo" ":bar"] {:spec {:foo {:validate #{:baz}}}})))
-  (is (thrown-with-msg?
-       Exception #"Expected positive number for option :foo but got: 0"
-       (cli/parse-args
-        ["--foo" "0"]
-        {:validate {:foo {:pred pos?
-                          :ex-msg
-                          (fn
-                            [{:keys [option value]}]
-                            (str "Expected positive number for option "
-                                 option " but got: " value))}}}))))
+  (let [ex-msg-fn (fn
+                    [{:keys [option value]}]
+                    (str "Expected positive number for option "
+                         option " but got: " value))]
+    (is (try (cli/parse-args
+              ["--foo" "0"]
+              {:validate {:foo {:pred pos?
+                                :ex-msg ex-msg-fn}}})
+             false
+             (catch #?(:clj Exception
+                       :cljs :default) e
+               (= {:type :org.babashka/cli
+                   :cause :validate
+                   :msg "Expected positive number for option :foo but got: 0"
+                   :option :foo
+                   :value 0
+                   :validate {:foo {:pred pos?
+                                    :ex-msg ex-msg-fn}}}
+                  (ex-data e)))))))
+
+(deftest error-fn-test
+  (let [errors (atom #{})]
+    (cli/parse-args ["--b" "0"
+                     "--c" "nope!"
+                     "--extra" "bad!"]
+                    {:error-fn (fn [error] (swap! errors conj error))
+                     :restrict true
+                     :spec {:a {:require true}
+                            :b {:validate pos?}
+                            :c {:coerce :long}}})
+    (is (= #{{:type :org.babashka/cli
+              :cause :validate
+              :msg "Invalid value for option :b: 0"
+              :option :b
+              :value 0
+              :validate {:b pos?}}
+             {:type :org.babashka/cli
+              :cause :coerce
+              :msg "Coerce failure: cannot transform input \"nope!\" to long"
+              :option :c
+              :value "nope!"}
+             {:type :org.babashka/cli
+              :cause :restrict
+              :msg "Unknown option: :extra"
+              :option :extra
+              :restrict #{:a :b :c}}
+             {:type :org.babashka/cli
+              :cause :require
+              :msg (str "Required option: :a")
+              :require #{:a}
+              :option :a}}
+           @errors))))
