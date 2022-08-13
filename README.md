@@ -281,7 +281,6 @@ The following keys are present depending on `:cause`:
     [Validate](#validate) section).
 - `:cause :coerce`
   - `:value` - the value of the option that failed coercion.
-  - `:coerce-fn` - the coercion function used.
 
 It is recommended to either throw an exception or otherwise exit in the error
 handler function, unless you want to collect all of the errors and act on them
