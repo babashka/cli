@@ -2,10 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
-## Unreleased
+## v0.3.35
 
 - Added `:error-fn` to handle errors
-- Support `:require` in specs
+- Merge `:spec` options with additional "terse" options
 
 ## v0.3.33
 
