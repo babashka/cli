@@ -298,7 +298,7 @@ For example:
     (fn [{:keys [type cause msg option] :as data}]
       (if (= :org.babashka/cli type)
         (case cause
-          :missing-required
+          :require
           (println
            (format "Missing required argument:\n%s"
                    (cli/format-opts {:spec (select-keys spec [option])})))
