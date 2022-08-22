@@ -59,7 +59,8 @@
                  :cause :coerce
                  :msg "Coerce failure: cannot transform input \"dude\" to long"
                  :option :b
-                 :value "dude"}
+                 :value "dude"
+                 :spec nil}
                 (ex-data e)))))
   (is (submap? {:a [1 1]}
                (cli/parse-opts ["-a" "1" "-a" "1"] {:collect {:a []} :coerce {:a :long}})))
@@ -91,7 +92,8 @@
                    :cause :restrict
                    :msg "Unknown option: :b"
                    :option :b
-                   :restrict #{:foo}}
+                   :restrict #{:foo}
+                   :spec {:foo {}}}
                   (ex-data e))))))
   (testing ":closed #{:foo} w/ only --foo in opts is allowed"
     (is (= {:foo "bar"} (cli/parse-opts ["--foo=bar"]
@@ -109,7 +111,8 @@
                    :cause :restrict
                    :msg "Unknown option: :bar"
                    :option :bar
-                   :restrict #{:foo}}
+                   :restrict #{:foo}
+                   :spec nil}
                   (ex-data e))))))
   (testing ":closed true w/ :aliases {:f :foo} w/ only -f in opts is allowed"
     (is (= {:foo true} (cli/parse-opts ["-f"]
@@ -303,40 +306,46 @@
                    :cause :validate
                    :msg "Expected positive number for option :foo but got: 0"
                    :option :foo
+                   :spec nil
                    :value 0
                    :validate {:foo {:pred pos?
                                     :ex-msg ex-msg-fn}}}
                   (ex-data e)))))))
 
 (deftest error-fn-test
-  (let [errors (atom #{})]
+  (let [errors (atom #{})
+        spec {:a {:require true}
+              :b {:validate pos?}
+              :c {:coerce :long}}]
     (cli/parse-args ["--b" "0"
                      "--c" "nope!"
                      "--extra" "bad!"]
                     {:error-fn (fn [error] (swap! errors conj error))
                      :restrict true
-                     :spec {:a {:require true}
-                            :b {:validate pos?}
-                            :c {:coerce :long}}})
+                     :spec spec})
     (is (= #{{:type :org.babashka/cli
               :cause :validate
               :msg "Invalid value for option :b: 0"
               :option :b
               :value 0
-              :validate {:b pos?}}
+              :validate {:b pos?}
+              :spec spec}
              {:type :org.babashka/cli
               :cause :coerce
               :msg "Coerce failure: cannot transform input \"nope!\" to long"
               :option :c
-              :value "nope!"}
+              :value "nope!"
+              :spec spec}
              {:type :org.babashka/cli
               :cause :restrict
               :msg "Unknown option: :extra"
               :option :extra
-              :restrict #{:a :b :c}}
+              :restrict #{:a :b :c}
+              :spec spec}
              {:type :org.babashka/cli
               :cause :require
               :msg (str "Required option: :a")
               :require #{:a}
-              :option :a}}
+              :option :a
+              :spec spec}}
            @errors))))
