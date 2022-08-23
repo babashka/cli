@@ -258,9 +258,13 @@
                     (some-> spec keys (concat (keys coerce-opts)) set)
                     (some-> restrict set))
          validate (:validate opts)
-         error-fn (or (:error-fn opts)
-                      (fn [{:keys [msg] :as data}]
-                        (throw (ex-info msg data))))
+         error-fn* (or (:error-fn opts)
+                       (fn [{:keys [msg] :as data}]
+                         (throw (ex-info msg data))))
+         error-fn (fn [data]
+                    (-> {:spec spec :type :org.babashka/cli}
+                        (merge data)
+                        error-fn*))
          {:keys [cmds args]} (parse-cmds args)
          {new-args :args
           a->o :args->opts}
@@ -351,8 +355,7 @@
                          (recur (try
                                   (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg)
                                   (catch #?(:clj ExceptionInfo :cljs :default) e
-                                    (error-fn {:type :org.babashka/cli
-                                               :cause :coerce
+                                    (error-fn {:cause :coerce
                                                :msg #?(:clj (.getMessage e)
                                                        :cljs (ex-message e))
                                                :option current-opt
@@ -378,16 +381,14 @@
      (when restrict
        (doseq [k (keys opts)]
          (when-not (contains? restrict k)
-           (error-fn {:type :org.babashka/cli
-                      :cause :restrict
+           (error-fn {:cause :restrict
                       :msg (str "Unknown option: " k)
                       :restrict restrict
                       :option k}))))
      (when require
        (doseq [k require]
          (when-not (find opts k)
-           (error-fn {:type :org.babashka/cli
-                      :cause :require
+           (error-fn {:cause :require
                       :msg (str "Required option: " k)
                       :require require
                       :option k}))))
@@ -404,8 +405,7 @@
                (let [ex-msg-fn (or (:ex-msg vf)
                                    (fn [{:keys [option value]}]
                                      (str "Invalid value for option " option ": " value)))]
-                 (error-fn {:type :org.babashka/cli
-                            :cause :validate
+                 (error-fn {:cause :validate
                             :msg (ex-msg-fn {:option k :value v})
                             :validate validate
                             :option k

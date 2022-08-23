@@ -267,6 +267,7 @@ will be called with a map containing the following keys:
   - `:coerce` - coercion failed for an option.
 - `:msg` - default error message.
 - `:option` - the option being parsed when the error occurred.
+- `:spec` - the spec passed into `parse-opts` (see the [Spec](#spec) section).
 
 The following keys are present depending on `:cause`:
 - `:cause :restrict`
@@ -291,20 +292,19 @@ For example:
 ``` clojure
 (cli/parse-opts
  []
- (let [spec {:foo {:desc "You know what this is."
-             :ref "<val>"}}]
-   {:spec spec
-    :error-fn
-    (fn [{:keys [type cause msg option] :as data}]
-      (if (= :org.babashka/cli type)
-        (case cause
-          :require
-          (println
-           (format "Missing required argument:\n%s"
-                   (cli/format-opts {:spec (select-keys spec [option])})))
-          (println msg))
-        (throw (ex-info msg data)))
-      (System/exit 1))}))
+ {:spec {:foo {:desc "You know what this is."
+         :ref "<val>"}}
+  :error-fn
+  (fn [{:keys [spec type cause msg option] :as data}]
+    (if (= :org.babashka/cli type)
+      (case cause
+        :require
+        (println
+         (format "Missing required argument:\n%s"
+                 (cli/format-opts {:spec (select-keys spec [option])})))
+        (println msg))
+      (throw (ex-info msg data)))
+    (System/exit 1))})
 ```
 
 would print:
