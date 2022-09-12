@@ -459,26 +459,12 @@ Additional `parse-arg` options may be passed in each table entry:
 
 ## Babashka tasks
 
-For documentation on babashka tasks, go [here](https://book.babashka.org/#tasks).
+For documentation on babashka tasks, go
+[here](https://book.babashka.org/#tasks).
 
-To parse options to your tasks, add `[babashka.cli :as cli]` to
-`:requires`. Then you can parse the options in `:init`:
-
-``` clojure
-:init (def cmd-line-opts (cli/parse-opts *command-line-args*)))
-```
-and then use this in any task:
-
-``` clojure
-(when-not (:skip-bump cmd-line-opts)
-  (run 'bump-release))
-```
-
-and your tasks can then be called with options:
-
-``` clojure
-$ bb publish --skip-bump
-```
+Since babashka `0.9.160`, `babashka.cli` has become a built-in and has better
+integration through `-x` and `exec`.  Read about that in the [babashka
+book](https://book.babashka.org/#_babashka_cli).
 
 ## Clojure CLI
 
