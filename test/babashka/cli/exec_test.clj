@@ -3,6 +3,7 @@
   (:require
    [babashka.cli-test :refer [submap?]]
    [babashka.cli.exec :refer [-main]]
+   [babashka.fs :as fs]
    [clojure.edn :as edn]
    [clojure.test :refer [deftest is]]))
 
@@ -44,4 +45,13 @@
                          '{:resolve-args {:org.babashka/cli {:coerce {:a :long}}
                                           :ns-default babashka.cli.exec-test
                                           :exec-fn foo}}]
-                 (-main ":a" "1" ":b" "2")))))
+                 (-main ":a" "1" ":b" "2"))))
+  (let [basis "{:resolve-args {:org.babashka/cli {:coerce {:a :long}}
+                               :ns-default babashka.cli.exec-test
+                               :exec-fn foo
+                               :env #env \"FOO\"}}"
+        basis-file (fs/file (fs/temp-dir) "basis.txt")]
+    (spit basis-file basis)
+    (System/setProperty "clojure.basis" (str  basis-file))
+    (is (submap? {:foo :bar, :a 123}
+                 (-main "--a" "123")))))

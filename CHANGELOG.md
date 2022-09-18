@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.4.36
+
+- Be tolerant of tags in `clojure.basis`
+
 ## v0.3.35
 
 - Added `:error-fn` to handle errors

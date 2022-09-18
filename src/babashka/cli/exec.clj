@@ -27,9 +27,9 @@
   ;;=> {:a \"1\" :b \"2\"}
   ```"
   [& args]
-  (let [basis (or *basis* (some-> (System/getProperty "clojure.basis")
-                                  slurp
-                                  edn/read-string))
+  (let [basis (or *basis* (some->> (System/getProperty "clojure.basis")
+                                   slurp
+                                   (edn/read-string {:default tagged-literal})))
         resolve-args (:resolve-args basis)
         exec-fn (:exec-fn resolve-args)
         ns-default (:ns-default resolve-args)
