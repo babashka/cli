@@ -67,6 +67,8 @@
   (is (submap? {:foo :bar
                 :skip true}
                (cli/parse-opts ["--skip"] {:exec-args {:foo :bar}})))
+  (is (submap? {:help true}
+               (cli/parse-opts ["--help"] {:exec-args {:help false}})))
   (testing "shorthands"
     (is (submap? '{:foo [a b]
                    :skip true}

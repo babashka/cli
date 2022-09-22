@@ -140,14 +140,14 @@
 
 (defn- process-previous [acc current-opt added collect-fn]
   (if (not= current-opt added)
-    (update acc current-opt (fn [curr-val]
-                              (if (nil? curr-val)
-                                (if collect-fn
-                                  (collect-fn curr-val true)
-                                  true)
-                                (if collect-fn
-                                  (collect-fn curr-val true)
-                                  curr-val))))
+    (if-let [[_ curr-val] (find acc current-opt)]
+      (assoc acc current-opt (if collect-fn
+                                (collect-fn curr-val true)
+                                true))
+      (assoc acc current-opt
+             (if collect-fn
+               (collect-fn nil true)
+               true)))
     acc))
 
 (defn- add-val [acc current-opt collect-fn coerce-fn arg]
@@ -284,6 +284,7 @@
                 mode (when no-keyword-opts :hyphens)
                 args (seq args)
                 a->o a->o]
+           ;;(prn :acc acc current-opt added)
            (if-not args
              [acc current-opt added]
              (let [^String arg (first args)
@@ -351,7 +352,7 @@
                                new-args? (not= args new-args)]
                            (if new-args?
                              (recur acc current-opt added mode new-args a->o)
-                             [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt nil]))
+                             [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt added]))
                          (recur (try
                                   (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg)
                                   (catch #?(:clj ExceptionInfo :cljs :default) e
@@ -372,6 +373,7 @@
                                 (next args)
                                 a->o)))))))))
          collect-fn (coerce-collect-fn collect last-opt (get coerce last-opt))
+         ;;_ (prn :last-opt last-opt added)
          opts (-> (process-previous opts last-opt added collect-fn)
                   (cond->
                       (seq cmds)
