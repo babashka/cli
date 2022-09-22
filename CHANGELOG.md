@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.4.37
+
+-  [#39](https://github.com/babashka/cli/issues/39): handle `:exec-args` with `false` default
+
 ## v0.4.36
 
 - Be tolerant of tags in `clojure.basis`
