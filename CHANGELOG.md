@@ -12,7 +12,7 @@ For breaking changes, check [here](#breaking-changes).
 
 ## v0.3.35
 
-- Added `:error-fn` to handle errors
+- Added `:error-fn` to handle errors ([@jmglov](https://github.com/jmglov))
 - Merge `:spec` options with additional "terse" options
 
 ## v0.3.33
