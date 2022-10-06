@@ -372,7 +372,7 @@
                                 mode
                                 (next args)
                                 a->o)))))))))
-         collect-fn (coerce-collect-fn collect last-opt (get coerce last-opt))
+         collect-fn (coerce-collect-fn collect last-opt (get coerce-opts last-opt))
          ;;_ (prn :last-opt last-opt added)
          opts (-> (process-previous opts last-opt added collect-fn)
                   (cond->

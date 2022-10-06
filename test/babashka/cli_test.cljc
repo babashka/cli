@@ -133,9 +133,12 @@
                (cli/parse-opts [":paths" "src" "test"] {:collect {:paths #{}}})))
   (is (submap? {:paths #{"src" "test"}}
                (cli/parse-opts [":paths" "src" "test"] {:coerce {:paths #{}}})))
+  (is (submap? {:verbose [true]}
+               (cli/parse-opts ["-v"] {:aliases {:v :verbose}
+                                       :coerce {:verbose []}})))
   (is (submap? {:verbose [true true true]}
                (cli/parse-opts ["-v" "-v" "-v"] {:aliases {:v :verbose}
-                                                 :collect {:verbose []}}))))
+                                                 :coerce {:verbose []}}))))
 
 (deftest spec-test
   (let [spec {:from {:ref "<format>"
