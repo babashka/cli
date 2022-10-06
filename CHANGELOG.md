@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.4.38
+
+- [#46](https://github.com/babashka/cli/issues/46): fix trailing boolean option coercion
+
 ## v0.4.37
 
 -  [#39](https://github.com/babashka/cli/issues/39): handle `:exec-args` with `false` default
