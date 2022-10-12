@@ -67,4 +67,10 @@
                 (with-out-str (binding [babashka.cli.exec/*basis*
                                         '{:resolve-args {:ns-default clojure.pprint
                                                          :exec-fn foo}}]
-                                (main "pprint" ":a" "1" ":b" "2")))))))
+                                (main "pprint" ":a" "1" ":b" "2"))))))
+  (is (:exec (:org.babashka/cli
+              (meta (binding [babashka.cli.exec/*basis*
+                              '{:resolve-args {:org.babashka/cli {:coerce {:a :long}}
+                                               :ns-default babashka.cli.exec-test
+                                               :exec-fn foo}}]
+                      (main ":a" "1" ":b" "2")))))))

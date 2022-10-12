@@ -61,7 +61,7 @@
 
 (defn main [& args]
   (let [[f opts] (parse-exec-opts args)]
-    (f opts)))
+    (f (vary-meta opts assoc-in [:org.babashka/cli :exec] true))))
 
 (defn -main
   "Main entrypoint for command line usage.
