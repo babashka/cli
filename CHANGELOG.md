@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.5.40
+
+- Add `:org.babashka/cli {:exec true}` to arg map when invoking functions with `babashka.cli.exec`.
+
 ## v0.4.39
 
 - [#48](https://github.com/babashka/cli/issues/48): allow overriding `:exec-fn` on command line
