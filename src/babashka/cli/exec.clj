@@ -12,7 +12,7 @@
   (if (resolve 'clojure.core/requiring-resolve)
     ;; in bb, requiring-resolve must be used in function position currently
     `(clojure.core/requiring-resolve ~f)
-    `(do (require ~(symbol (namespace f)))
+    `(do (require (symbol (namespace ~f)))
          (resolve ~f))))
 
 (defn- resolve-exec-fn [ns-default exec-fn]
