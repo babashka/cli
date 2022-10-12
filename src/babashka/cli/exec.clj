@@ -8,11 +8,11 @@
 #_:clj-kondo/ignore
 (def ^:private ^:dynamic *basis* "For testing" nil)
 
-(defmacro ^:private req-resolve [ns f]
+(defmacro ^:private req-resolve [f]
   (if (resolve 'clojure.core/requiring-resolve)
     ;; in bb, requiring-resolve must be used in function position currently
     `(clojure.core/requiring-resolve ~f)
-    `(do (require ~ns)
+    `(do (require ~(symbol (namespace f)))
          (resolve ~f))))
 
 (defn- resolve-exec-fn [ns-default exec-fn]
@@ -44,7 +44,7 @@
                   (symbol f)
                   (resolve-exec-fn (symbol ns-default) (symbol f)))))
         f* f
-        f (req-resolve ns f)
+        f (req-resolve f)
         _ (assert (ifn? f) (str "Could not resolve function: " f*))
         ns-opts (:org.babashka/cli (meta (:ns (meta f))))
         fn-opts (:org.babashka/cli (meta f))
