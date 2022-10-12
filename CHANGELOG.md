@@ -4,7 +4,8 @@ For breaking changes, check [here](#breaking-changes).
 
 ## v0.5.40
 
-- Add `:org.babashka/cli {:exec true}` to arg map when invoking functions with `babashka.cli.exec`.
+- Add `:org.babashka/cli {:exec true}` to arg map's metadata when invoking
+  functions with `babashka.cli.exec`.
 
 ## v0.4.39
 
