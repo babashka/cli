@@ -2,7 +2,7 @@
   {:org.babashka/cli {:exec-args {:foo :bar}}}
   (:require
    [babashka.cli-test :refer [submap?]]
-   [babashka.cli.exec :refer [-main]]
+   [babashka.cli.exec :refer [main]]
    [babashka.fs :as fs]
    [clojure.edn :as edn]
    [clojure.test :refer [deftest is]]))
@@ -16,36 +16,36 @@
 
 (deftest parse-opts-test
   (System/clearProperty "clojure.basis") ;; this needed to clear the test runner basis
-  (is (submap? {:foo :bar :b 1} (-main "babashka.cli.exec-test/foo" ":b" "1")))
-  (is (submap? {:a 1 :b 2} (-main "babashka.cli.exec-test/foo" ":a" "1" ":b" "2")))
-  (is (submap? {:b 1} (-main "babashka.cli.exec-test" "foo" ":b" "1")))
-  (is (submap? {:a 1 :b 2} (-main "babashka.cli.exec-test" "foo" ":a" "1" ":b" "2")))
-  (is (submap? {:a 1 :b 2} (-main
+  (is (submap? {:foo :bar :b 1} (main "babashka.cli.exec-test/foo" ":b" "1")))
+  (is (submap? {:a 1 :b 2} (main "babashka.cli.exec-test/foo" ":a" "1" ":b" "2")))
+  (is (submap? {:b 1} (main "babashka.cli.exec-test" "foo" ":b" "1")))
+  (is (submap? {:a 1 :b 2} (main "babashka.cli.exec-test" "foo" ":a" "1" ":b" "2")))
+  (is (submap? {:a 1 :b 2} (main
                             "{:coerce {:a :long}}"
                             "babashka.cli.exec-test" "foo" ":a" "1" ":b" "2")))
   (is (submap? {:a 1 :b 2} (binding [babashka.cli.exec/*basis* '{:resolve-args {:exec-fn babashka.cli.exec-test/foo}}]
-                             (-main
+                             (main
                               "{:coerce {:a :long}}" ":a" "1" ":b" "2"))))
   (is (submap? {:a 1 :b 2} (binding [babashka.cli.exec/*basis* '{:resolve-args {:exec-fn babashka.cli.exec-test/foo}}]
-                             (-main
+                             (main
                               ":a" "1" ":b" "2"))))
   (is (submap? {:a 1 :b 2}
                (binding [babashka.cli.exec/*basis* '{:resolve-args {:org.babashka/cli {:coerce {:a :long}}
                                                                     :exec-fn babashka.cli.exec-test/foo}}]
-                 (-main
+                 (main
                   ":a" "1" ":b" "2"))))
   (is (submap? {:a 1 :b 2}
                (binding [babashka.cli.exec/*basis*
                          '{:resolve-args {:org.babashka/cli {:coerce {:a :long}}
                                           :ns-default babashka.cli.exec-test}}]
-                 (-main
+                 (main
                   "foo" ":a" "1" ":b" "2"))))
   (is (submap? {:a 1 :b 2}
                (binding [babashka.cli.exec/*basis*
                          '{:resolve-args {:org.babashka/cli {:coerce {:a :long}}
                                           :ns-default babashka.cli.exec-test
                                           :exec-fn foo}}]
-                 (-main ":a" "1" ":b" "2"))))
+                 (main ":a" "1" ":b" "2"))))
   (let [basis "{:resolve-args {:org.babashka/cli {:coerce {:a :long}}
                                :ns-default babashka.cli.exec-test
                                :exec-fn foo
@@ -54,4 +54,17 @@
     (spit basis-file basis)
     (System/setProperty "clojure.basis" (str  basis-file))
     (is (submap? {:foo :bar, :a 123}
-                 (-main "--a" "123")))))
+                 (main "--a" "123"))))
+  (is (submap? {:a 1 :b 2}
+               (edn/read-string
+                (with-out-str (binding [babashka.cli.exec/*basis*
+                                        '{:resolve-args {:org.babashka/cli {:coerce {:a :long}}
+                                                         :ns-default babashka.cli.exec-test
+                                                         :exec-fn foo}}]
+                                (main "clojure.core/prn" ":a" "1" ":b" "2"))))))
+  (is (submap? {:a 1 :b 2}
+               (edn/read-string
+                (with-out-str (binding [babashka.cli.exec/*basis*
+                                        '{:resolve-args {:ns-default clojure.pprint
+                                                         :exec-fn foo}}]
+                                (main "pprint" ":a" "1" ":b" "2")))))))

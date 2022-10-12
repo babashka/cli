@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## v0.4.39
+
+- [#48](https://github.com/babashka/cli/issues/48): allow overriding `:exec-fn` on command line
+
 ## v0.4.38
 
 - [#46](https://github.com/babashka/cli/issues/46): fix trailing boolean option coercion

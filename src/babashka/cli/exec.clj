@@ -2,7 +2,8 @@
   (:require
    [babashka.cli :refer [coerce parse-opts merge-opts]]
    [clojure.edn :as edn]
-   [clojure.string :as str]))
+   [clojure.string :as str]
+   [babashka.cli :as cli]))
 
 #_:clj-kondo/ignore
 (def ^:private ^:dynamic *basis* "For testing" nil)
@@ -13,6 +14,54 @@
     `(clojure.core/requiring-resolve ~f)
     `(do (require ~ns)
          (resolve ~f))))
+
+(defn- resolve-exec-fn [ns-default exec-fn]
+  (if (simple-symbol? exec-fn)
+    (symbol (str ns-default) (str exec-fn))
+    exec-fn))
+
+(defn- parse-exec-opts [args]
+  (let [basis (or *basis* (some->> (System/getProperty "clojure.basis")
+                                   slurp
+                                   (edn/read-string {:default tagged-literal})))
+        resolve-args (:resolve-args basis)
+        exec-fn (:exec-fn resolve-args)
+        ns-default (:ns-default resolve-args)
+        {:keys [cmds args]} (cli/parse-cmds args)
+        [f & cmds] cmds
+        [cli-opts cmds] (cond (not f) nil
+                              (str/starts-with? f "{")
+                              [(edn/read-string f) cmds]
+                              :else [nil (cons f cmds)])
+        f (case (count cmds)
+            0 (resolve-exec-fn ns-default exec-fn)
+            1 (let [f (first cmds)]
+                (if (str/includes? f "/")
+                  (symbol f)
+                  (resolve-exec-fn ns-default (symbol f))))
+            2 (let [[ns-default f] cmds]
+                (if (str/includes? f "/")
+                  (symbol f)
+                  (resolve-exec-fn (symbol ns-default) (symbol f)))))
+        f* f
+        f (req-resolve ns f)
+        _ (assert (ifn? f) (str "Could not resolve function: " f*))
+        ns-opts (:org.babashka/cli (meta (:ns (meta f))))
+        fn-opts (:org.babashka/cli (meta f))
+        exec-args (merge-opts
+                   (:exec-args cli-opts)
+                   (:exec-args resolve-args))
+        opts (merge-opts ns-opts
+                         fn-opts
+                         cli-opts
+                         (:org.babashka/cli resolve-args)
+                         (when exec-args {:exec-args exec-args}))
+        opts (parse-opts args opts)]
+    [f opts]))
+
+(defn main [& args]
+  (let [[f opts] (parse-exec-opts args)]
+    (f opts)))
 
 (defn -main
   "Main entrypoint for command line usage.
@@ -27,44 +76,5 @@
   ;;=> {:a \"1\" :b \"2\"}
   ```"
   [& args]
-  (let [basis (or *basis* (some->> (System/getProperty "clojure.basis")
-                                   slurp
-                                   (edn/read-string {:default tagged-literal})))
-        resolve-args (:resolve-args basis)
-        exec-fn (:exec-fn resolve-args)
-        ns-default (:ns-default resolve-args)
-        [f & args] args
-        [cli-opts f args] (if (and f (str/starts-with? f "{"))
-                            [(edn/read-string f) (first args) (rest args)]
-                            [nil f args])
-        [f args] (cond exec-fn
-                       [(let [exec-sym (symbol exec-fn)]
-                          (if (namespace exec-sym)
-                            exec-sym
-                            (symbol (str ns-default) (str exec-fn)))) (cons f args)]
-                       ns-default [ns-default (cons f args)]
-                       :else [f args])
-        f (coerce f symbol)
-        ns (namespace f)
-        fq? (some? ns)
-        ns (or ns f)
-        ns (coerce ns symbol)
-        [f args] (if fq?
-                   [f args]
-                   [(symbol (str ns) (first args)) (rest args)])
-        f* f
-        f (req-resolve ns f)
-        _ (assert (ifn? f) (str "Could not resolve function: " f*))
-        ns-opts (:org.babashka/cli (meta (find-ns ns)))
-        fn-opts (:org.babashka/cli (meta f))
-        exec-args (merge-opts
-                   (:exec-args cli-opts)
-                   (:exec-args resolve-args))
-        opts (merge-opts ns-opts
-                         fn-opts
-                         cli-opts
-                         (:org.babashka/cli resolve-args)
-                         (when exec-args {:exec-args exec-args}))
-        opts (parse-opts (drop-while nil? args) opts)]
-    (try (f opts)
-         (finally (shutdown-agents)))))
+  (try (apply main args)
+       (finally (shutdown-agents))))

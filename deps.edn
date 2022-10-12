@@ -1,6 +1,9 @@
 {:deps {org.clojure/clojure {:mvn/version "1.11.1"}}
  :aliases
- {:test ;; added by neil
+ {:repl
+  {:extra-paths ["test"]
+   :extra-deps {babashka/fs {:mvn/version "0.1.11"}}}
+  :test ;; added by neil
   {:extra-paths ["test"]
    :extra-deps {io.github.cognitect-labs/test-runner
                 {:git/tag "v0.5.1" :git/sha "dfb30dd"}
