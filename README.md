@@ -465,7 +465,7 @@ For documentation on babashka tasks, go
 
 Since babashka `0.9.160`, `babashka.cli` has become a built-in and has better
 integration through `-x` and `exec`.  Read about that in the [babashka
-book](https://book.babashka.org/#_babashka_cli).
+book](https://book.babashka.org/#cli).
 
 ## Clojure CLI
 
