@@ -50,10 +50,15 @@
                v
                (throw-unexpected x)))))
 
+(defn number-char? [c]
+  (try (parse-number (str c))
+       (catch #?(:clj Exception :cljs :default) _ nil)))
+
 (defn- first-char ^Character [^String arg]
-  (when (pos? #?(:clj (.length arg)
-                 :cljs (.-length arg)))
-    (.charAt arg 0)))
+  (nth arg 0 nil))
+
+(defn- second-char ^Character [^String arg]
+  (nth arg 1 nil))
 
 (defn parse-keyword
   "Parse keyword from `s`. Ignores leading `:`."
@@ -77,11 +82,14 @@
   (if (string? s)
     (try
       (let [s ^String s
-            fst-char (first-char s)]
+            fst-char (first-char s)
+            #?@(:clj [leading-num-char (if (= fst-char \-)
+                                         (second-char s)
+                                         fst-char)])]
         (cond (or (= "true" s)
                   (= "false" s))
               (parse-boolean s)
-              #?(:clj (some-> fst-char (Character/isDigit))
+              #?(:clj (some-> leading-num-char (Character/isDigit))
                  :cljs (not (js/isNaN s)))
               (parse-number s)
               (and (= \: fst-char) (re-matches #"\:?[a-zA-Z0-9]+" s))
@@ -142,8 +150,8 @@
   (if (not= current-opt added)
     (if-let [[_ curr-val] (find acc current-opt)]
       (assoc acc current-opt (if collect-fn
-                                (collect-fn curr-val true)
-                                true))
+                               (collect-fn curr-val true)
+                               true))
       (assoc acc current-opt
              (if collect-fn
                (collect-fn nil true)
@@ -297,7 +305,9 @@
                                     (coerce-collect-fn collect current-opt (get coerce-opts current-opt)))
                        fst-char (when-not opt?
                                   (first-char arg))
-                       hyphen-opt? (when-not opt? (= fst-char \-))
+                       hyphen-opt? (when-not opt?
+                                     (and (= fst-char \-)
+                                          (not (number-char? (second-char arg)))))
                        mode (or mode (when hyphen-opt? :hyphens))
                        ;; _ (prn :current-opt current-opt arg)
                        fst-colon? (when-not opt?

@@ -2,6 +2,10 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+## Unreleased
+
+- [#53](https://github.com/babashka/cli/issues/53): support parsing negative numbers
+
 ## v0.5.40
 
 - Add `:org.babashka/cli {:exec true}` to arg map's metadata when invoking

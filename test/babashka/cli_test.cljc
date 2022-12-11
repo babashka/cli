@@ -271,7 +271,11 @@
     (is (submap? {:foo [:bar :baz]} (cli/parse-opts [":foo" ":bar" ":foo" ":baz"] {:coerce {:foo []}}))))
   (is (= 1 (cli/auto-coerce 1)))
   (is (= "1. This is a title." (cli/auto-coerce "1. This is a title.")))
-  (is (= ":1. This is a title." (cli/auto-coerce ":1. This is a title."))))
+  (is (= ":1. This is a title." (cli/auto-coerce ":1. This is a title.")))
+  (is (= -10 (cli/auto-coerce "-10")))
+  (is (submap? {:foo -10} (cli/parse-opts ["--foo" "-10"])))
+  (is (submap? {:foo -10} (cli/parse-opts ["--foo" "-10"] {:coerce {:foo :number}})))
+  (is (submap? {:foo "-10"} (cli/parse-opts ["--foo" "-10"] {:coerce {:foo :string}}))))
 
 (deftest format-opts-test
   (testing "default width with default and default-desc"
