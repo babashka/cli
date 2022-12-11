@@ -36,6 +36,8 @@
   [{:keys [b]}]
   {:b b})
 
+#?(:cljs (def Exception :default))
+
 (deftest parse-opts-test
   (let [res (cli/parse-opts ["foo" ":b" "1"])]
     (is (submap? '{:b 1} res))
@@ -76,7 +78,11 @@
                                  {:coerce {:foo [:symbol]}}))))
   (testing "merging spec + other opts"
     (is (submap? '{:foo dude, :exec my/fn}
-                 (cli/parse-opts ["--foo" "dude" "--exec" "my/fn"] {:spec {:foo {:coerce :symbol}} :coerce {:exec :symbol}})))))
+                 (cli/parse-opts ["--foo" "dude" "--exec" "my/fn"] {:spec {:foo {:coerce :symbol}} :coerce {:exec :symbol}}))))
+  (testing "implicit true"
+    (is (thrown-with-msg?
+         Exception #"cannot transform input"
+         (cli/parse-opts ["--foo" "--bar"] {:coerce {:foo :number}})))))
 
 (deftest restrict-test
   (testing ":restrict true w/ spec allows opts & aliases in spec"
