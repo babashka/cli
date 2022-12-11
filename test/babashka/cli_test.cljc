@@ -81,10 +81,10 @@
                  (cli/parse-opts ["--foo" "dude" "--exec" "my/fn"] {:spec {:foo {:coerce :symbol}} :coerce {:exec :symbol}}))))
   (testing "implicit true"
     (is (thrown-with-msg?
-         Exception #"cannot transform input"
+         Exception #"cannot transform \(implicit\) true"
          (cli/parse-opts ["--foo" "--bar"] {:coerce {:foo :number}})))
     (is (thrown-with-msg?
-         Exception #"cannot transform input"
+         Exception #"cannot transform \(implicit\) true"
          (cli/parse-opts ["--bar" "--foo"] {:coerce {:foo :number}})))))
 
 (deftest restrict-test
