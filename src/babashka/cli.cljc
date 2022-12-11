@@ -220,7 +220,7 @@
     {:args new-args
      :args->opts args->opts}))
 
-(defn parse-key [arg mode current-opt added]
+(defn- parse-key [arg mode current-opt added]
   (let [fst-char (first-char arg)
         hyphen-opt? (and (= fst-char \-)
                          (not (number-char? (second-char arg))))
