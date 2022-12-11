@@ -82,7 +82,10 @@
   (testing "implicit true"
     (is (thrown-with-msg?
          Exception #"cannot transform input"
-         (cli/parse-opts ["--foo" "--bar"] {:coerce {:foo :number}})))))
+         (cli/parse-opts ["--foo" "--bar"] {:coerce {:foo :number}})))
+    (is (thrown-with-msg?
+         Exception #"cannot transform input"
+         (cli/parse-opts ["--bar" "--foo"] {:coerce {:foo :number}})))))
 
 (deftest restrict-test
   (testing ":restrict true w/ spec allows opts & aliases in spec"
