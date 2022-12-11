@@ -4,12 +4,12 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## v0.6.41
+## v0.6.41 (2022-12-11)
 
 - [#52](https://github.com/babashka/cli/issues/52): require value specified as non-boolean to be supplied
 - [#53](https://github.com/babashka/cli/issues/53): support parsing negative numbers
 
-## v0.5.40
+## v0.5.40 (2022-10-12)
 
 - Add `:org.babashka/cli {:exec true}` to arg map's metadata when invoking
   functions with `babashka.cli.exec`.
