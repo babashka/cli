@@ -213,6 +213,8 @@
     {:args new-args
      :args->opts args->opts}))
 
+(defn parse-key [])
+
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.
   Instead of a leading `:` either `--` or `-` may be used as well.
@@ -301,22 +303,17 @@
                  (recur (process-previous acc current-opt added nil)
                         arg added mode (next args)
                         a->o)
-                 (let [collect-fn (when-not opt?
-                                    (coerce-collect-fn collect current-opt (get coerce-opts current-opt)))
-                       fst-char (when-not opt?
-                                  (first-char arg))
-                       hyphen-opt? (when-not opt?
-                                     (and (= fst-char \-)
-                                          (not (number-char? (second-char arg)))))
+                 (let [collect-fn (coerce-collect-fn collect current-opt (get coerce-opts current-opt))
+                       fst-char (first-char arg)
+                       hyphen-opt? (and (= fst-char \-)
+                                        (not (number-char? (second-char arg))))
                        mode (or mode (when hyphen-opt? :hyphens))
                        ;; _ (prn :current-opt current-opt arg)
-                       fst-colon? (when-not opt?
-                                    (= \: fst-char))
-                       kwd-opt? (when-not opt?
-                                  (and (not= :hyphens mode)
-                                       fst-colon?
-                                       (or (not current-opt)
-                                           (= added current-opt))))
+                       fst-colon? (= \: fst-char)
+                       kwd-opt? (and (not= :hyphens mode)
+                                     fst-colon?
+                                     (or (not current-opt)
+                                         (= added current-opt)))
                        mode (or mode
                                 (when-not opt?
                                   (when kwd-opt?
@@ -341,6 +338,8 @@
                            (if arg-val
                              (recur (process-previous acc current-opt added collect-fn)
                                     k nil mode (cons arg-val (rest args)) a->o)
+                             ;; add premature true option
+                             ;; TODO: check next args, then insert "true"
                              (recur (process-previous acc current-opt added collect-fn)
                                     k added mode (next args)
                                     a->o)))))
