@@ -99,12 +99,8 @@
                 :cljs :default) _ s))
     s))
 
-(defn coerce
-  "Coerce string `s` using `f`. Does not coerce when `s` is not a string.
-  `f` may be a keyword (`:boolean`, `:int`, `:double`, `:symbol`,
-  `:keyword`) or a function. When `f` return `nil`, this is
-  interpreted as a parse failure and throws."
-  [s f]
+(defn- coerce*
+  [s f implicit-true?]
   (let [f* (case f
              :boolean parse-boolean
              (:int :long) parse-long
@@ -121,7 +117,10 @@
       (let [v (try (f* s)
                    (catch #?(:clj Exception :cljs :default) _ ::error))]
         (if (= ::error v)
-          (throw (ex-info (str "Coerce failure: cannot transform input " (pr-str s)
+          (throw (ex-info (str "Coerce failure: cannot transform "
+                               (if implicit-true?
+                                 "(implicit) true"
+                                 (str "input " (pr-str s)))
                                (if (keyword? f)
                                  " to "
                                  " with ")
@@ -132,6 +131,14 @@
                            :coerce-fn f}))
           v))
       s)))
+
+(defn coerce
+  "Coerce string `s` using `f`. Does not coerce when `s` is not a string.
+  `f` may be a keyword (`:boolean`, `:int`, `:double`, `:symbol`,
+  `:keyword`) or a function. When `f` return `nil`, this is
+  interpreted as a parse failure and throws."
+  [s f]
+  (coerce* s f false))
 
 (defn- coerce->collect [k]
   (when (coll? k)
@@ -158,9 +165,9 @@
                true)))
     acc))
 
-(defn- add-val [acc current-opt collect-fn coerce-fn arg]
+(defn- add-val [acc current-opt collect-fn coerce-fn arg implicit-true?]
   (let [arg (if (and coerce-fn
-                     (not (coll? coerce-fn))) (coerce arg coerce-fn)
+                     (not (coll? coerce-fn))) (coerce* arg coerce-fn implicit-true?)
                 (auto-coerce arg))]
     (if collect-fn
       (update acc current-opt collect-fn arg)
@@ -213,7 +220,23 @@
     {:args new-args
      :args->opts args->opts}))
 
-(defn parse-key [])
+(defn- parse-key [arg mode current-opt added]
+  (let [fst-char (first-char arg)
+        hyphen-opt? (and (= fst-char \-)
+                         (not (number-char? (second-char arg))))
+        mode (or mode (when hyphen-opt? :hyphens))
+        fst-colon? (= \: fst-char)
+        kwd-opt? (and (not= :hyphens mode)
+                      fst-colon?
+                      (or (not current-opt)
+                          (= added current-opt)))
+        mode (or mode
+                 (when kwd-opt?
+                   :keywords))]
+    {:mode mode
+     :hyphen-opt hyphen-opt?
+     :kwd-opt kwd-opt?
+     :fst-colon fst-colon?}))
 
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.
@@ -303,23 +326,14 @@
                  (recur (process-previous acc current-opt added nil)
                         arg added mode (next args)
                         a->o)
-                 (let [collect-fn (coerce-collect-fn collect current-opt (get coerce-opts current-opt))
-                       fst-char (first-char arg)
-                       hyphen-opt? (and (= fst-char \-)
-                                        (not (number-char? (second-char arg))))
-                       mode (or mode (when hyphen-opt? :hyphens))
-                       ;; _ (prn :current-opt current-opt arg)
-                       fst-colon? (= \: fst-char)
-                       kwd-opt? (and (not= :hyphens mode)
-                                     fst-colon?
-                                     (or (not current-opt)
-                                         (= added current-opt)))
-                       mode (or mode
-                                (when-not opt?
-                                  (when kwd-opt?
-                                    :keywords)))]
-                   (if (or hyphen-opt?
-                           kwd-opt?)
+                 (let [implicit-true? (true? arg)
+                       arg (str arg)
+                       collect-fn (coerce-collect-fn collect current-opt (get coerce-opts current-opt))
+                       {:keys [hyphen-opt
+                               kwd-opt
+                               mode fst-colon]} (parse-key arg mode current-opt added)]
+                   (if (or hyphen-opt
+                           kwd-opt)
                      (let [long-opt? (str/starts-with? arg "--")
                            the-end? (and long-opt? (= "--" arg))]
                        (if the-end?
@@ -338,11 +352,19 @@
                            (if arg-val
                              (recur (process-previous acc current-opt added collect-fn)
                                     k nil mode (cons arg-val (rest args)) a->o)
-                             ;; add premature true option
-                             ;; TODO: check next args, then insert "true"
-                             (recur (process-previous acc current-opt added collect-fn)
-                                    k added mode (next args)
-                                    a->o)))))
+                             (let [next-args (next args)
+                                   next-arg (first next-args)
+                                   m (parse-key next-arg mode current-opt added)]
+                               ;; (prn :next-arg next-arg m)
+                               (if (or (:hyphen-opt m)
+                                       (empty? next-args))
+                                 ;; implicit true
+                                 (recur (process-previous acc current-opt added collect-fn)
+                                        k added mode (cons true #_"true" next-args)
+                                        a->o)
+                                 (recur (process-previous acc current-opt added collect-fn)
+                                        k added mode next-args
+                                        a->o)))))))
                      (let [coerce-opt (get coerce-opts current-opt)
                            the-end? (or
                                      (and (= :boolean coerce-opt)
@@ -363,7 +385,7 @@
                              (recur acc current-opt added mode new-args a->o)
                              [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt added]))
                          (recur (try
-                                  (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg)
+                                  (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg implicit-true?)
                                   (catch #?(:clj ExceptionInfo :cljs :default) e
                                     (error-fn {:cause :coerce
                                                :msg #?(:clj (.getMessage e)
@@ -373,10 +395,10 @@
                                     ;; Since we've encountered an error, don't add this opt
                                     acc))
                                 (if (and (= :keywords mode)
-                                         fst-colon?)
+                                         fst-colon)
                                   nil current-opt)
                                 (if (and (= :keywords mode)
-                                         fst-colon?)
+                                         fst-colon)
                                   nil current-opt)
                                 mode
                                 (next args)
