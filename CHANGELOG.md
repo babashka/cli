@@ -2,6 +2,8 @@
 
 For breaking changes, check [here](#breaking-changes).
 
+[Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
+
 ## v0.6.41
 
 - [#52](https://github.com/babashka/cli/issues/52): require value specified as non-boolean to be supplied
