@@ -2,7 +2,7 @@
 
 For breaking changes, check [here](#breaking-changes).
 
-## Unreleased
+## v0.6.41
 
 - [#52](https://github.com/babashka/cli/issues/52): require value specified as non-boolean to be supplied
 - [#53](https://github.com/babashka/cli/issues/53): support parsing negative numbers
