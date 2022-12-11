@@ -350,7 +350,8 @@
                                    m (parse-key next-arg mode current-opt added)]
                                ;; (prn :next-arg next-arg m)
                                (if (or (:hyphen-opt m)
-                                       (:kwd-opt m))
+                                       (:kwd-opt m)
+                                       (empty? next-args))
                                  (recur (process-previous acc current-opt added collect-fn)
                                         k added mode (cons "true" next-args)
                                         a->o)
