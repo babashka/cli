@@ -220,7 +220,7 @@
     {:args new-args
      :args->opts args->opts}))
 
-(defn- parse-key [arg mode current-opt added]
+(defn- parse-key [arg mode current-opt coerce-opt added]
   (let [fst-char (first-char arg)
         hyphen-opt? (and (= fst-char \-)
                          (not (number-char? (second-char arg))))
@@ -228,8 +228,9 @@
         fst-colon? (= \: fst-char)
         kwd-opt? (and (not= :hyphens mode)
                       fst-colon?
-                      (or (not current-opt)
-                          (= added current-opt)))
+                      (or (= :boolean coerce-opt)
+                          (or (not current-opt)
+                              (= added current-opt))))
         mode (or mode
                  (when kwd-opt?
                    :keywords))]
@@ -329,9 +330,10 @@
                  (let [implicit-true? (true? arg)
                        arg (str arg)
                        collect-fn (coerce-collect-fn collect current-opt (get coerce-opts current-opt))
+                       coerce-opt (get coerce-opts current-opt)
                        {:keys [hyphen-opt
                                kwd-opt
-                               mode fst-colon]} (parse-key arg mode current-opt added)]
+                               mode fst-colon]} (parse-key arg mode current-opt coerce-opt added)]
                    (if (or hyphen-opt
                            kwd-opt)
                      (let [long-opt? (str/starts-with? arg "--")
@@ -354,7 +356,7 @@
                                     k nil mode (cons arg-val (rest args)) a->o)
                              (let [next-args (next args)
                                    next-arg (first next-args)
-                                   m (parse-key next-arg mode current-opt added)]
+                                   m (parse-key next-arg mode current-opt coerce-opt added)]
                                ;; (prn :next-arg next-arg m)
                                (if (or (:hyphen-opt m)
                                        (empty? next-args))
@@ -365,8 +367,7 @@
                                  (recur (process-previous acc current-opt added collect-fn)
                                         k added mode next-args
                                         a->o)))))))
-                     (let [coerce-opt (get coerce-opts current-opt)
-                           the-end? (or
+                     (let [the-end? (or
                                      (and (= :boolean coerce-opt)
                                           (not= arg "true")
                                           (not= arg "false"))

@@ -87,6 +87,10 @@
          Exception #"cannot transform \(implicit\) true"
          (cli/parse-opts ["--bar" "--foo"] {:coerce {:foo :number}})))))
 
+(deftest parse-opts-keywords-test
+  (is (= {:version "2021a4", :no-git-tag-version true, :deps-file "foo.edn"}
+         (cli/parse-opts ["2021a4" ":no-git-tag-version" ":deps-file" "foo.edn"] {:args->opts [:version] :spec {:no-git-tag-version {:coerce :boolean}}}))))
+
 (deftest restrict-test
   (testing ":restrict true w/ spec allows opts & aliases in spec"
     (is (= {:foo "bar" :baz true}
@@ -294,8 +298,6 @@
                           :desc "Thingy"}
                     :bar {:alias :b, :default "sure", :ref "<bar>"
                           :desc "Barbarbar" :default-desc "Mos def"}}})))))
-
-#?(:cljs (def Exception js/Error))
 
 (deftest require-test
   (is (thrown-with-msg?
