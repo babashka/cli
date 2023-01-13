@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## v0.6.42 (2023-01-13)
+## v0.6.43 (2023-01-13)
 
 - #55: Last keyword option not parsed when previous value is implicit boolean
 
