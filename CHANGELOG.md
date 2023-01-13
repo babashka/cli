@@ -6,7 +6,7 @@ For breaking changes, check [here](#breaking-changes).
 
 ## v0.6.43 (2023-01-13)
 
-- #55: Last keyword option not parsed when previous value is implicit boolean
+- [#55](https://github.com/babashka/cli/issues/55): Last keyword option not parsed when previous value is implicit boolean
 
 ## v0.6.41 (2022-12-11)
 
