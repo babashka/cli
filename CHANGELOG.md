@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## v0.6.44 (2023-01-18)
+
+- [#56](https://github.com/babashka/cli/issues/56): `:exec-args` should be replaced, not merged
+
 ## v0.6.43 (2023-01-13)
 
 - [#55](https://github.com/babashka/cli/issues/55): Last keyword option not parsed when previous value is implicit boolean

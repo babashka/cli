@@ -369,3 +369,9 @@
               :option :a
               :spec spec}}
            @errors))))
+
+(deftest exec-args-replaced-test
+  (is (= {:foo [:bar] :dude [:baz]} (cli/parse-opts ["--foo" ":bar"] {:coerce {:foo [] :dude []}
+                                                                      :exec-args {:dude [:baz]}})))
+  (is (= {:foo [:bar]} (cli/parse-opts ["--foo" ":bar"] {:coerce {:foo []}
+                                                         :exec-args {:foo [:baz]}}))))

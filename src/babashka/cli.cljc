@@ -312,7 +312,7 @@
                        [nil (concat new-args args)]
                        [cmds args])
          [opts last-opt added]
-         (loop [acc (or exec-args {})
+         (loop [acc {}
                 current-opt nil
                 added nil
                 mode (when no-keyword-opts :hyphens)
@@ -411,7 +411,11 @@
                       (seq cmds)
                     (vary-meta update-in [:org.babashka/cli :args]
                                (fn [args]
-                                 (into (vec cmds) args)))))]
+                                 (into (vec cmds) args)))))
+         opts (if exec-args
+                (with-meta (merge exec-args opts)
+                  (meta opts))
+                opts)]
      (when restrict
        (doseq [k (keys opts)]
          (when-not (contains? restrict k)
