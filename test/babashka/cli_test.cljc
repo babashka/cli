@@ -36,7 +36,7 @@
   [{:keys [b]}]
   {:b b})
 
-#?(:cljs (def Exception :default))
+#?(:cljs (def Exception js/Error))
 
 (deftest parse-opts-test
   (let [res (cli/parse-opts ["foo" ":b" "1"])]
