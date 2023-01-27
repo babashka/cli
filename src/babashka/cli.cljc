@@ -114,22 +114,21 @@
              ;; default
              f)]
     (if (string? s)
-      (let [v (try (f* s)
-                   (catch #?(:clj Exception :cljs :default) _ ::error))]
-        (if (= ::error v)
-          (throw (ex-info (str "Coerce failure: cannot transform "
-                               (if implicit-true?
-                                 "(implicit) true"
-                                 (str "input " (pr-str s)))
-                               (if (keyword? f)
-                                 " to "
-                                 " with ")
-                               (if (keyword? f)
-                                 (name f)
-                                 f))
-                          {:input s
-                           :coerce-fn f}))
-          v))
+      (try (f* s)
+           (catch #?(:clj Exception :cljs :default) e
+             (throw (ex-info (str "Coerce failure: cannot transform "
+                                  (if implicit-true?
+                                    "(implicit) true"
+                                    (str "input " (pr-str s)))
+                                  (if (keyword? f)
+                                    " to "
+                                    " with ")
+                                  (if (keyword? f)
+                                    (name f)
+                                    f))
+                             {:input s
+                              :coerce-fn f}
+                             e))))
       s)))
 
 (defn coerce

@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## v0.6.45 (2023-01-27)
+
+- Preserve exception cause in coercion for better error messages
+
 ## v0.6.44 (2023-01-18)
 
 - [#56](https://github.com/babashka/cli/issues/56): `:exec-args` should be replaced, not merged
