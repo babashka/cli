@@ -85,7 +85,13 @@
          (cli/parse-opts ["--foo" "--bar"] {:coerce {:foo :number}})))
     (is (thrown-with-msg?
          Exception #"cannot transform \(implicit\) true"
-         (cli/parse-opts ["--bar" "--foo"] {:coerce {:foo :number}})))))
+         (cli/parse-opts ["--bar" "--foo"] {:coerce {:foo :number}})))
+    (is (thrown-with-msg?
+         Exception #"cannot transform \(implicit\) true"
+         (cli/parse-opts [":foo"] {:coerce {:foo :string}})))
+    (is (thrown-with-msg?
+         Exception #"cannot transform \(implicit\) true"
+         (cli/parse-opts [":foo"] {:coerce {:foo [:string]}})))))
 
 (deftest parse-opts-keywords-test
   (is (= {:version "2021a4", :no-git-tag-version true, :deps-file "foo.edn"}

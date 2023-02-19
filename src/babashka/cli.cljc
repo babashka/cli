@@ -55,10 +55,12 @@
        (catch #?(:clj Exception :cljs :default) _ nil)))
 
 (defn- first-char ^Character [^String arg]
-  (nth arg 0 nil))
+  (when (string? arg)
+    (nth arg 0 nil)))
 
 (defn- second-char ^Character [^String arg]
-  (nth arg 1 nil))
+  (when (string? arg)
+    (nth arg 1 nil)))
 
 (defn parse-keyword
   "Parse keyword from `s`. Ignores leading `:`."
@@ -99,6 +101,21 @@
                 :cljs :default) _ s))
     s))
 
+(defn- throw-coerce [s implicit-true? f e]
+  (throw (ex-info (str "Coerce failure: cannot transform "
+                       (if implicit-true?
+                         "(implicit) true"
+                         (str "input " (pr-str s)))
+                       (if (keyword? f)
+                         " to "
+                         " with ")
+                       (if (keyword? f)
+                         (name f)
+                         f))
+                  {:input s
+                   :coerce-fn f}
+                  e)))
+
 (defn- coerce*
   [s f implicit-true?]
   (let [f* (case f
@@ -112,24 +129,15 @@
              :edn edn/read-string
              :auto auto-coerce
              ;; default
-             f)]
-    (if (string? s)
-      (try (f* s)
-           (catch #?(:clj Exception :cljs :default) e
-             (throw (ex-info (str "Coerce failure: cannot transform "
-                                  (if implicit-true?
-                                    "(implicit) true"
-                                    (str "input " (pr-str s)))
-                                  (if (keyword? f)
-                                    " to "
-                                    " with ")
-                                  (if (keyword? f)
-                                    (name f)
-                                    f))
-                             {:input s
-                              :coerce-fn f}
-                             e))))
-      s)))
+             f)
+        res (if (string? s)
+              (try (f* s)
+                   (catch #?(:clj Exception :cljs :default) e
+                     (throw-coerce s implicit-true? f e)))
+              s)]
+    (if (and implicit-true? (not (true? res)))
+      (throw-coerce s implicit-true? f nil)
+      res)))
 
 (defn coerce
   "Coerce string `s` using `f`. Does not coerce when `s` is not a string.
@@ -317,17 +325,16 @@
                 mode (when no-keyword-opts :hyphens)
                 args (seq args)
                 a->o a->o]
-           ;;(prn :acc acc current-opt added)
            (if-not args
              [acc current-opt added]
-             (let [^String arg (first args)
-                   opt? (keyword? arg)]
+             (let [raw-arg (first args)
+                   opt? (keyword? raw-arg)]
                (if opt?
                  (recur (process-previous acc current-opt added nil)
-                        arg added mode (next args)
+                        raw-arg added mode (next args)
                         a->o)
-                 (let [implicit-true? (true? arg)
-                       arg (str arg)
+                 (let [implicit-true? (true? raw-arg)
+                       arg (str raw-arg)
                        collect-fn (coerce-collect-fn collect current-opt (get coerce-opts current-opt))
                        coerce-opt (get coerce-opts current-opt)
                        {:keys [hyphen-opt
@@ -404,7 +411,6 @@
                                 (next args)
                                 a->o)))))))))
          collect-fn (coerce-collect-fn collect last-opt (get coerce-opts last-opt))
-         ;;_ (prn :last-opt last-opt added)
          opts (-> (process-previous opts last-opt added collect-fn)
                   (cond->
                       (seq cmds)
