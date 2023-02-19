@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- [#58](https://github.com/babashka/cli/issues/58): implicit true should not be transformed to string value
+
 ## v0.6.45 (2023-01-27)
 
 - Preserve exception cause in coercion for better error messages
