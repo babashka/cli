@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## v0.6.46 (2023-02-19)
 
 - [#58](https://github.com/babashka/cli/issues/58): implicit true should not be transformed to string value
 
