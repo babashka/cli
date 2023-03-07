@@ -40,8 +40,5 @@
                         (shell "git tag" (str "v" (utils/format-version)))
                         (shell "git push --tags"))}
 
-  publish {:doc "Bump release count and publish to clojars"
-           :task (do
-                   (when-not (:skip-bump cmd-line-opts)
-                     (run 'bump-release))
-                   (clojure "-T:build deploy"))}}}
+  publish {:doc "Publish to clojars"
+           :task (clojure "-T:build deploy")}}}
