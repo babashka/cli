@@ -1,9 +1,8 @@
 (ns babashka.cli.exec
   (:require
-   [babashka.cli :refer [coerce parse-opts merge-opts]]
+   [babashka.cli :as cli :refer [merge-opts parse-opts]]
    [clojure.edn :as edn]
-   [clojure.string :as str]
-   [babashka.cli :as cli]))
+   [clojure.string :as str]))
 
 #_:clj-kondo/ignore
 (def ^:private ^:dynamic *basis* "For testing" nil)
@@ -24,9 +23,11 @@
   (let [basis (or *basis* (some->> (System/getProperty "clojure.basis")
                                    slurp
                                    (edn/read-string {:default tagged-literal})))
-        resolve-args (:resolve-args basis)
-        exec-fn (:exec-fn resolve-args)
-        ns-default (:ns-default resolve-args)
+        argmap (or (:argmap basis)
+                   ;; older versions of the clojure CLI
+                   (:resolve-args basis))
+        exec-fn (:exec-fn argmap)
+        ns-default (:ns-default argmap)
         {:keys [cmds args]} (cli/parse-cmds args)
         [f & cmds] cmds
         [cli-opts cmds] (cond (not f) nil
@@ -50,11 +51,11 @@
         fn-opts (:org.babashka/cli (meta f))
         exec-args (merge-opts
                    (:exec-args cli-opts)
-                   (:exec-args resolve-args))
+                   (:exec-args argmap))
         opts (merge-opts ns-opts
                          fn-opts
                          cli-opts
-                         (:org.babashka/cli resolve-args)
+                         (:org.babashka/cli argmap)
                          (when exec-args {:exec-args exec-args}))
         opts (parse-opts args opts)]
     [f opts]))

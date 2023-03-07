@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## v0.6.47 (2023-03-07)
+
+- Make `babashka.exec` compatible with clojure CLI `1.11.1.1152`+
+
 ## v0.6.46 (2023-02-19)
 
 - [#58](https://github.com/babashka/cli/issues/58): implicit true should not be transformed to string value
