@@ -91,6 +91,7 @@
         (cond (or (= "true" s)
                   (= "false" s))
               (parse-boolean s)
+              (= "nil" s) nil
               #?(:clj (some-> leading-num-char (Character/isDigit))
                  :cljs (not (js/isNaN s)))
               (parse-number s)
