@@ -298,6 +298,7 @@
     (is (= (keyword "a/b/c") (cli/auto-coerce ":a/b/c")))
     (is (= ":a.b c.d" (cli/auto-coerce ":a.b c.d")))
     (is (= ":a.b\tc.d" (cli/auto-coerce ":a.b\tc.d"))))
+  (is (= nil (cli/auto-coerce "nil")))
   (is (= -10 (cli/auto-coerce "-10")))
   (is (submap? {:foo -10} (cli/parse-opts ["--foo" "-10"])))
   (is (submap? {:foo -10} (cli/parse-opts ["--foo" "-10"] {:coerce {:foo :number}})))
