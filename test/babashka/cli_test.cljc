@@ -295,8 +295,6 @@
     (is (= :abc (cli/auto-coerce ":abc")))
     (is (= :abc-def (cli/auto-coerce ":abc-def")))
     (is (= :a/b (cli/auto-coerce ":a/b")))
-    (is (= :a/b/c (cli/auto-coerce ":a/b/c")))  ;; I'm getting weird LSP / clj-kondo output here:
-                                                ;; "single operand use of clojure.core/= is always true"
     (is (= (keyword "a/b/c") (cli/auto-coerce ":a/b/c"))) ;; but no warnings here.
     (is (= ":a.b c.d" (cli/auto-coerce ":a.b c.d")))
     (is (= ":a.b\tc.d" (cli/auto-coerce ":a.b\tc.d"))))
