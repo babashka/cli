@@ -295,7 +295,7 @@
     (is (= :abc (cli/auto-coerce ":abc")))
     (is (= :abc-def (cli/auto-coerce ":abc-def")))
     (is (= :a/b (cli/auto-coerce ":a/b")))
-    (is (= (keyword "a/b/c") (cli/auto-coerce ":a/b/c"))) ;; but no warnings here.
+    (is (= (keyword "a/b/c") (cli/auto-coerce ":a/b/c")))
     (is (= ":a.b c.d" (cli/auto-coerce ":a.b c.d")))
     (is (= ":a.b\tc.d" (cli/auto-coerce ":a.b\tc.d"))))
   (is (= -10 (cli/auto-coerce "-10")))
