@@ -94,7 +94,7 @@
               #?(:clj (some-> leading-num-char (Character/isDigit))
                  :cljs (not (js/isNaN s)))
               (parse-number s)
-              (and (= \: fst-char) (re-matches #"\:?[a-zA-Z0-9]+" s))
+              (and (= \: fst-char) (re-matches #"\:[a-zA-Z][a-zA-Z0-9_/\.-]*" s))
               (parse-keyword s)
               :else s))
       (catch #?(:clj Exception
