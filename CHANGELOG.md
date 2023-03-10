@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## v0.6.49 (2023-03-10)
+
+- Improve `auto-coerce` for keywords ([@teodorlu](https://github.com/teodorlu))
+
 ## v0.6.48 (2023-03-07)
 
 - Make `babashka.exec` compatible with clojure CLI `1.11.1.1152`+
