@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- Improve `auto-coerce`: coerce `"nil"` to `nil` ([@teodorlu](https://github.com/teodorlu))
+
 ## v0.6.49 (2023-03-10)
 
 - Improve `auto-coerce` for keywords ([@teodorlu](https://github.com/teodorlu))
