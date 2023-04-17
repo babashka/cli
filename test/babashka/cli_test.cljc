@@ -91,7 +91,13 @@
          (cli/parse-opts [":foo"] {:coerce {:foo :string}})))
     (is (thrown-with-msg?
          Exception #"cannot transform \(implicit\) true"
-         (cli/parse-opts [":foo"] {:coerce {:foo [:string]}})))))
+         (cli/parse-opts [":foo"] {:coerce {:foo [:string]}}))))
+  (testing "composite opts"
+    (is (= {:a true, :b true, :c true, :foo true}
+           (cli/parse-opts ["--foo" "-abc"]))))
+  (testing "--no- prefix"
+    (is (= {:option false, :no-this-exists true}
+           (cli/parse-opts ["--no-option" "--no-this-exists"] {:coerce {:no-this-exists :bool}})))))
 
 (deftest parse-opts-keywords-test
   (is (= {:version "2021a4", :no-git-tag-version true, :deps-file "foo.edn"}
