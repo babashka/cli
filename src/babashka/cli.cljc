@@ -120,7 +120,7 @@
 (defn- coerce*
   [s f implicit-true?]
   (let [f* (case f
-             :boolean parse-boolean
+             (:boolean :bool) parse-boolean
              (:int :long) parse-long
              :double parse-double
              :number parse-number
@@ -230,8 +230,9 @@
 
 (defn- parse-key [arg mode current-opt coerce-opt added]
   (let [fst-char (first-char arg)
+        snd-char (second-char arg)
         hyphen-opt? (and (= fst-char \-)
-                         (not (number-char? (second-char arg))))
+                         (not (number-char? snd-char)))
         mode (or mode (when hyphen-opt? :hyphens))
         fst-colon? (= \: fst-char)
         kwd-opt? (and (not= :hyphens mode)
@@ -241,9 +242,13 @@
                               (= added current-opt))))
         mode (or mode
                  (when kwd-opt?
-                   :keywords))]
+                   :keywords))
+        composite-opt? (when hyphen-opt?
+                         (and snd-char (not= \- snd-char)
+                              (> (count arg) 2)))]
     {:mode mode
      :hyphen-opt hyphen-opt?
+     :composite-opt composite-opt?
      :kwd-opt kwd-opt?
      :fst-colon fst-colon?}))
 
@@ -296,8 +301,12 @@
          no-keyword-opts (:no-keyword-opts opts)
          restrict (or (:restrict opts)
                       (:closed opts))
+         known-keys (set (concat (keys (if (map? spec)
+                                         spec (into {} spec)))
+                                 (vals aliases)
+                                 (keys coerce-opts)))
          restrict (if (= true restrict)
-                    (some-> spec keys (concat (keys coerce-opts)) set)
+                    known-keys
                     (some-> restrict set))
          validate (:validate opts)
          error-fn* (or (:error-fn opts)
@@ -339,6 +348,7 @@
                        collect-fn (coerce-collect-fn collect current-opt (get coerce-opts current-opt))
                        coerce-opt (get coerce-opts current-opt)
                        {:keys [hyphen-opt
+                               composite-opt
                                kwd-opt
                                mode fst-colon]} (parse-key arg mode current-opt coerce-opt added)]
                    (if (or hyphen-opt
@@ -356,21 +366,35 @@
                                [kname arg-val] (if long-opt?
                                                  (str/split kname #"=")
                                                  [kname])
-                               k     (keyword kname)
-                               k     (get aliases k k)]
+                               raw-k (keyword kname)
+                               k (get aliases raw-k raw-k)]
                            (if arg-val
                              (recur (process-previous acc current-opt added collect-fn)
                                     k nil mode (cons arg-val (rest args)) a->o)
                              (let [next-args (next args)
                                    next-arg (first next-args)
                                    m (parse-key next-arg mode current-opt coerce-opt added)]
-                               ;; (prn :next-arg next-arg m)
                                (if (or (:hyphen-opt m)
                                        (empty? next-args))
                                  ;; implicit true
-                                 (recur (process-previous acc current-opt added collect-fn)
-                                        k added mode (cons true #_"true" next-args)
-                                        a->o)
+                                 (if composite-opt
+                                   (let [chars (name k)
+                                         args (mapcat (fn [char]
+                                                        [(str "-" char) true])
+                                                      chars)
+                                         next-args (concat args next-args)]
+                                     (recur acc
+                                            nil nil mode next-args
+                                            a->o))
+                                   (let [negative? (when-not (contains? known-keys k)
+                                                     (str/starts-with? (str k) ":no-"))
+                                         k (if negative?
+                                             (keyword (str/replace (str k) ":no-" ""))
+                                             k)
+                                         next-args (cons (not negative?) #_"true" next-args)]
+                                     (recur (process-previous acc current-opt added collect-fn)
+                                            k added mode next-args
+                                            a->o)))
                                  (recur (process-previous acc current-opt added collect-fn)
                                         k added mode next-args
                                         a->o)))))))
@@ -414,7 +438,7 @@
          collect-fn (coerce-collect-fn collect last-opt (get coerce-opts last-opt))
          opts (-> (process-previous opts last-opt added collect-fn)
                   (cond->
-                      (seq cmds)
+                   (seq cmds)
                     (vary-meta update-in [:org.babashka/cli :args]
                                (fn [args]
                                  (into (vec cmds) args)))))

@@ -133,6 +133,20 @@ Long options also support the syntax `--foo=bar`:
 ;;=> {:foo "bar"}
 ```
 
+Flags may be combined into a single short option (since 0.7.51):
+
+``` clojure
+(cli/parse-opts ["-abc"])
+;;=> {:a true :b true :c true}
+```
+
+Arguments that start with `--no-` arg parsed as negative flags (since 0.7.51):
+
+``` clojure
+(cli/parse-opts ["--no-colors"])
+;;=> {:colors false}
+```
+
 ### Auto-coercion
 
 Since `v0.3.35` babashka CLI auto-coerces values that have no explicit coercion

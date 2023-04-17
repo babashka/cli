@@ -4,6 +4,11 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## v0.7.51 (2023-04-17)
+
+- [#64](https://github.com/babashka/cli/issues/64): Support combined short options: `-abc` => `{:a true :b true :c true}`
+- [#17](https://github.com/babashka/cli/issues/17): Support `--no-` prefix for negative flags: `--no-colors` => `{:colors false}`
+
 ## v0.6.50 (2023-03-18)
 
 - Improve `auto-coerce`: coerce `"nil"` to `nil` ([@teodorlu](https://github.com/teodorlu))
