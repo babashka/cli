@@ -305,7 +305,7 @@
                                          spec (into {} spec)))
                                  (vals aliases)
                                  (keys coerce-opts)))
-         restrict (if (= true restrict)
+         restrict (if (true? restrict)
                     known-keys
                     (some-> restrict set))
          validate (:validate opts)
@@ -416,25 +416,24 @@
                            (if new-args?
                              (recur acc current-opt added mode new-args a->o)
                              [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt added]))
-                         (recur (try
-                                  (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg implicit-true?)
-                                  (catch #?(:clj ExceptionInfo :cljs :default) e
-                                    (error-fn {:cause :coerce
-                                               :msg #?(:clj (.getMessage e)
-                                                       :cljs (ex-message e))
-                                               :option current-opt
-                                               :value arg})
-                                    ;; Since we've encountered an error, don't add this opt
-                                    acc))
-                                (if (and (= :keywords mode)
-                                         fst-colon)
-                                  nil current-opt)
-                                (if (and (= :keywords mode)
-                                         fst-colon)
-                                  nil current-opt)
-                                mode
-                                (next args)
-                                a->o)))))))))
+                         (let [opt (when-not (and (= :keywords mode)
+                                                  fst-colon)
+                                     current-opt)]
+                           (recur (try
+                                    (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg implicit-true?)
+                                    (catch #?(:clj ExceptionInfo :cljs :default) e
+                                      (error-fn {:cause :coerce
+                                                 :msg #?(:clj (.getMessage e)
+                                                         :cljs (ex-message e))
+                                                 :option current-opt
+                                                 :value arg})
+                                      ;; Since we've encountered an error, don't add this opt
+                                      acc))
+                                  opt
+                                  opt
+                                  mode
+                                  (next args)
+                                  a->o))))))))))
          collect-fn (coerce-collect-fn collect last-opt (get coerce-opts last-opt))
          opts (-> (process-previous opts last-opt added collect-fn)
                   (cond->
@@ -540,7 +539,7 @@
                                                                 (+ 3 (count (kw->str alias)))
                                                                 0)) " "))
                        (print (str "--" (kw->str option)))
-                       (run! print (repeat (+ 1 (- long-opt-width (count (kw->str option)))) " "))
+                       (run! print (repeat (inc (- long-opt-width (count (kw->str option)))) " "))
                        (when ref (print ref))
                        (let [spaces (+ (if (pos? ref-width)
                                          1
