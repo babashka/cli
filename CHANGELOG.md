@@ -6,7 +6,7 @@ For breaking changes, check [here](#breaking-changes).
 
 ## v0.7.52 (2023-06-20)
 
-- Fix [#68](https://github.com/babashka/cli/issues/68): alternative to shutdown-agents
+- Fix [#68](https://github.com/babashka/cli/issues/68): alternative to shutdown-agents similar to clojure CLI's `-X` and `-T` behavior
 
 ## v0.7.51 (2023-04-17)
 
