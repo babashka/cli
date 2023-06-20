@@ -2,7 +2,10 @@
   (:require
    [babashka.cli :as cli :refer [merge-opts parse-opts]]
    [clojure.edn :as edn]
-   [clojure.string :as str]))
+   [clojure.string :as str])
+  (:import [java.util.concurrent Executors ThreadFactory]))
+
+(set! *warn-on-reflection* true)
 
 #_:clj-kondo/ignore
 (def ^:private ^:dynamic *basis* "For testing" nil)
@@ -18,6 +21,23 @@
   (if (simple-symbol? exec-fn)
     (symbol (str ns-default) (str exec-fn))
     exec-fn))
+
+(defn- set-daemon-agent-executor
+  "Set Clojure's send-off agent executor (also affects futures). This is almost
+  an exact rewrite of the Clojure's executor, but the Threads are created as
+  daemons.
+
+  From https://github.com/clojure/brew-install/blob/271c2c5dd45ed87eccf7e7844b079355297d0974/src/main/clojure/clojure/run/exec.clj#L171"
+  []
+  (let [thread-counter (atom 0)
+        thread-factory (reify ThreadFactory
+                         (newThread [_ runnable]
+                           (doto (Thread. runnable)
+                             (.setDaemon true) ;; DIFFERENT
+                             (.setName (format "CLI-agent-send-off-pool-%d"
+                                               (first (swap-vals! thread-counter inc)))))))
+        executor (Executors/newCachedThreadPool thread-factory)]
+    (set-agent-send-off-executor! executor)))
 
 (defn- parse-exec-opts [args]
   (let [basis (or *basis* (some->> (System/getProperty "clojure.basis")
@@ -62,6 +82,7 @@
 
 (defn main [& args]
   (let [[f opts] (parse-exec-opts args)]
+    (set-daemon-agent-executor)
     (f (vary-meta opts assoc-in [:org.babashka/cli :exec] true))))
 
 (defn -main
@@ -77,5 +98,4 @@
   ;;=> {:a \"1\" :b \"2\"}
   ```"
   [& args]
-  (try (apply main args)
-       (finally (shutdown-agents))))
+  (apply main args))
