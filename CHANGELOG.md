@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## v0.7.52 (2023-06-20)
+
+- Fix [#68](https://github.com/babashka/cli/issues/68): alternative to shutdown-agents
+
 ## v0.7.51 (2023-04-17)
 
 - [#64](https://github.com/babashka/cli/issues/64): Support combined short options: `-abc` => `{:a true :b true :c true}`
