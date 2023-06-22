@@ -10,7 +10,7 @@
     -  [`parse-cmds`](#parse-cmds) - Parses sub-commands (arguments not starting with an option prefix) and returns a
     -  [`parse-keyword`](#parse-keyword) - Parse keyword from <code>s</code>
     -  [`parse-opts`](#parse-opts) - Parse the command line arguments <code>args</code>, a seq of strings.
-    -  [`spec->opts`](#spec->opts) - Converts spec into opts format.
+    -  [`spec->opts`](#spec-opts) - Converts spec into opts format.
 -  [`babashka.cli.exec`](#babashkacliexec) 
     -  [`-main`](#-main) - Main entrypoint for command line usage.
     -  [`main`](#main)
