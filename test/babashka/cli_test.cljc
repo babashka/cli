@@ -317,7 +317,23 @@
             {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
                           :desc "Thingy"}
                     :bar {:alias :b, :default "sure", :ref "<bar>"
-                          :desc "Barbarbar" :default-desc "Mos def"}}})))))
+                          :desc "Barbarbar" :default-desc "Mos def"}}}))))
+  (testing "default header"
+    (is (= "  alias   option   ref   default      description\n-------------------------------------------------\n  -f,     --foo    <foo> yupyupyupyup Thingy\n  -b,     --bar    <bar> Mos def      Barbarbar"
+           (cli/format-opts
+            {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
+                          :desc "Thingy"}
+                    :bar {:alias :b, :default "sure", :ref "<bar>"
+                          :desc "Barbarbar" :default-desc "Mos def"}}
+             :header true}))))
+  (testing "custom header"
+    (is (= "  short   opt   ref   default      desc     \n--------------------------------------------\n  -f,     --foo <foo> yupyupyupyup Thingy\n  -b,     --bar <bar> Mos def      Barbarbar"
+           (cli/format-opts
+            {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
+                          :desc "Thingy"}
+                    :bar {:alias :b, :default "sure", :ref "<bar>"
+                          :desc "Barbarbar" :default-desc "Mos def"}}
+             :header {:alias "short" :long-opt "opt" :default "default" :ref "ref" :desc "desc"}})))))
 
 (deftest require-test
   (is (thrown-with-msg?

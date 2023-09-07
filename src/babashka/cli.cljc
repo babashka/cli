@@ -503,61 +503,72 @@
 
 (defn format-opts [{:keys [spec
                            indent
-                           order]
+                           order
+                           header]
                     :or {indent 2}}]
-  (let [{:keys [alias-width long-opt-width default-width
-                ref-width]}
-        (reduce (fn [{:keys [alias-width long-opt-width default-width description-width
-                             ref-width]}
-                     [option {:keys [ref default default-desc desc alias]}]]
+  (let [header-fields (cond (map? header) header
+                            (true? header) {:alias "alias"
+                                            :long-opt "option"
+                                            :default "default"
+                                            :ref "ref"
+                                            :desc "description"}
+                            :else nil)
+        widths
+        (reduce (fn [{:keys [alias-width long-opt-width default-width ref-width desc-width]}
+                     [option {:keys [ref default default-desc alias desc]}]]
                   (let [alias-width (max alias-width (if alias (count (kw->str alias)) 0))
                         long-opt-width (max long-opt-width (count (kw->str option)))
                         ref-width (max ref-width (if ref (count (str ref)) 0))
                         default? (or default-desc default)
                         default-width (max default-width (if default? (count (or default-desc
                                                                                  (-> default str not-empty))) 0))
-                        description-width (max description-width (if desc (count (str desc)) 0))]
+                        desc-width (max desc-width (if desc (count (str desc)) 0))]
                     {:alias-width alias-width
                      :long-opt-width long-opt-width
                      :default-width default-width
-                     :description-width description-width
-                     :ref-width ref-width}))
+                     :ref-width ref-width
+                     :desc-width desc-width}))
                 {:alias-width 0
                  :long-opt-width 0
                  :default-width 0
-                 :description-width 0
-                 :ref-width 0}
-                spec)]
+                 :ref-width 0
+                 :desc-width 0}
+                spec)
+        columns-present (-> (let [cols (set (mapcat (fn [[k v]] (keys v)) spec))]
+                              (cond-> (conj cols :long-opt)
+                                (contains? cols :default-desc) (conj :default)))
+                            (filter #{:alias :long-opt :default :ref :desc})
+                            set)
+        width-keyword (fn [column] (keyword (str (name column) "-width")))
+        {:keys [alias-width long-opt-width default-width ref-width desc-width]}
+        (reduce (fn [widths column] (let [header-width (count (column header-fields))]
+                                      (update widths (width-keyword column) max header-width))) widths columns-present)
+        pad (fn [s len] (str s (apply str (repeat (- len (count s)) " "))))
+        header-line (when header (str
+                                  (apply str (repeat indent " "))
+                                  (when (columns-present :alias) (pad (header-fields :alias) (+ alias-width 3)))
+                                  (when (columns-present :long-opt) (pad (header-fields :long-opt) (+ long-opt-width 3)))
+                                  (when (columns-present :ref) (pad (header-fields :ref) (+ ref-width 1)))
+                                  (when (columns-present :default) (pad (header-fields :default) (+ default-width 1)))
+                                  (when (columns-present :desc) (pad (header-fields :desc) desc-width))))]
     (str/join "\n"
-              (map (fn [[option {:keys [ref default default-desc desc alias]}]]
-                     (with-out-str
-                       (run! print (repeat indent " "))
-                       (when alias (print (str "-" (kw->str alias) ", ")))
-                       (run! print (repeat (- (+ (if (pos? alias-width)
-                                                   3 0)
-                                                 alias-width) (if alias
-                                                                (+ 3 (count (kw->str alias)))
-                                                                0)) " "))
-                       (print (str "--" (kw->str option)))
-                       (run! print (repeat (inc (- long-opt-width (count (kw->str option)))) " "))
-                       (when ref (print ref))
-                       (let [spaces (+ (if (pos? ref-width)
-                                         1
-                                         0) (- ref-width (count (str ref))))]
-                         (run! print (repeat spaces " ")))
-                       (print (or default-desc (str default)))
-                       (let [spaces (+ (if (pos? default-width)
-                                         1
-                                         0) (- default-width (count (or default-desc
-                                                                        (str default)))))]
-                         ;; (prn :spaces spaces)
-                         (run! print (repeat spaces " ")))
-                       (print (str desc))))
-                   (if order
-                     (map (fn [k]
-                            [k (get spec k)])
-                          order)
-                     spec)))))
+              (concat
+               (when header [header-line (str/replace header-line #"." "-")])
+               (map (fn [[option {:keys [ref default default-desc desc alias]}]]
+                      (str
+                       (apply str (repeat indent " "))
+                       (when (columns-present :alias) (pad (when alias (str "-" (kw->str alias) ", ")) (+ alias-width 3)))
+                       (when (columns-present :long-opt) (pad (when option (str "--" (kw->str option) " ")) (+ long-opt-width 3)))
+                       (when (columns-present :ref) (pad ref (+ ref-width 1)))
+                       (when (columns-present :default)
+                         (let [default-text (or default-desc (str default))]
+                           (pad default-text (+ default-width 1))))
+                       (when (columns-present :desc) desc)))
+                    (if order
+                      (map (fn [k]
+                             [k (get spec k)])
+                           order)
+                      spec))))))
 
 (defn- split [a b]
   (let [[prefix suffix] (split-at (count a) b)]
