@@ -184,10 +184,11 @@
                       :coerce []
                       :default ["src" "test"]
                       :default-desc "src test"}}]
-    (is (= (str/trim "  -i, --from   <format> edn      The input format. <format> can be edn, json or transit.
+    (is (= (str/trim "
+  -i, --from   <format> edn      The input format. <format> can be edn, json or transit. 
   -o, --to     <format> json     The output format. <format> can be edn, json or transit.
-      --paths           src test Paths of files to transform.
-  -p, --pretty                   Pretty-print output.")
+      --paths           src test Paths of files to transform.                            
+  -p, --pretty                   Pretty-print output.                                    ")
            (str/trim (cli/format-opts {:spec spec
                                        :order [:from :to :paths :pretty]}))))
     (is (= {:coerce {:from :keyword,
@@ -196,7 +197,7 @@
             :exec-args {:from :edn, :to :json, :paths ["src" "test"]}}
            (cli/spec->opts spec)))
     (is (= (str/trim "
-  -p, --pretty          Pretty-print output.
+  -p, --pretty          Pretty-print output.        
       --paths  src test Paths of files to transform.
 ") (str/trim
     (cli/format-opts {:spec [[:pretty {:desc "Pretty-print output."
@@ -312,28 +313,12 @@
 
 (deftest format-opts-test
   (testing "default width with default and default-desc"
-    (is (= "  -f, --foo <foo> yupyupyupyup Thingy\n  -b, --bar <bar> Mos def      Barbarbar"
+    (is (= "  -f, --foo <foo> yupyupyupyup Thingy   \n  -b, --bar <bar> Mos def      Barbarbar"
            (cli/format-opts
             {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
                           :desc "Thingy"}
                     :bar {:alias :b, :default "sure", :ref "<bar>"
-                          :desc "Barbarbar" :default-desc "Mos def"}}}))))
-  (testing "default header"
-    (is (= "  alias   option   ref   default      description\n-------------------------------------------------\n  -f,     --foo    <foo> yupyupyupyup Thingy\n  -b,     --bar    <bar> Mos def      Barbarbar"
-           (cli/format-opts
-            {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
-                          :desc "Thingy"}
-                    :bar {:alias :b, :default "sure", :ref "<bar>"
-                          :desc "Barbarbar" :default-desc "Mos def"}}
-             :header true}))))
-  (testing "custom header"
-    (is (= "  short   opt   ref   default      desc     \n--------------------------------------------\n  -f,     --foo <foo> yupyupyupyup Thingy\n  -b,     --bar <bar> Mos def      Barbarbar"
-           (cli/format-opts
-            {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
-                          :desc "Thingy"}
-                    :bar {:alias :b, :default "sure", :ref "<bar>"
-                          :desc "Barbarbar" :default-desc "Mos def"}}
-             :header {:alias "short" :long-opt "opt" :default "default" :ref "ref" :desc "desc"}})))))
+                          :desc "Barbarbar" :default-desc "Mos def"}}})))))
 
 (deftest require-test
   (is (thrown-with-msg?
