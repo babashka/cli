@@ -405,9 +405,14 @@ You can then use`format-table` to produce a table as returned by `format-opts`.
 For example to add a header row with labels for each column, you could do something like:
 
 ``` clojure
-(format-table (concat [["alias" "option" "ref" "default" "description"]]
-                      (opts->table {:spec spec})))
-```
+(cli/format-table
+ {:rows (concat [["alias" "option" "ref" "default" "description"]]
+                (cli/opts->table
+                 {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
+                               :desc "Thingy"}
+                         :bar {:alias :b, :default "sure", :ref "<bar>"
+                               :desc "Barbarbar" :default-desc "Mos def"}}}))
+  :indent 2})```
 
 ## Subcommands
 
