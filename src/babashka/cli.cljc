@@ -549,11 +549,11 @@
 
 (comment
   (opts->table {:spec (def spec [[:pretty {:desc "Pretty-print output."
-                                  :alias :p}]
-                        [:paths {:desc "Paths of files to transform."
-                                 :coerce []
-                                 :default ["src" "test"]
-                                 :default-desc "src test"}]])})
+                                           :alias :p}]
+                                 [:paths {:desc "Paths of files to transform."
+                                          :coerce []
+                                          :default ["src" "test"]
+                                          :default-desc "src test"}]])})
   (opts->table {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
                              :desc "Thingy"}
                        :bar {:alias :b, :default "sure", :ref "<bar>"
