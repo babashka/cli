@@ -501,63 +501,74 @@
 (defn- kw->str [kw]
   (subs (str kw) 1))
 
-(defn format-opts [{:keys [spec
+(defn pad [len s] (str s (apply str (repeat (- len (count s)) " "))))
+
+(defn pad-cells [rows]
+  (let [widths (reduce
+                (fn [widths row]
+                  (map max (map count row) widths)) (repeat 0) rows)
+        pad-row (fn [row]
+                  (map (fn [width col] (pad width col)) widths row))]
+    (map pad-row rows)))
+
+(defn format-table [{:keys [rows indent]}]
+  (let [rows (pad-cells rows)
+        fmt-row (fn [leader divider trailer row]
+                  (str leader
+                       (apply str (interpose divider row))
+                       trailer))]
+    (->> rows
+         (map (fn [row]
+                #_(fmt-row "| " " | " " |" row)
+                (fmt-row (apply str (repeat indent " ")) " " "" row)))
+         (map str/trimr)
+         (str/join "\n"))))
+
+(comment
+  (def rows [["a" "fooo" "bara" "bazzz"  "aa"]
+             ["foo" "bar" "bazzz"]
+             ["fooo" "bara" "bazzz"]])
+  (pad-cells rows)
+  (format-table {:rows rows
+                 :indent 2}))
+
+(defn opts->table [{:keys [spec order]}]
+  (let [columns (set (mapcat (fn [[_ s]] (keys s)) spec))]
+    (mapv (fn [[long-opt {:keys [alias default default-desc ref desc]}]]
+            (keep identity
+                  [(when (:alias columns)
+                     (if alias (str "-" (kw->str alias) ",") ""))
+                   (str "--" (kw->str long-opt))
+                   (when (:ref columns)
+                     (if ref ref ""))
+                   (when (or (:default-desc columns)
+                             (:default columns))
+                     (str (or default-desc default "")))
+                   (when (:desc columns)
+                     (if desc desc ""))]))
+          (if (map? spec)
+            (let [order (or order (keys spec))]
+              (map (fn [k] [k (spec k)]) order))
+            spec))))
+
+(comment
+  (opts->table {:spec (def spec [[:pretty {:desc "Pretty-print output."
+                                           :alias :p}]
+                                 [:paths {:desc "Paths of files to transform."
+                                          :coerce []
+                                          :default ["src" "test"]
+                                          :default-desc "src test"}]])})
+  (opts->table {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
+                             :desc "Thingy"}
+                       :bar {:alias :b, :default "sure", :ref "<bar>"
+                             :desc "Barbarbar" :default-desc "Mos def"}}}))
+(defn format-opts [{:as cfg
+                    :keys [spec
                            indent
                            order]
                     :or {indent 2}}]
-  (let [{:keys [alias-width long-opt-width default-width
-                ref-width]}
-        (reduce (fn [{:keys [alias-width long-opt-width default-width description-width
-                             ref-width]}
-                     [option {:keys [ref default default-desc desc alias]}]]
-                  (let [alias-width (max alias-width (if alias (count (kw->str alias)) 0))
-                        long-opt-width (max long-opt-width (count (kw->str option)))
-                        ref-width (max ref-width (if ref (count (str ref)) 0))
-                        default? (or default-desc default)
-                        default-width (max default-width (if default? (count (or default-desc
-                                                                                 (-> default str not-empty))) 0))
-                        description-width (max description-width (if desc (count (str desc)) 0))]
-                    {:alias-width alias-width
-                     :long-opt-width long-opt-width
-                     :default-width default-width
-                     :description-width description-width
-                     :ref-width ref-width}))
-                {:alias-width 0
-                 :long-opt-width 0
-                 :default-width 0
-                 :description-width 0
-                 :ref-width 0}
-                spec)]
-    (str/join "\n"
-              (map (fn [[option {:keys [ref default default-desc desc alias]}]]
-                     (with-out-str
-                       (run! print (repeat indent " "))
-                       (when alias (print (str "-" (kw->str alias) ", ")))
-                       (run! print (repeat (- (+ (if (pos? alias-width)
-                                                   3 0)
-                                                 alias-width) (if alias
-                                                                (+ 3 (count (kw->str alias)))
-                                                                0)) " "))
-                       (print (str "--" (kw->str option)))
-                       (run! print (repeat (inc (- long-opt-width (count (kw->str option)))) " "))
-                       (when ref (print ref))
-                       (let [spaces (+ (if (pos? ref-width)
-                                         1
-                                         0) (- ref-width (count (str ref))))]
-                         (run! print (repeat spaces " ")))
-                       (print (or default-desc (str default)))
-                       (let [spaces (+ (if (pos? default-width)
-                                         1
-                                         0) (- default-width (count (or default-desc
-                                                                        (str default)))))]
-                         ;; (prn :spaces spaces)
-                         (run! print (repeat spaces " ")))
-                       (print (str desc))))
-                   (if order
-                     (map (fn [k]
-                            [k (get spec k)])
-                          order)
-                     spec)))))
+  (format-table {:rows (opts->table cfg)
+                 :indent indent}))
 
 (defn- split [a b]
   (let [[prefix suffix] (split-at (count a) b)]

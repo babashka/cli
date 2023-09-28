@@ -83,10 +83,10 @@ Subcommand dispatcher.
 ## `format-opts`
 ``` clojure
 
-(format-opts {:keys [spec indent order], :or {indent 2}})
+(format-opts {:keys [spec indent order header], :or {indent 2}})
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L481-L537)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L504-L569)</sub>
 ## `merge-opts`
 ``` clojure
 
