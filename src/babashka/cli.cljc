@@ -563,7 +563,9 @@
                            indent
                            order]
                     :or {indent 2}}]
-  (str/join "\n" (map #(str (apply str (repeat indent " ")) %) (format-table (opts->table cfg)))))
+  (->> (format-table (opts->table cfg))
+       (map (fn [row] (str (apply str (repeat indent " ")) row)))
+       (str/join "\n")))
 
 (defn- split [a b]
   (let [[prefix suffix] (split-at (count a) b)]
