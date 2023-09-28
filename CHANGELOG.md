@@ -4,9 +4,13 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## v0.7.53 (2023-09-28)
+
+- [#72](https://github.com/babashka/cli/issues/72): add possibility to add a header to format-opts ([@Sohalt](https://github.com/Sohalt))
+
 ## v0.7.52 (2023-06-20)
 
-- Fix [#68](https://github.com/babashka/cli/issues/68): alternative to shutdown-agents similar to clojure CLI's `-X` and `-T` behavior
+- [#68](https://github.com/babashka/cli/issues/68): alternative to shutdown-agents similar to clojure CLI's `-X` and `-T` behavior
 
 ## v0.7.51 (2023-04-17)
 
