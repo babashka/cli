@@ -400,6 +400,15 @@ vector of vectors for the spec:
           :default-desc "src test"}]]
 ```
 
+If you need more flexibility, you can also use `opts->table`, which turns a spec into a vector of vectors, representing rows of a table.
+You can then use`format-table` to produce a table as returned by `format-opts`.
+For example to add a header row with labels for each column, you could do something like:
+
+``` clojure
+(format-table (concat [["alias" "option" "ref" "default" "description"]]
+                      (opts->table {:spec spec})))
+```
+
 ## Subcommands
 
 To handle subcommands, use
