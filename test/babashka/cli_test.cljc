@@ -318,7 +318,17 @@
             {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
                           :desc "Thingy"}
                     :bar {:alias :b, :default "sure", :ref "<bar>"
-                          :desc "Barbarbar" :default-desc "Mos def"}}})))))
+                          :desc "Barbarbar" :default-desc "Mos def"}}}))))
+  (testing "header"
+    (is (= "  alias option ref   default      description\n  -f,   --foo  <foo> yupyupyupyup Thingy\n  -b,   --bar  <bar> Mos def      Barbarbar"
+           (cli/format-table
+            {:rows (concat [["alias" "option" "ref" "default" "description"]]
+                           (cli/opts->table
+                            {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
+                                          :desc "Thingy"}
+                                    :bar {:alias :b, :default "sure", :ref "<bar>"
+                                          :desc "Barbarbar" :default-desc "Mos def"}}}))
+             :indent 2})))))
 
 (deftest require-test
   (is (thrown-with-msg?
