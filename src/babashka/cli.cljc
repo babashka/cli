@@ -503,13 +503,19 @@
 
 (defn pad [len s] (str s (apply str (repeat (- len (count s)) " "))))
 
-(defn format-table [rows]
+(defn pad-cells [rows]
   (let [widths (reduce
                 (fn [widths row]
                   (map max (map count row) widths)) (repeat 0) rows)
+        pad-row (fn [row]
+                  (map (fn [width col] (pad width col)) widths row))]
+    (map pad-row rows)))
+
+(defn format-table [rows]
+  (let [rows (pad-cells rows)
         fmt-row (fn [leader divider trailer row]
                   (str leader
-                       (apply str (interpose divider (map (fn [width col] (pad width col)) widths row)))
+                       (apply str (interpose divider row))
                        trailer))]
     (map (fn [row]
            #_(fmt-row "| " " | " " |" row)
@@ -519,6 +525,7 @@
   (def rows [["a" "fooo" "bara" "bazzz"  "aa"]
              ["foo" "bar" "bazzz"]
              ["fooo" "bara" "bazzz"]])
+  (pad-cells rows)
   (format-table rows))
 
 (defn opts->table [{:keys [spec order]}]
