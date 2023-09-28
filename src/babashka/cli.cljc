@@ -511,22 +511,26 @@
                   (map (fn [width col] (pad width col)) widths row))]
     (map pad-row rows)))
 
-(defn format-table [rows]
+(defn format-table [{:keys [rows indent]}]
   (let [rows (pad-cells rows)
         fmt-row (fn [leader divider trailer row]
                   (str leader
                        (apply str (interpose divider row))
                        trailer))]
-    (map (fn [row]
-           #_(fmt-row "| " " | " " |" row)
-           (fmt-row "" " " "" row)) rows)))
+    (->> rows
+         (map (fn [row]
+                #_(fmt-row "| " " | " " |" row)
+                (fmt-row (apply str (repeat indent " ")) " " "" row)))
+         (map str/trimr)
+         (str/join "\n"))))
 
 (comment
   (def rows [["a" "fooo" "bara" "bazzz"  "aa"]
              ["foo" "bar" "bazzz"]
              ["fooo" "bara" "bazzz"]])
   (pad-cells rows)
-  (format-table rows))
+  (format-table {:rows rows
+                 :indent 2}))
 
 (defn opts->table [{:keys [spec order]}]
   (let [columns (set (mapcat (fn [[_ s]] (keys s)) spec))]
@@ -563,9 +567,8 @@
                            indent
                            order]
                     :or {indent 2}}]
-  (->> (format-table (opts->table cfg))
-       (map (fn [row] (str (apply str (repeat indent " ")) (str/trimr row))))
-       (str/join "\n")))
+  (format-table {:rows (opts->table cfg)
+                 :indent indent}))
 
 (defn- split [a b]
   (let [[prefix suffix] (split-at (count a) b)]
