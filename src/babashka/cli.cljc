@@ -551,21 +551,8 @@
               (map (fn [k] [k (spec k)]) order))
             spec))))
 
-(comment
-  (opts->table {:spec (def spec [[:pretty {:desc "Pretty-print output."
-                                           :alias :p}]
-                                 [:paths {:desc "Paths of files to transform."
-                                          :coerce []
-                                          :default ["src" "test"]
-                                          :default-desc "src test"}]])})
-  (opts->table {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
-                             :desc "Thingy"}
-                       :bar {:alias :b, :default "sure", :ref "<bar>"
-                             :desc "Barbarbar" :default-desc "Mos def"}}}))
 (defn format-opts [{:as cfg
-                    :keys [spec
-                           indent
-                           order]
+                    :keys [indent]
                     :or {indent 2}}]
   (format-table {:rows (opts->table cfg)
                  :indent indent}))
