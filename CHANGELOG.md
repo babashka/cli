@@ -220,6 +220,5 @@ Initial release
 - Unreleased: The exception thrown on coercion failures no longer contains the
   `:input` and `:coerce-fn` keys in its ex-data. See the "Error handling"
   section in the README for details on the new exception format.
-- Unreleased: `format-opts` pads each row with trailing whitespace to the length of the longest row
 - v0.2.17: The shorthand `:keywords` introduced in v0.2.16 is removed
   (breaking).

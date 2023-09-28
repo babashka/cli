@@ -564,7 +564,7 @@
                            order]
                     :or {indent 2}}]
   (->> (format-table (opts->table cfg))
-       (map (fn [row] (str (apply str (repeat indent " ")) row)))
+       (map (fn [row] (str (apply str (repeat indent " ")) (str/trimr row))))
        (str/join "\n")))
 
 (defn- split [a b]
