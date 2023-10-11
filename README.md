@@ -412,7 +412,8 @@ For example to add a header row with labels for each column, you could do someth
                                :desc "Thingy"}
                          :bar {:alias :b, :default "sure", :ref "<bar>"
                                :desc "Barbarbar" :default-desc "Mos def"}}}))
-  :indent 2})```
+  :indent 2})
+```
 
 ## Subcommands
 
