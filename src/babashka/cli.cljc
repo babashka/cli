@@ -1,8 +1,9 @@
 (ns babashka.cli
   (:refer-clojure :exclude [parse-boolean parse-long parse-double])
   (:require
-   #?(:clj [clojure.edn :as edn]
-      :cljs [cljs.reader :as edn])
+   #?@(:squint []
+       :clj [[clojure.edn :as edn]]
+       :cljs [[cljs.reader :as edn]])
    [babashka.cli.internal :as internal]
    [clojure.string :as str])
   #?(:clj (:import (clojure.lang ExceptionInfo))))
@@ -62,6 +63,8 @@
   (when (string? arg)
     (nth arg 1 nil)))
 
+#?(:squint (do (def keyword identity)))
+
 (defn parse-keyword
   "Parse keyword from `s`. Ignores leading `:`."
   [s]
@@ -107,10 +110,12 @@
                        (if implicit-true?
                          "(implicit) true"
                          (str "input " (pr-str s)))
-                       (if (keyword? f)
+                       (if #?(:squint false
+                              :default (keyword? f))
                          " to "
                          " with ")
-                       (if (keyword? f)
+                       (if #?(:squint false
+                              :default (keyword? f))
                          (name f)
                          f))
                   {:input s
@@ -127,7 +132,8 @@
              :symbol symbol
              :keyword parse-keyword
              :string identity
-             :edn edn/read-string
+             #?@(:squint []
+                 :default [:edn edn/read-string])
              :auto auto-coerce
              ;; default
              f)
@@ -252,6 +258,10 @@
      :kwd-opt kwd-opt?
      :fst-colon fst-colon?}))
 
+#?(:squint
+   (defn vary-meta [coll f & args]
+     coll))
+
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.
   Instead of a leading `:` either `--` or `-` may be used as well.
@@ -338,7 +348,8 @@
            (if-not args
              [acc current-opt added]
              (let [raw-arg (first args)
-                   opt? (keyword? raw-arg)]
+                   opt? #?(:squint false
+                           :default (keyword? raw-arg))]
                (if opt?
                  (recur (process-previous acc current-opt added nil)
                         raw-arg added mode (next args)
