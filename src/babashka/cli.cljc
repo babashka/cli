@@ -258,9 +258,8 @@
      :kwd-opt kwd-opt?
      :fst-colon fst-colon?}))
 
-#?(:squint
-   (defn vary-meta [coll f & args]
-     coll))
+#?(:squint (defn vary-meta [coll f & args]
+             coll))
 
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.

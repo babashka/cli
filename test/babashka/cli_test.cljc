@@ -2,9 +2,12 @@
   (:require
    [babashka.cli :as cli]
    [clojure.string :as str]
-   [clojure.test :refer [deftest is testing]]
-   #?(:clj [clojure.edn :as edn]
-      :cljs [cljs.reader :as edn])))
+   #?@(:squint []
+       :cljs [[clojure.test :refer [deftest is testing]]])
+   #?@(:squint []
+       :clj [[clojure.edn :as edn]]
+       :cljs [[cljs.reader :as edn]]))
+  #?(:squint (:require-macros [babashka.cli.test-macros :refer [deftest]])))
 
 (defn normalize-filename [s]
   (str/replace s "\\" "/"))
