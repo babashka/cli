@@ -3,11 +3,11 @@
    [babashka.cli :as cli]
    [clojure.string :as str]
    #?@(:squint []
-       :cljs [[clojure.test :refer [deftest is testing]]])
-   #?@(:squint []
+       :default [[clojure.test :refer [deftest is testing]]])
+   #?@(:squint [["assert" :as assert]]
        :clj [[clojure.edn :as edn]]
        :cljs [[cljs.reader :as edn]]))
-  #?(:squint (:require-macros [babashka.cli.test-macros :refer [deftest]])))
+  #?(:squint (:require-macros [babashka.cli.test-macros :refer [deftest is]])))
 
 (defn normalize-filename [s]
   (str/replace s "\\" "/"))
@@ -44,23 +44,33 @@
 (deftest parse-opts-test
   (let [res (cli/parse-opts ["foo" ":b" "1"])]
     (is (submap? '{:b 1} res))
-    (is (submap? {:org.babashka/cli {:args ["foo"]}} (meta res)))
+    #?(:squint nil
+       :default (is (submap? {:org.babashka/cli {:args ["foo"]}} (meta res))))
     #_(is (submap? ["foo"] (cli/commands res))))
-  (is (submap? '{:b 1}
-               (cli/parse-opts ["foo" ":b" "1"] {:coerce {:b edn/read-string}})))
-  (is (submap? '{:b 1}
-               (cli/parse-opts ["foo" "--b" "1"] {:coerce {:b edn/read-string}})))
-  (is (submap? '{:boo 1}
-               (cli/parse-opts ["foo" ":b" "1"] {:aliases {:b :boo}
-                                                 :coerce {:boo edn/read-string}})))
-  (is (submap? '{:boo 1 :foo true}
-               (cli/parse-opts ["--boo=1" "--foo"]
-                               {:coerce {:boo edn/read-string}})))
+  #?(:squint nil
+     :default
+     (is (submap? '{:b 1}
+                  (cli/parse-opts ["foo" ":b" "1"] {:coerce {:b edn/read-string}}))))
+  #?(:squint nil
+     :default
+     (is (submap? '{:b 1}
+                  (cli/parse-opts ["foo" "--b" "1"] {:coerce {:b edn/read-string}}))))
+  #?(:squint nil
+     :default
+     (is (submap? '{:boo 1}
+                  (cli/parse-opts ["foo" ":b" "1"] {:aliases {:b :boo}
+                                                    :coerce {:boo edn/read-string}}))))
+  #?(:squint nil
+     :default (is (submap? '{:boo 1 :foo true}
+                           (cli/parse-opts ["--boo=1" "--foo"]
+                                           {:coerce {:boo edn/read-string}}))))
   (is (try (cli/parse-opts [":b" "dude"] {:coerce {:b :long}})
            false
            (catch #?(:clj Exception
                      :cljs :default) e
-             (= {:type :org.babashka/cli
+             (#?(:squint assert.equal
+                 :default =)
+              {:type :org.babashka/cli
                  :cause :coerce
                  :msg "Coerce failure: cannot transform input \"dude\" to long"
                  :option :b

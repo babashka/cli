@@ -67,3 +67,6 @@
                 (partition (count args) args)))
     #?(:clj (throw (IllegalArgumentException. "The number of args doesn't match are's argv."))
        :cljs (throw (js/Error "The number of args doesn't match are's argv.")))))
+
+(defmacro is [& args]
+  `(do ~@args))
