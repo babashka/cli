@@ -1,21 +1,4 @@
 import { deepEqual } from 'assert';
+import { parse_args } from './js/babashka/cli.mjs';
 
-var x = {
-  type: 'org.babashka/cli',
-  cause: 'coerce',
-  msg: 'Coerce failure: cannot transform input "dude" to long',
-  option: 'b',
-  value: 'dude',
-  spec: null
-}
-
-var y = {
-  spec: undefined,
-  type: 'org.babashka/cli',
-  cause: 'coerce',
-  msg: 'Coerce failure: cannot transform input "dude" to long',
-  option: 'b',
-  value: 'dude'
-}
-
-deepEqual(x,y);
+console.log(parse_args(['-a', '1', '-a', '1'], {coerce: {a: ['long']}}))

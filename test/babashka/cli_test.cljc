@@ -7,7 +7,10 @@
    #?@(:squint [["assert" :as assert]]
        :clj [[clojure.edn :as edn]]
        :cljs [[cljs.reader :as edn]]))
-  #?(:squint (:require-macros [babashka.cli.test-macros :refer [deftest is]])))
+  #?(:squint (:require-macros [babashka.cli.test-macros :refer [deftest is testing]])))
+
+#?(:squint (do (def keyword identity)
+               (def symbol identity)))
 
 (defn normalize-filename [s]
   (str/replace s "\\" "/"))

@@ -63,7 +63,8 @@
   (when (string? arg)
     (nth arg 1 nil)))
 
-#?(:squint (do (def keyword identity)))
+#?(:squint (do (def keyword identity)
+               (def symbol identity)))
 
 (defn parse-keyword
   "Parse keyword from `s`. Ignores leading `:`."
@@ -130,7 +131,8 @@
              (:int :long) parse-long
              :double parse-double
              :number parse-number
-             :symbol symbol
+             :symbol #?(:squint str
+                        :default symbol)
              :keyword parse-keyword
              :string identity
              #?@(:squint []
