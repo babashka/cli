@@ -70,3 +70,8 @@
 
 (defmacro is [& args]
   `(do ~@args))
+
+(defmacro thrown-with-msg? [ex-type regex body]
+  `(try ~body
+        (catch ~ex-type ~'e
+          (is (re-matches ~regex (.-message ~'e))))))
