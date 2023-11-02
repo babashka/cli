@@ -38,7 +38,7 @@
   (walk/postwalk (fn [expr]
                    (if (and (seq? expr)
                             (= '= (first expr)))
-                     (list* 'assert.equal (rest expr))
+                     (list* 'assert.deepEqual (second expr) (first expr) (nnext expr))
                      expr)) expr))
 
 (defmacro are

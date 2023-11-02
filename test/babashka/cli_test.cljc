@@ -68,7 +68,7 @@
            false
            (catch #?(:clj Exception
                      :cljs :default) e
-             (#?(:squint assert.equal
+             (#?(:squint assert.deepEqual
                  :default =)
               {:type :org.babashka/cli
                  :cause :coerce

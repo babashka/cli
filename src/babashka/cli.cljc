@@ -110,13 +110,14 @@
                        (if implicit-true?
                          "(implicit) true"
                          (str "input " (pr-str s)))
-                       (if #?(:squint false
+                       (if #?(:squint (string? f)
                               :default (keyword? f))
                          " to "
                          " with ")
-                       (if #?(:squint false
+                       (if #?(:squint (string? f)
                               :default (keyword? f))
-                         (name f)
+                         #?(:squint f
+                            :default (name f))
                          f))
                   {:input s
                    :coerce-fn f}
