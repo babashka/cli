@@ -457,7 +457,7 @@
          collect-fn (coerce-collect-fn collect last-opt (get coerce-opts last-opt))
          opts (-> (process-previous opts last-opt added collect-fn)
                   (cond->
-                   (seq cmds)
+                      (seq cmds)
                     (vary-meta update-in [:org.babashka/cli :args]
                                (fn [args]
                                  (into (vec cmds) args)))))
@@ -531,6 +531,9 @@
                   (map (fn [width col] (pad width col)) widths row))]
     (map pad-row rows)))
 
+
+(js/console.log str/trimr)
+
 (defn format-table [{:keys [rows indent]}]
   (let [rows (pad-cells rows)
         fmt-row (fn [leader divider trailer row]
@@ -542,7 +545,9 @@
                 #_(fmt-row "| " " | " " |" row)
                 (fmt-row (apply str (repeat indent " ")) " " "" row)))
          (map str/trimr)
-         (str/join "\n"))))
+         (str/join "\n")
+         )
+    (doto prn)))
 
 (comment
   (def rows [["a" "fooo" "bara" "bazzz"  "aa"]
@@ -568,7 +573,8 @@
                      (if desc desc ""))]))
           (if (map? spec)
             (let [order (or order (keys spec))]
-              (map (fn [k] [k (spec k)]) order))
+              (map (fn [k] [k #?(:squint (get spec k)
+                                 :default (spec k))]) order))
             spec))))
 
 (defn format-opts [{:as cfg
