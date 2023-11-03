@@ -230,7 +230,8 @@
             (let [arg-count (count args)
                   cnt (min arg-count
                            (bounded-count arg-count args->opts))]
-              [(concat (interleave args->opts args)
+              [(concat (interleave #?(:squint (map vector args->opts)
+                                      :default args->opts) args)
                        (drop cnt args))
                (drop cnt args->opts)])
             [args args->opts])
@@ -348,11 +349,16 @@
                 mode (when no-keyword-opts :hyphens)
                 args (seq args)
                 a->o a->o]
+           #_(prn :acc acc :current-opt current-opt :added added :mode (str mode) :args args :a-o a->o)
            (if-not args
              [acc current-opt added]
              (let [raw-arg (first args)
-                   opt? #?(:squint false
-                           :default (keyword? raw-arg))]
+                   opt? #?(:squint (vector? raw-arg)
+                           :default (keyword? raw-arg))
+                   raw-arg #?(:squint (if opt?
+                                        (first raw-arg)
+                                        raw-arg)
+                              :default raw-arg)]
                (if opt?
                  (recur (process-previous acc current-opt added nil)
                         raw-arg added mode (next args)

@@ -81,7 +81,7 @@
                  :option :b
                  :value "dude"
                  :spec nil}
-                (ex-data e)))))
+              (ex-data e)))))
   (is (submap? {:a [1 1]}
                (cli/parse-opts ["-a" "1" "-a" "1"] {:collect {:a []} :coerce {:a :long}})))
   (is (submap? {:foo :bar
