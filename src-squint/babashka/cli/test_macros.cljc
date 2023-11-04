@@ -68,8 +68,15 @@
     #?(:clj (throw (IllegalArgumentException. "The number of args doesn't match are's argv."))
        :cljs (throw (js/Error "The number of args doesn't match are's argv.")))))
 
-(defmacro is [& args]
-  `(do ~@args))
+(defmacro is [expr & args]
+  (if (seq? expr)
+    (let [[pred & args] expr]
+      (if (= '= pred)
+        `(assert.deepEqual ~@args)
+        (do (println "Warning: unhandled pred" pred)
+            `(do ~@args))))
+    (do (println "Warning: unhandled expr" expr)
+        `(do expr ~@args))))
 
 (defmacro thrown-with-msg? [ex-type regex body]
   `(try ~body
