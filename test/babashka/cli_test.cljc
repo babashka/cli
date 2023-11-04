@@ -300,7 +300,8 @@
                                      (cli/parse-opts
                                       ["--query" ":a" ":b" ":c"]
                                       {:no-keyword-opts true
-                                       :coerce {:query [:edn]}}))))
+                                       :coerce {:query [#?(:squint :keyword
+                                                           :default :edn)]}}))))
 
 (deftest auto-coerce-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "true"])))

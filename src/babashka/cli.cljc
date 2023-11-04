@@ -531,9 +531,6 @@
                   (map (fn [width col] (pad width col)) widths row))]
     (map pad-row rows)))
 
-
-(js/console.log str/trimr)
-
 (defn format-table [{:keys [rows indent]}]
   (let [rows (pad-cells rows)
         fmt-row (fn [leader divider trailer row]
@@ -542,12 +539,10 @@
                        trailer))]
     (->> rows
          (map (fn [row]
-                #_(fmt-row "| " " | " " |" row)
-                (fmt-row (apply str (repeat indent " ")) " " "" row)))
+                 (fmt-row "| " " | " " |" row)
+                 (fmt-row (apply str (repeat indent " ")) " " "" row)))
          (map str/trimr)
-         (str/join "\n")
-         )
-    (doto prn)))
+         (str/join "\n"))))
 
 (comment
   (def rows [["a" "fooo" "bara" "bazzz"  "aa"]
