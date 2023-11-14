@@ -195,7 +195,7 @@
                      :to :keyword, :paths []},
             :alias {:i :from, :o :to, :p :pretty},
             :exec-args {:from :edn, :to :json, :paths ["src" "test"]}}
-           (cli/spec->opts spec)))
+           (cli/spec->opts spec nil)))
     (is (= (str/trim "
   -p, --pretty          Pretty-print output.
       --paths  src test Paths of files to transform.
@@ -214,7 +214,12 @@
     (is (submap?
          #:deps{:root "the-root"}
          (cli/parse-opts ["--deps/root" "the-root"]
-                         {:spec [[:deps/root {:desc "The root"}]]})))))
+                         {:spec [[:deps/root {:desc "The root"}]]})))
+    (testing "exec-args wins over spec"
+      (is (= 2 (:foo (cli/parse-opts [] {:spec {:foo {:default 1}}
+                                         :exec-args {:foo 2}}))))
+      (is (nil? (:foo (cli/parse-opts [] {:spec {:foo {:default 1}}
+                                          :exec-args {:foo nil}})))))))
 
 (deftest args-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "--"])))
