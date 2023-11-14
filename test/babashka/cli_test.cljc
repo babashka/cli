@@ -195,7 +195,7 @@
                      :to :keyword, :paths []},
             :alias {:i :from, :o :to, :p :pretty},
             :exec-args {:from :edn, :to :json, :paths ["src" "test"]}}
-           (cli/spec->opts spec)))
+           (cli/spec->opts spec nil)))
     (is (= (str/trim "
   -p, --pretty          Pretty-print output.
       --paths  src test Paths of files to transform.

@@ -182,24 +182,25 @@
       (assoc acc current-opt arg))))
 
 (defn spec->opts
-  "Converts spec into opts format."
-  [spec]
-  (reduce
-   (fn [acc [k {:keys [coerce alias default require validate]}]]
-     (cond-> acc
-       coerce (update :coerce assoc k coerce)
-       alias (update :alias
-                     (fn [aliases]
-                       (when (contains? aliases alias)
-                         (throw (ex-info (str "Conflicting alias " alias " between " (get aliases alias) " and " k)
-                                         {:alias alias})))
-                       (assoc aliases alias k)))
-       require (update :require (fnil #(conj % k) #{}))
-       validate (update :validate assoc k validate)
-       default (update :exec-args (fn [exec-args]
-                                    (assoc exec-args k (get exec-args k default))))))
-   {}
-   spec))
+  "Converts spec into opts format. Pass existing opts as optional second argument."
+  ([spec] (spec->opts spec nil))
+  ([spec {:keys [exec-args]}]
+   (reduce
+    (fn [acc [k {:keys [coerce alias default require validate]}]]
+      (cond-> acc
+        coerce (update :coerce assoc k coerce)
+        alias (update :alias
+                      (fn [aliases]
+                        (when (contains? aliases alias)
+                          (throw (ex-info (str "Conflicting alias " alias " between " (get aliases alias) " and " k)
+                                          {:alias alias})))
+                        (assoc aliases alias k)))
+        require (update :require (fnil #(conj % k) #{}))
+        validate (update :validate assoc k validate)
+        default (update :exec-args (fn [new-exec-args]
+                                     (assoc new-exec-args k (get exec-args k default))))))
+    {}
+    spec)))
 
 (defn parse-cmds
   "Parses sub-commands (arguments not starting with an option prefix) and returns a map with:
@@ -290,7 +291,7 @@
          opts (if spec
                 (merge-opts
                  opts
-                 (spec->opts spec))
+                 (spec->opts spec opts))
                 opts)
          coerce-opts (:coerce opts)
          aliases (or

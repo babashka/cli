@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased (2023-11-14)
+
+- Prioritize `:exec-args` over spec `:default`s
+
 ## v0.7.53 (2023-09-28)
 
 - [#72](https://github.com/babashka/cli/issues/72): add possibility to add a header to format-opts ([@Sohalt](https://github.com/Sohalt))
