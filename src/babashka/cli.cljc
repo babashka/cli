@@ -196,7 +196,8 @@
                        (assoc aliases alias k)))
        require (update :require (fnil #(conj % k) #{}))
        validate (update :validate assoc k validate)
-       default (update :exec-args assoc k default)))
+       default (update :exec-args (fn [exec-args]
+                                    (assoc exec-args k (get exec-args k default))))))
    {}
    spec))
 

@@ -214,7 +214,12 @@
     (is (submap?
          #:deps{:root "the-root"}
          (cli/parse-opts ["--deps/root" "the-root"]
-                         {:spec [[:deps/root {:desc "The root"}]]})))))
+                         {:spec [[:deps/root {:desc "The root"}]]})))
+    (testing "exec-args wins over spec"
+      (is (= 2 (:foo (cli/parse-opts [] {:spec {:foo {:default 1}}
+                                         :exec-args {:foo 2}}))))
+      (is (nil? (:foo (cli/parse-opts [] {:spec {:foo {:default 1}}
+                                          :exec-args {:foo nil}})))))))
 
 (deftest args-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "--"])))
