@@ -562,6 +562,57 @@
     (when (= prefix a)
       suffix)))
 
+(defn keyword-map [m]
+  (select-keys m (filter keyword? (keys m))))
+
+(defn table->tree [table]
+  (reduce (fn [tree {:as cfg :keys [cmds]}]
+            (assoc-in tree cmds (dissoc cfg :cmds)))
+          {} table))
+
+(defn deep-merge [a b]
+  (reduce (fn [acc k] (update acc k (fn [v]
+                                      (if (map? v)
+                                        (deep-merge v (b k))
+                                        (b k)))))
+          a (keys b)))
+
+(defn dispatch-tree' [tree args opts]
+  (loop [cmds [] all-opts {} args args cmd-info tree]
+    (let [parse-opts (deep-merge opts (keyword-map cmd-info))
+          {:keys [args opts]} (if (or (some-> (first args)
+                                              (str/starts-with? "-"))
+                                      (contains? parse-opts :args->opts))
+                                (parse-args args parse-opts)
+                                {:args args
+                                 :opts {}})
+          [arg & rest] args]
+      (if-let [subcmd-info (get cmd-info arg)]
+        (recur (conj cmds arg) (merge all-opts opts) rest subcmd-info)
+        (if (:fn cmd-info)
+          {:cmd-info cmd-info
+           :dispatch cmds
+           :opts (merge all-opts opts)
+           :args args}
+          (if arg
+            {:error :no-match
+             :wrong-input arg
+             :available-commands (filter string? (keys cmd-info))}
+            {:error :input-exhausted
+             :available-commands (filter string? (keys cmd-info))}))))))
+
+(defn dispatch-tree [tree args opts]
+  (let [{:as res :keys [cmd-info error wrong-input available-commands]}
+        (dispatch-tree' tree args opts)]
+    (case error
+      :no-match (do (println "No matching command:" wrong-input)
+                    (println "Available commands:")
+                    (println (str/join "\n" available-commands)))
+      :input-exhausted (do (println "No matching command")
+                           (println "Available commands:")
+                           (println (str/join "\n" available-commands)))
+      nil ((:fn cmd-info) (dissoc res :cmd-info)))))
+
 (defn dispatch
   "Subcommand dispatcher.
 
@@ -589,21 +640,8 @@
   Each entry in the table may have additional `parse-args` options.
 
   Examples: see [README.md](README.md#subcommands)."
-  ([table args] (dispatch table args nil))
-  ([table args opts]
-   (let [{:keys [cmds args] :as m} (parse-cmds args opts)]
-     (reduce (fn [_ {dispatch :cmds
-                     f :fn
-                     :as sub-opts}]
-               (when-let [suffix (split dispatch cmds)]
-                 (let [rest-cmds (some-> suffix seq vec)
-                       args (concat rest-cmds args)
-                       {:keys [opts args cmds]} (parse-args args (merge-opts opts sub-opts))
-                       args (concat cmds args)]
-                   (reduced (f (assoc m
-                                      :args args
-                                      ;; deprecated name: will be removed in the future!
-                                      :rest-cmds args
-                                      :opts opts
-                                      :dispatch dispatch))))))
-             nil table))))
+  ([table-or-tree args]
+   (dispatch table-or-tree args {}))
+  ([table-or-tree args opts]
+   (let [tree (cond-> table-or-tree (vector? table-or-tree) table->tree)]
+     (dispatch-tree tree args opts))))

@@ -278,6 +278,34 @@
                  :precision 100}}
          (cli/dispatch table ["dep" "search" "cheshire" "100"])))))
 
+(deftest table->tree-test
+  (is (= {"foo" {"bar" {:spec {:baz {:coerce :boolean}},
+                        :fn identity,
+                        "baz" {:spec {:quux {:coerce :keyword}},
+                               :fn identity}}}}
+         (cli/table->tree [{:cmds ["foo" "bar"]
+                            :spec {:baz {:coerce :boolean}}
+                            :fn identity}
+                           {:cmds ["foo" "bar" "baz"]
+                            :spec {:quux {:coerce :keyword}}
+                            :fn identity}]))))
+
+(deftest dispatch-tree-test
+  (let [table [{:cmds ["foo" "bar"]
+                :spec {:baz {:coerce :boolean}}
+                :fn identity}
+               {:cmds ["foo" "bar" "baz"]
+                :spec {:quux {:coerce :keyword}}
+                :fn identity}]]
+    (is (= "No matching command\nAvailable commands:\nbar\n"
+           (with-out-str (cli/dispatch table ["foo" "--baz" "quux"]))))
+    (is (= "No matching command: baz\nAvailable commands:\nbar\n"
+           (with-out-str (cli/dispatch table ["foo" "baz" "--baz" "quux"]))))
+    (is (= {:dispatch ["foo" "bar"], :opts {:baz true}, :args ["quux"]}
+           (cli/dispatch table ["foo" "bar" "--baz" "quux"])))
+    (is (= {:dispatch ["foo" "bar" "baz"] , :opts {:baz true :quux :xyzzy}, :args nil}
+           (cli/dispatch table ["foo" "bar" "--baz" "baz" "--quux" "xyzzy"])))))
+
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
                                       ["--query" ":a" ":b" ":c"]
