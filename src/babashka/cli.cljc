@@ -564,27 +564,31 @@
     (when (= prefix a)
       suffix)))
 
-(defn keyword-map [m]
-  (select-keys m (filter keyword? (keys m))))
-
 (defn table->tree [table]
   (reduce (fn [tree {:as cfg :keys [cmds]}]
             (assoc-in tree cmds (dissoc cfg :cmds)))
           {} table))
 
-(defn deep-merge [a b]
+(defn- deep-merge [a b]
   (reduce (fn [acc k] (update acc k (fn [v]
                                       (if (map? v)
                                         (deep-merge v (b k))
                                         (b k)))))
           a (keys b)))
 
+(defn- has-parse-opts? [m]
+  (some #{:spec :coerce :require :restrict :validate :args->opts :exec-args} (keys m)))
+
+(defn- is-option? [s]
+  (some-> s (str/starts-with? "-")))
+
 (defn dispatch-tree' [tree args opts]
   (loop [cmds [] all-opts {} args args cmd-info tree]
-    (let [parse-opts (deep-merge opts (keyword-map cmd-info))
-          {:keys [args opts]} (if (or (some-> (first args)
-                                              (str/starts-with? "-"))
-                                      (contains? parse-opts :args->opts))
+    (let [kwm (select-keys cmd-info (filter keyword? (keys cmd-info)))
+          should-parse-args? (or (has-parse-opts? kwm)
+                                 (is-option? (first args)))
+          parse-opts (deep-merge opts kwm)
+          {:keys [args opts]} (if should-parse-args?
                                 (parse-args args parse-opts)
                                 {:args args
                                  :opts {}})
