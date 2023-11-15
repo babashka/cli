@@ -580,42 +580,48 @@
 (defn- is-option? [s]
   (some-> s (str/starts-with? "-")))
 
-(defn dispatch-tree' [tree args opts]
-  (loop [cmds [] all-opts {} args args cmd-info tree]
-    (let [kwm (select-keys cmd-info (filter keyword? (keys cmd-info)))
-          should-parse-args? (or (has-parse-opts? kwm)
-                                 (is-option? (first args)))
-          parse-opts (deep-merge opts kwm)
-          {:keys [args opts]} (if should-parse-args?
-                                (parse-args args parse-opts)
-                                {:args args
-                                 :opts {}})
-          [arg & rest] args]
-      (if-let [subcmd-info (get cmd-info arg)]
-        (recur (conj cmds arg) (merge all-opts opts) rest subcmd-info)
-        (if (:fn cmd-info)
-          {:cmd-info cmd-info
-           :dispatch cmds
-           :opts (merge all-opts opts)
-           :args args}
-          (if arg
-            {:error :no-match
-             :wrong-input arg
-             :available-commands (filter string? (keys cmd-info))}
-            {:error :input-exhausted
-             :available-commands (filter string? (keys cmd-info))}))))))
+(defn dispatch-tree'
+  ([tree args]
+   (dispatch-tree' tree args nil))
+  ([tree args opts]
+   (loop [cmds [] all-opts {} args args cmd-info tree]
+     (let [kwm (select-keys cmd-info (filter keyword? (keys cmd-info)))
+           should-parse-args? (or (has-parse-opts? kwm)
+                                  (is-option? (first args)))
+           parse-opts (deep-merge opts kwm)
+           {:keys [args opts]} (if should-parse-args?
+                                 (parse-args args parse-opts)
+                                 {:args args
+                                  :opts {}})
+           [arg & rest] args]
+       (if-let [subcmd-info (get cmd-info arg)]
+         (recur (conj cmds arg) (merge all-opts opts) rest subcmd-info)
+         (if (:fn cmd-info)
+           {:cmd-info cmd-info
+            :dispatch cmds
+            :opts (merge all-opts opts)
+            :args args}
+           (if arg
+             {:error :no-match
+              :wrong-input arg
+              :available-commands (filter string? (keys cmd-info))}
+             {:error :input-exhausted
+              :available-commands (filter string? (keys cmd-info))})))))))
 
-(defn dispatch-tree [tree args opts]
-  (let [{:as res :keys [cmd-info error wrong-input available-commands]}
-        (dispatch-tree' tree args opts)]
-    (case error
-      :no-match (do (println "No matching command:" wrong-input)
-                    (println "Available commands:")
-                    (println (str/join "\n" available-commands)))
-      :input-exhausted (do (println "No matching command")
-                           (println "Available commands:")
-                           (println (str/join "\n" available-commands)))
-      nil ((:fn cmd-info) (dissoc res :cmd-info)))))
+(defn dispatch-tree
+  ([tree args]
+   (dispatch-tree tree args nil))
+  ([tree args opts]
+   (let [{:as res :keys [cmd-info error wrong-input available-commands]}
+         (dispatch-tree' tree args opts)]
+     (case error
+       :no-match (do (println "No matching command:" wrong-input)
+                     (println "Available commands:")
+                     (println (str/join "\n" available-commands)))
+       :input-exhausted (do (println "No matching command")
+                            (println "Available commands:")
+                            (println (str/join "\n" available-commands)))
+       nil ((:fn cmd-info) (dissoc res :cmd-info))))))
 
 (defn dispatch
   "Subcommand dispatcher.
