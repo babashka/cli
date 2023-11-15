@@ -297,6 +297,8 @@
                {:cmds ["foo" "bar" "baz"]
                 :spec {:quux {:coerce :keyword}}
                 :fn identity}]]
+    (is (= "No matching command\nAvailable commands:\nfoo\n"
+           (with-out-str (cli/dispatch table []))))
     (is (= "No matching command\nAvailable commands:\nbar\n"
            (with-out-str (cli/dispatch table ["foo" "--baz" "quux"]))))
     (is (= "No matching command: baz\nAvailable commands:\nbar\n"
