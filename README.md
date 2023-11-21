@@ -308,7 +308,8 @@ For example:
 (cli/parse-opts
  []
  {:spec {:foo {:desc "You know what this is."
-         :ref "<val>"}}
+         :ref "<val>"
+         :require true}}
   :error-fn
   (fn [{:keys [spec type cause msg option] :as data}]
     (if (= :org.babashka/cli type)
