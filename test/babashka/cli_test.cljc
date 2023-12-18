@@ -317,10 +317,9 @@
   (d/deflet
     (def tree {"foo" {:fn identity
                       "bar" {"baz" {:fn identity}}}})
-    (is (cli/dispatch-tree tree ["foo"])))
-  (let [tree {"foo" {:fn identity
-                     "bar" {"baz" {:fn identity}}}}]
-    (cli/dispatch-tree tree ["foo"])))
+    (is (submap?
+         {:dispatch ["foo"]}
+         (cli/dispatch-tree tree ["foo"])))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
