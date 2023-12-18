@@ -3,6 +3,7 @@
    [babashka.cli :as cli]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
+   [borkdude.deflet :as d]
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])))
 
@@ -311,7 +312,15 @@
     (is (= {:dispatch ["foo" "bar"], :opts {:baz true}, :args ["quux"]}
            (cli/dispatch table ["foo" "bar" "--baz" "quux"])))
     (is (= {:dispatch ["foo" "bar" "baz"] , :opts {:baz true :quux :xyzzy}, :args nil}
-           (cli/dispatch table ["foo" "bar" "--baz" "baz" "--quux" "xyzzy"])))))
+           (cli/dispatch table ["foo" "bar" "--baz" "baz" "--quux" "xyzzy"]))))
+
+  (d/deflet
+    (def tree {"foo" {:fn identity
+                      "bar" {"baz" {:fn identity}}}})
+    (is (cli/dispatch-tree tree ["foo"])))
+  (let [tree {"foo" {:fn identity
+                     "bar" {"baz" {:fn identity}}}}]
+    (cli/dispatch-tree tree ["foo"])))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
