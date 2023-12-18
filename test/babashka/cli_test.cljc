@@ -303,12 +303,12 @@
                {:cmds ["foo" "bar" "baz"]
                 :spec {:quux {:coerce :keyword}}
                 :fn identity}]]
-    (is (= "No matching command\nAvailable commands:\nfoo\n"
-           (with-out-str (cli/dispatch table []))))
-    (is (= "No matching command\nAvailable commands:\nbar\n"
-           (with-out-str (cli/dispatch table ["foo" "--baz" "quux"]))))
-    (is (= "No matching command: baz\nAvailable commands:\nbar\n"
-           (with-out-str (cli/dispatch table ["foo" "baz" "--baz" "quux"]))))
+    (is (= (str/split-lines "No matching command\nAvailable commands:\nfoo\n")
+           (str/split-lines (with-out-str (cli/dispatch table [])))))
+    (is (= (str/split-lines "No matching command\nAvailable commands:\nbar\n")
+           (str/split-lines (with-out-str (cli/dispatch table ["foo" "--baz" "quux"])))))
+    (is (= (str/split-lines "No matching command: baz\nAvailable commands:\nbar\n")
+           (str/split-lines (with-out-str (cli/dispatch table ["foo" "baz" "--baz" "quux"])))))
     (is (= {:dispatch ["foo" "bar"], :opts {:baz true}, :args ["quux"]}
            (cli/dispatch table ["foo" "bar" "--baz" "quux"])))
     (is (= {:dispatch ["foo" "bar" "baz"] , :opts {:baz true :quux :xyzzy}, :args nil}
