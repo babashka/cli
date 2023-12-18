@@ -306,7 +306,8 @@
     (is (= (str/split-lines "No matching command\nAvailable commands:\nfoo\n")
            (str/split-lines (with-out-str
                               (binding #?(:clj [*err* *out*]
-                                          :cljs [*print-fn* *print-err-fn*])
+                                          :cljs [*print-err-fn* *print-fn*
+                                                 *print-newline* true])
                                 (cli/dispatch table []))))))
     #_#_(is (= (str/split-lines "No matching command\nAvailable commands:\nbar\n")
            (str/split-lines (with-out-str (cli/dispatch table ["foo" "--baz" "quux"])))))
