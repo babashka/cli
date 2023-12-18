@@ -582,7 +582,7 @@
 (defn- is-option? [s]
   (some-> s (str/starts-with? "-")))
 
-(defn dispatch-tree'
+(defn- dispatch-tree'
   ([tree args]
    (dispatch-tree' tree args nil))
   ([tree args opts]
@@ -617,12 +617,17 @@
    (let [{:as res :keys [cmd-info error wrong-input available-commands]}
          (dispatch-tree' tree args opts)]
      (case error
-       :no-match (do (println "No matching command:" wrong-input)
-                     (println "Available commands:")
-                     (println (str/join "\n" available-commands)))
-       :input-exhausted (do (println "No matching command")
-                            (println "Available commands:")
-                            (println (str/join "\n" available-commands)))
+       ;; TODO: decide to print or return this via :error-fn or so?
+       ;; Either way, we need to print to stderr
+       (:no-match :input-exhausted)
+       (let [println (fn [& args]
+                       #?(:cljs (apply *print-err-fn* args)
+                          :clj (binding [*out* *err*]
+                                 (apply println args))))]
+         (println (str "No matching command" (when wrong-input
+                                               (str ": " wrong-input))))
+         (println "Available commands:")
+         (println (str/join "\n" available-commands)))
        nil ((:fn cmd-info) (dissoc res :cmd-info))))))
 
 (defn dispatch
