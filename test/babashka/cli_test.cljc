@@ -315,11 +315,16 @@
            (cli/dispatch table ["foo" "bar" "--baz" "baz" "--quux" "xyzzy"]))))
 
   (d/deflet
-    (def tree {"foo" {:fn identity
-                      "bar" {"baz" {:fn identity}}}})
+    (def tree {"foo" {"bar" {:fn identity
+                             "baz" {:fn identity}}
+                      :spec {:bar {:coerce :keyword}}
+                      :fn identity}})
+    ;; TODO: change :dispatch to :cmds?
     (is (submap?
-         {:dispatch ["foo"]}
-         (cli/dispatch-tree tree ["foo"])))))
+         {:dispatch ["foo" "bar"]
+          :opts {:bar :bar}}
+         (cli/dispatch-tree tree ["foo"  "--bar" "bar" "bar"])))
+    ))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
