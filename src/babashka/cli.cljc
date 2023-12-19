@@ -627,17 +627,6 @@
      (case error
        (:no-match :input-exhausted)
        (error-fn {:cause error})
-       (when-let [f (:error-fn opts)]
-         (let [println (fn [& args]
-                         #?(:cljs (doseq [a args]
-                                    (*print-err-fn* a)
-                                    (*print-err-fn* "\n"))
-                            :clj (binding [*out* *err*]
-                                   (apply println args))))]
-           (println (str "No matching command" (when wrong-input
-                                                 (str ": " wrong-input))))
-           (println "Available commands:")
-           (println (str/join "\n" available-commands))))
        nil ((:fn cmd-info) (dissoc res :cmd-info))))))
 
 (defn dispatch
