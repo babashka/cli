@@ -297,12 +297,13 @@
                             :fn identity}]))))
 
 (deftest dispatch-tree-test
-  (let [table [{:cmds ["foo" "bar"]
-                :spec {:baz {:coerce :boolean}}
-                :fn identity}
-               {:cmds ["foo" "bar" "baz"]
-                :spec {:quux {:coerce :keyword}}
-                :fn identity}]]
+  (d/deflet
+    (def table [{:cmds ["foo" "bar"]
+                 :spec {:baz {:coerce :boolean}}
+                 :fn identity}
+                {:cmds ["foo" "bar" "baz"]
+                 :spec {:quux {:coerce :keyword}}
+                 :fn identity}])
     (is (= (str/split-lines "No matching command\nAvailable commands:\nfoo\n")
            (str/split-lines (with-out-str
                               (binding #?(:clj [*err* *out*]
@@ -310,7 +311,7 @@
                                                  *print-newline* true])
                                 (cli/dispatch table []))))))
     #_#_(is (= (str/split-lines "No matching command\nAvailable commands:\nbar\n")
-           (str/split-lines (with-out-str (cli/dispatch table ["foo" "--baz" "quux"])))))
+               (str/split-lines (with-out-str (cli/dispatch table ["foo" "--baz" "quux"])))))
     (is (= (str/split-lines "No matching command: baz\nAvailable commands:\nbar\n")
            (str/split-lines (with-out-str (cli/dispatch table ["foo" "baz" "--baz" "quux"])))))
     (is (= {:dispatch ["foo" "bar"], :opts {:baz true}, :args ["quux"]}

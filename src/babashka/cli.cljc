@@ -621,7 +621,9 @@
        ;; Either way, we need to print to stderr
        (:no-match :input-exhausted)
        (let [println (fn [& args]
-                       #?(:cljs (apply *print-err-fn* args)
+                       #?(:cljs (doseq [a args]
+                                  (*print-err-fn* a)
+                                  (*print-err-fn* "\n"))
                           :clj (binding [*out* *err*]
                                  (apply println args))))]
          (println (str "No matching command" (when wrong-input
