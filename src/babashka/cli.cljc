@@ -564,7 +564,7 @@
     (when (= prefix a)
       suffix)))
 
-(defn table->tree [table]
+(defn- table->tree [table]
   (reduce (fn [tree {:as cfg :keys [cmds]}]
             (assoc-in tree cmds (dissoc cfg :cmds)))
           {} table))
@@ -615,21 +615,29 @@
    (dispatch-tree tree args nil))
   ([tree args opts]
    (let [{:as res :keys [cmd-info error wrong-input available-commands]}
-         (dispatch-tree' tree args opts)]
+         (dispatch-tree' tree args opts)
+         error-fn* (or (:error-fn opts)
+                       (fn [{:keys [msg] :as data}]
+                         (throw (ex-info msg data))))
+         error-fn (fn [data]
+                    (-> {:tree tree :type :org.babashka/cli
+                         :wrong-input wrong-input :all-commands available-commands}
+                        (merge data)
+                        error-fn*))]
      (case error
-       ;; TODO: decide to print or return this via :error-fn or so?
-       ;; Either way, we need to print to stderr
        (:no-match :input-exhausted)
-       (let [println (fn [& args]
-                       #?(:cljs (doseq [a args]
-                                  (*print-err-fn* a)
-                                  (*print-err-fn* "\n"))
-                          :clj (binding [*out* *err*]
-                                 (apply println args))))]
-         (println (str "No matching command" (when wrong-input
-                                               (str ": " wrong-input))))
-         (println "Available commands:")
-         (println (str/join "\n" available-commands)))
+       (error-fn {:cause error})
+       (when-let [f (:error-fn opts)]
+         (let [println (fn [& args]
+                         #?(:cljs (doseq [a args]
+                                    (*print-err-fn* a)
+                                    (*print-err-fn* "\n"))
+                            :clj (binding [*out* *err*]
+                                   (apply println args))))]
+           (println (str "No matching command" (when wrong-input
+                                                 (str ": " wrong-input))))
+           (println "Available commands:")
+           (println (str/join "\n" available-commands))))
        nil ((:fn cmd-info) (dissoc res :cmd-info))))))
 
 (defn dispatch

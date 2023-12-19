@@ -289,12 +289,12 @@
                         :fn identity,
                         "baz" {:spec {:quux {:coerce :keyword}},
                                :fn identity}}}}
-         (cli/table->tree [{:cmds ["foo" "bar"]
-                            :spec {:baz {:coerce :boolean}}
-                            :fn identity}
-                           {:cmds ["foo" "bar" "baz"]
-                            :spec {:quux {:coerce :keyword}}
-                            :fn identity}]))))
+         (#'cli/table->tree [{:cmds ["foo" "bar"]
+                              :spec {:baz {:coerce :boolean}}
+                              :fn identity}
+                             {:cmds ["foo" "bar" "baz"]
+                              :spec {:quux {:coerce :keyword}}
+                              :fn identity}]))))
 
 (deftest dispatch-tree-test
   (d/deflet
@@ -304,16 +304,13 @@
                 {:cmds ["foo" "bar" "baz"]
                  :spec {:quux {:coerce :keyword}}
                  :fn identity}])
-    (is (= (str/split-lines "No matching command\nAvailable commands:\nfoo\n")
-           (str/split-lines (with-out-str
-                              (binding #?(:clj [*err* *out*]
-                                          :cljs [*print-err-fn* *print-fn*
-                                                 *print-newline* true])
-                                (cli/dispatch table []))))))
-    #_#_(is (= (str/split-lines "No matching command\nAvailable commands:\nbar\n")
-               (str/split-lines (with-out-str (cli/dispatch table ["foo" "--baz" "quux"])))))
-    (is (= (str/split-lines "No matching command: baz\nAvailable commands:\nbar\n")
-           (str/split-lines (with-out-str (cli/dispatch table ["foo" "baz" "--baz" "quux"])))))
+    (def tree (#'cli/table->tree table))
+    (is (submap? {:tree tree
+                  :type :org.babashka/cli
+                  :cause :input-exhausted
+                  :all-commands ["foo"]}
+                 (try (cli/dispatch table [])
+                      (catch Exception e (ex-data e)))))
     (is (= {:dispatch ["foo" "bar"], :opts {:baz true}, :args ["quux"]}
            (cli/dispatch table ["foo" "bar" "--baz" "quux"])))
     (is (= {:dispatch ["foo" "bar" "baz"] , :opts {:baz true :quux :xyzzy}, :args nil}
@@ -324,12 +321,11 @@
                              "baz" {:fn identity}}
                       :spec {:bar {:coerce :keyword}}
                       :fn identity}})
-    ;; TODO: change :dispatch to :cmds?
     (is (submap?
          {:dispatch ["foo" "bar"]
-          :opts {:bar :bar}}
-         (cli/dispatch-tree tree ["foo"  "--bar" "bar" "bar"])))
-    ))
+          :opts {:bar :bar}
+          :args ["arg1"]}
+         (cli/dispatch-tree tree ["foo"  "--bar" "bar" "bar" "arg1"])))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
