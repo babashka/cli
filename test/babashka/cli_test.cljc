@@ -316,16 +316,18 @@
     (is (= {:dispatch ["foo" "bar" "baz"] , :opts {:baz true :quux :xyzzy}, :args nil}
            (cli/dispatch table ["foo" "bar" "--baz" "baz" "--quux" "xyzzy"]))))
 
+  ;; TODO: parse global option first
   (d/deflet
     (def tree {"foo" {"bar" {:fn identity
                              "baz" {:fn identity}}
-                      :spec {:bar {:coerce :keyword}}
+                      :spec {:bar {:coerce :keyword}
+                             :global {:coerce :boolean}}
                       :fn identity}})
     (is (submap?
          {:dispatch ["foo" "bar"]
           :opts {:bar :bar}
           :args ["arg1"]}
-         (cli/dispatch-tree tree ["foo"  "--bar" "bar" "bar" "arg1"])))))
+         (cli/dispatch-tree tree ["--global" "foo" "--bar" "bar" "bar" "arg1"])))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
