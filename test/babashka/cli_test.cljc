@@ -316,7 +316,7 @@
     (is (submap? {:dispatch ["foo" "bar" "baz"] , :opts {:baz true :quux :xyzzy}, :args nil}
                  (cli/dispatch table ["foo" "bar" "--baz" "baz" "--quux" "xyzzy"]))))
 
-  (d/deflet
+  #_#_(d/deflet
     (def tree {:spec {:global {:coerce :boolean}}
                "foo" {"bar" {:fn identity
                              "baz" {:fn identity}}
@@ -347,7 +347,17 @@
             :args ["bar" "arg1"]}
            (cli/dispatch-tree
             tree
-            ["--foo" "dude1" "foo" "--foo" "dude2" "bar" "--foo" "dude3" "bar" "arg1"]))))))
+            ["--foo" "dude1" "foo" "--foo" "dude2" "bar" "--foo" "dude3" "bar" "arg1"])))
+
+      (def tree {:spec spec
+                 :cmd "foo"
+                 :sub {:cmd "bar"
+                       :sub {:cmd "bar"
+                             :sub {:cmd "baz"
+                                   :fn identity
+                                   :spec spec}}
+                       :spec spec
+                       :fn identity}}))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts

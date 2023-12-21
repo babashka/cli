@@ -566,7 +566,7 @@
 
 (defn- table->tree [table]
   (reduce (fn [tree {:as cfg :keys [cmds]}]
-            (assoc-in tree cmds (dissoc cfg :cmds)))
+            (assoc-in tree (interleave (repeat :cmd) cmds) (dissoc cfg :cmds)))
           {} table))
 
 (defn- deep-merge [a b]
