@@ -580,7 +580,9 @@
   (some #{:spec :coerce :require :restrict :validate :args->opts :exec-args} (keys m)))
 
 (defn- is-option? [s]
-  (some-> s (str/starts-with? "-")))
+  (and s
+       (or (str/starts-with? s "-")
+           (str/starts-with? s ":"))))
 
 (defn- dispatch-tree'
   ([tree args]
@@ -597,11 +599,13 @@
                                   :opts {}})
            [arg & rest] args]
        (if-let [subcmd-info (get cmd-info arg)]
-         (recur (conj cmds arg) (merge all-opts opts) rest subcmd-info)
+         (recur (conj cmds arg) (-> (merge all-opts opts)
+                                    (assoc-in (cons ::opts-by-cmd cmds) opts)) rest subcmd-info)
          (if (:fn cmd-info)
            {:cmd-info cmd-info
             :dispatch cmds
-            :opts (merge all-opts opts)
+            :opts (dissoc (merge all-opts opts) ::opts-by-cmd)
+            :opts-tree (::opts-by-cmd all-opts)
             :args args}
            (if arg
              {:error :no-match

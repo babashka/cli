@@ -311,10 +311,10 @@
                   :all-commands ["foo"]}
                  (try (cli/dispatch table [])
                       (catch Exception e (ex-data e)))))
-    (is (= {:dispatch ["foo" "bar"], :opts {:baz true}, :args ["quux"]}
-           (cli/dispatch table ["foo" "bar" "--baz" "quux"])))
-    (is (= {:dispatch ["foo" "bar" "baz"] , :opts {:baz true :quux :xyzzy}, :args nil}
-           (cli/dispatch table ["foo" "bar" "--baz" "baz" "--quux" "xyzzy"]))))
+    (is (submap? {:dispatch ["foo" "bar"], :opts {:baz true}, :args ["quux"]}
+                 (cli/dispatch table ["foo" "bar" "--baz" "quux"])))
+    (is (submap? {:dispatch ["foo" "bar" "baz"] , :opts {:baz true :quux :xyzzy}, :args nil}
+                 (cli/dispatch table ["foo" "bar" "--baz" "baz" "--quux" "xyzzy"]))))
 
   (d/deflet
     (def tree {:spec {:global {:coerce :boolean}}
@@ -323,13 +323,31 @@
                       :spec {:bar {:coerce :keyword}
                              }
                       :fn identity}})
-    ;;=> {:args ["bar" "baz"], :opts {:global true}}
     (is (submap?
          {:dispatch ["foo" "bar"]
           :opts {:bar :bar
                  :global true}
           :args ["arg1"]}
-         (cli/dispatch-tree tree ["--global" "foo" "--bar" "bar" "bar" "arg1"])))))
+         (cli/dispatch-tree tree ["--global" "foo" "--bar" "bar" "bar" "arg1"]))))
+
+  (testing "distinguish options at every level"
+    (d/deflet
+      (def spec {:foo {:coerce :keyword}})
+      (def tree {:spec spec
+                 "foo" {"bar" {"baz" {:spec spec
+                                      :fn identity}
+                               :fn identity
+                               :spec spec}
+                        :spec spec
+                        :fn identity}})
+      (is (submap?
+           {:dispatch ["foo" "bar"],
+            :opts {:foo :dude3},
+            :opts-tree {:foo :dude1, "foo" {:foo :dude2}},
+            :args ["bar" "arg1"]}
+           (cli/dispatch-tree
+            tree
+            ["--foo" "dude1" "foo" "--foo" "dude2" "bar" "--foo" "dude3" "bar" "arg1"]))))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
