@@ -668,12 +668,13 @@
   * `:args` - concatenation of unparsed commands and args
   * `:rest-cmds`: DEPRECATED, this will be removed in a future version
 
-  This function does not throw.
   Use an empty `:cmds` vector to always match or to provide global options.
+
+  Provide an `:error-fn` to deal with non-matches.
 
   Each entry in the table may have additional `parse-args` options.
 
-  Examples: see [README.md](README.md#subcommands)."
+  For more information and examples, see [README.md](README.md#subcommands)."
   ([table args]
    (dispatch table args {}))
   ([table args opts]
