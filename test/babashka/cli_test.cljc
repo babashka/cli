@@ -356,31 +356,24 @@
   (testing "distinguish options at every level"
     (d/deflet
       (def spec {:foo {:coerce :keyword}})
-      (def tree {:spec spec
-                 "foo" {"bar" {"baz" {:spec spec
-                                      :fn identity}
-                               :fn identity
-                               :spec spec}
-                        :spec spec
-                        :fn identity}})
+      (def table [{:spec spec}
+                  {:cmds ["foo"]
+                   :spec spec
+                   :fn identity}
+                  {:cmds ["foo" "bar"]
+                   :fn identity
+                   :spec spec}
+                  {:cmds ["foo" "bar" "baz"]
+                   :spec spec
+                   :fn identity}])
       (is (submap?
            {:dispatch ["foo" "bar"],
             :opts {:foo :dude3},
             :opts-tree {:foo :dude1, "foo" {:foo :dude2}},
             :args ["bar" "arg1"]}
-           (cli/dispatch-tree
-            tree
-            ["--foo" "dude1" "foo" "--foo" "dude2" "bar" "--foo" "dude3" "bar" "arg1"])))
-
-      (def tree {:spec spec
-                 :cmd "foo"
-                 :sub {:cmd "bar"
-                       :sub {:cmd "bar"
-                             :sub {:cmd "baz"
-                                   :fn identity
-                                   :spec spec}}
-                       :spec spec
-                       :fn identity}}))))
+           (cli/dispatch
+            table
+            ["--foo" "dude1" "foo" "--foo" "dude2" "bar" "--foo" "dude3" "bar" "arg1"]))))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
