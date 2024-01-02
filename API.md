@@ -19,11 +19,6 @@
 -  [`babashka.cli.exec`](#babashkacliexec) 
     -  [`-main`](#-main) - Main entrypoint for command line usage.
     -  [`main`](#main)
--  [`scratch`](#scratch) 
-    -  [`global-spec`](#global-spec)
-    -  [`sub1-spec`](#sub1-spec)
-    -  [`sub2-spec`](#sub2-spec)
-    -  [`table`](#table)
 # babashka.cli 
 
 
@@ -65,7 +60,7 @@ Coerce string `s` using `f`. Does not coerce when `s` is not a string.
 
 Subcommand dispatcher.
 
-  Dispatches on first matching command entry in [`table`](#table). A match is
+  Dispatches on first matching command entry in `table`. A match is
   determines by whether `:cmds`, a vector of strings, is a subsequence
   (matching from the start) of the invoked commands.
 
@@ -256,17 +251,3 @@ Main entrypoint for command line usage.
 ```
 
 <sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L83-L86)</sub>
-# scratch 
-
-
-
-
-
-## `global-spec`
-<sub>[source](https://github.com/babashka/cli/blob/main/src/scratch.clj#L4-L4)</sub>
-## `sub1-spec`
-<sub>[source](https://github.com/babashka/cli/blob/main/src/scratch.clj#L5-L5)</sub>
-## `sub2-spec`
-<sub>[source](https://github.com/babashka/cli/blob/main/src/scratch.clj#L6-L6)</sub>
-## `table`
-<sub>[source](https://github.com/babashka/cli/blob/main/src/scratch.clj#L8-L11)</sub>
