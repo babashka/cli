@@ -285,16 +285,28 @@
          (cli/dispatch table ["dep" "search" "cheshire" "100"])))))
 
 (deftest table->tree-test
-  (is (= {"foo" {"bar" {:spec {:baz {:coerce :boolean}},
-                        :fn identity,
-                        "baz" {:spec {:quux {:coerce :keyword}},
-                               :fn identity}}}}
-         (#'cli/table->tree [{:cmds ["foo" "bar"]
-                              :spec {:baz {:coerce :boolean}}
-                              :fn identity}
-                             {:cmds ["foo" "bar" "baz"]
-                              :spec {:quux {:coerce :keyword}}
-                              :fn identity}]))))
+  (testing "internal represenation"
+    (is (= {:cmd
+            {"foo"
+             {:cmd
+              {"bar"
+               {:spec {:baz {:coerce :boolean}},
+                :fn identity
+                :cmd
+                {"baz"
+                 {:spec {:quux {:coerce :keyword}},
+                  :fn identity}}}}}}}
+           (#'cli/table->tree [{:cmds ["foo" "bar"]
+                                :spec {:baz {:coerce :boolean}}
+                                :fn identity}
+                               {:cmds ["foo" "bar" "baz"]
+                                :spec {:quux {:coerce :keyword}}
+                                :fn identity}])))))
+
+;; TODO, test
+#_(dispatch [{:cmds ["foo" "bar"]
+            :spec {:foo {:coerce :keyword}}
+            :fn identity}] ["foo" "bar" "--foo" "dude"])
 
 (deftest dispatch-tree-test
   (d/deflet
@@ -304,8 +316,7 @@
                 {:cmds ["foo" "bar" "baz"]
                  :spec {:quux {:coerce :keyword}}
                  :fn identity}])
-    (def tree (#'cli/table->tree table))
-    (is (submap? {:tree tree
+    (is (submap? {#_#_:tree tree
                   :type :org.babashka/cli
                   :cause :input-exhausted
                   :all-commands ["foo"]}

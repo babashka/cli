@@ -588,8 +588,10 @@
   ([tree args]
    (dispatch-tree' tree args nil))
   ([tree args opts]
+   (def t tree)
    (loop [cmds [] all-opts {} args args cmd-info tree]
-     (let [kwm (select-keys cmd-info (filter keyword? (keys cmd-info)))
+     (let [;; cmd-info (:cmd cmd-info)
+           kwm cmd-info #_(select-keys cmd-info (filter keyword? (keys cmd-info)))
            should-parse-args? (or (has-parse-opts? kwm)
                                   (is-option? (first args)))
            parse-opts (deep-merge opts kwm)
@@ -597,14 +599,16 @@
                                  (parse-args args parse-opts)
                                  {:args args
                                   :opts {}})
-           [arg & rest] args]
-       (if-let [subcmd-info (get cmd-info arg)]
-         (recur (conj cmds arg) (-> (merge all-opts opts)
-                                    (assoc-in (cons ::opts-by-cmd cmds) opts)) rest subcmd-info)
+           [arg & rest] args
+           all-opts (-> (merge all-opts opts)
+                        (assoc-in (cons ::opts-by-cmd cmds) opts))]
+       (prn :all-opts all-opts :opts opts)
+       (if-let [subcmd-info (get (:cmd cmd-info) arg)]
+         (recur (conj cmds arg) all-opts rest subcmd-info)
          (if (:fn cmd-info)
            {:cmd-info cmd-info
             :dispatch cmds
-            :opts (dissoc (merge all-opts opts) ::opts-by-cmd)
+            :opts (dissoc all-opts ::opts-by-cmd)
             :opts-tree (::opts-by-cmd all-opts)
             :args args}
            (if arg
@@ -614,7 +618,19 @@
              {:error :input-exhausted
               :available-commands (filter string? (keys cmd-info))})))))))
 
-(defn dispatch-tree
+(comment
+  (dispatch [{:cmds ["foo"] :fn identity}
+             {:cmds [] :fn identity}]
+            [])
+
+  (dispatch [{:cmds ["foo"] :fn identity}] ["foo"])
+  (dispatch [{:cmds ["foo" "bar"]
+              :spec {:foo {:coerce :keyword}}
+              :fn identity}] ["foo" "bar" "--foo" "dude"])
+  (dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar" "baz"])
+  )
+
+(defn- dispatch-tree
   ([tree args]
    (dispatch-tree tree args nil))
   ([tree args opts]
