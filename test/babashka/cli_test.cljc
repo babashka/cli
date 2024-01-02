@@ -304,6 +304,7 @@
                                 :fn identity}])))))
 
 ;; TODO, test
+;; TODO: add [] test
 #_(dispatch [{:cmds ["foo" "bar"]
             :spec {:foo {:coerce :keyword}}
             :fn identity}] ["foo" "bar" "--foo" "dude"])

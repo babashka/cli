@@ -566,8 +566,16 @@
 
 (defn- table->tree [table]
   (reduce (fn [tree {:as cfg :keys [cmds]}]
-            (assoc-in tree (interleave (repeat :cmd) cmds) (dissoc cfg :cmds)))
+            (let [ks (interleave (repeat :cmd) cmds)]
+              (if (seq ks)
+                (assoc-in tree ks (dissoc cfg :cmds))
+                ;; catch-all
+                (merge tree (dissoc cfg :cmds)))))
           {} table))
+
+(comment
+  (table->tree [{:cmds [] :fn identity}])
+ )
 
 (defn- deep-merge [a b]
   (reduce (fn [acc k] (update acc k (fn [v]
@@ -588,7 +596,7 @@
   ([tree args]
    (dispatch-tree' tree args nil))
   ([tree args opts]
-   (def t tree)
+   #_(def t tree)
    (loop [cmds [] all-opts {} args args cmd-info tree]
      (let [;; cmd-info (:cmd cmd-info)
            kwm cmd-info #_(select-keys cmd-info (filter keyword? (keys cmd-info)))
@@ -614,9 +622,9 @@
            (if arg
              {:error :no-match
               :wrong-input arg
-              :available-commands (filter string? (keys cmd-info))}
+              :available-commands (keys (:cmd cmd-info))}
              {:error :input-exhausted
-              :available-commands (filter string? (keys cmd-info))})))))))
+              :available-commands (keys (:cmd cmd-info))})))))))
 
 (comment
   (dispatch [{:cmds ["foo"] :fn identity}
