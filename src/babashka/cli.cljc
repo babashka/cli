@@ -647,6 +647,8 @@
        (error-fn {:cause error})
        nil ((:fn cmd-info) (dissoc res :cmd-info))))))
 
+(prn :yooooo)
+
 (defn dispatch
   "Subcommand dispatcher.
 
