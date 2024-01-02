@@ -674,6 +674,6 @@
   Examples: see [README.md](README.md#subcommands)."
   ([table args]
    (dispatch table args {}))
-  ([table-or-tree args opts]
-   (let [tree (cond-> table-or-tree (vector? table-or-tree) table->tree)]
+  ([table args opts]
+   (let [tree (cond-> table (vector? table) table->tree)]
      (dispatch-tree tree args opts))))

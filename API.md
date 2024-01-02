@@ -54,7 +54,7 @@ Coerce string `s` using `f`. Does not coerce when `s` is not a string.
 ``` clojure
 
 (dispatch table args)
-(dispatch table-or-tree args opts)
+(dispatch table args opts)
 ```
 
 
