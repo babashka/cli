@@ -282,57 +282,39 @@
          {:dispatch ["dep" "search"]
           :opts {:search-term "cheshire"
                  :precision 100}}
-         (cli/dispatch table ["dep" "search" "cheshire" "100"])))))
+         (cli/dispatch table ["dep" "search" "cheshire" "100"]))))
 
-(deftest table->tree-test
-  (testing "internal represenation"
-    (is (= {:cmd
-            {"foo"
-             {:cmd
-              {"bar"
-               {:spec {:baz {:coerce :boolean}},
-                :fn identity
-                :cmd
-                {"baz"
-                 {:spec {:quux {:coerce :keyword}},
-                  :fn identity}}}}}}}
-           (#'cli/table->tree [{:cmds ["foo" "bar"]
-                                :spec {:baz {:coerce :boolean}}
-                                :fn identity}
-                               {:cmds ["foo" "bar" "baz"]
-                                :spec {:quux {:coerce :keyword}}
-                                :fn identity}])))))
+  (testing "options of super commands"
+    (d/deflet
+      (def table [{:cmds ["foo" "bar"]
+                   :spec {:baz {:coerce :boolean}}
+                   :fn identity}
+                  {:cmds ["foo" "bar" "baz"]
+                   :spec {:quux {:coerce :keyword}}
+                   :fn identity}])
+      (is (submap? {:type :org.babashka/cli
+                    :cause :input-exhausted
+                    :all-commands ["foo"]}
+                   (try (cli/dispatch table [])
+                        (catch Exception e (ex-data e)))))
+      (is (submap? {:dispatch ["foo" "bar"], :opts {:baz true}, :args ["quux"]}
+                   (cli/dispatch table ["foo" "bar" "--baz" "quux"])))
+      (is (submap? {:dispatch ["foo" "bar" "baz"] , :opts {:baz true :quux :xyzzy}, :args nil}
+                   (cli/dispatch table ["foo" "bar" "--baz" "baz" "--quux" "xyzzy"])))))
 
-(deftest dispatch-tree-test
-  (d/deflet
-    (def table [{:cmds ["foo" "bar"]
-                 :spec {:baz {:coerce :boolean}}
-                 :fn identity}
-                {:cmds ["foo" "bar" "baz"]
-                 :spec {:quux {:coerce :keyword}}
-                 :fn identity}])
-    (is (submap? {:type :org.babashka/cli
-                  :cause :input-exhausted
-                  :all-commands ["foo"]}
-                 (try (cli/dispatch table [])
-                      (catch Exception e (ex-data e)))))
-    (is (submap? {:dispatch ["foo" "bar"], :opts {:baz true}, :args ["quux"]}
-                 (cli/dispatch table ["foo" "bar" "--baz" "quux"])))
-    (is (submap? {:dispatch ["foo" "bar" "baz"] , :opts {:baz true :quux :xyzzy}, :args nil}
-                 (cli/dispatch table ["foo" "bar" "--baz" "baz" "--quux" "xyzzy"]))))
-
-  (d/deflet
-    (def table [{:cmds [] :spec {:global {:coerce :boolean}}}
-                {:cmds ["foo"] :spec {:bar {:coerce :keyword}}}
-                {:cmds ["foo" "bar"]
-                 :spec {:bar {:coerce :keyword}}
-                 :fn identity}])
-    (is (submap?
-         {:dispatch ["foo" "bar"]
-          :opts {:bar :bar
-                 :global true}
-          :args ["arg1"]}
-         (cli/dispatch table ["--global" "foo" "--bar" "bar" "bar" "arg1"]))))
+  (testing "with global opts and conflicting options names"
+    (d/deflet
+      (def table [{:cmds [] :spec {:global {:coerce :boolean}}}
+                  {:cmds ["foo"] :spec {:bar {:coerce :keyword}}}
+                  {:cmds ["foo" "bar"]
+                   :spec {:bar {:coerce :keyword}}
+                   :fn identity}])
+      (is (submap?
+           {:dispatch ["foo" "bar"]
+            :opts {:bar :bar
+                   :global true}
+            :args ["arg1"]}
+           (cli/dispatch table ["--global" "foo" "--bar" "bar" "bar" "arg1"])))))
 
   (testing "distinguish options at every level"
     (d/deflet
@@ -357,7 +339,34 @@
             :args ["bar" "arg1"]}
            (cli/dispatch
             table
-            ["--foo" "dude1" "foo" "--foo" "dude2" "bar" "--foo" "dude3" "bar" "arg1"]))))))
+            ["--foo" "dude1" "foo" "--foo" "dude2" "bar" "--foo" "dude3" "bar" "arg1"])))))
+
+  (testing "with colon options"
+    (d/deflet
+      (def table [{:cmds ["foo"] :fn identity}])
+      (is (= "my-file.edn" (-> (cli/dispatch
+                                table
+                                ["foo" ":deps-file" "my-file.edn"])
+                               :opts :deps-file))))))
+
+(deftest table->tree-test
+  (testing "internal represenation"
+    (is (= {:cmd
+            {"foo"
+             {:cmd
+              {"bar"
+               {:spec {:baz {:coerce :boolean}},
+                :fn identity
+                :cmd
+                {"baz"
+                 {:spec {:quux {:coerce :keyword}},
+                  :fn identity}}}}}}}
+           (#'cli/table->tree [{:cmds ["foo" "bar"]
+                                :spec {:baz {:coerce :boolean}}
+                                :fn identity}
+                               {:cmds ["foo" "bar" "baz"]
+                                :spec {:quux {:coerce :keyword}}
+                                :fn identity}])))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
