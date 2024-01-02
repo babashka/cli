@@ -53,8 +53,8 @@ Coerce string `s` using `f`. Does not coerce when `s` is not a string.
 ## `dispatch`
 ``` clojure
 
-(dispatch table args)
-(dispatch table args opts)
+(dispatch table-or-tree args)
+(dispatch table-or-tree args opts)
 ```
 
 
@@ -84,7 +84,7 @@ Subcommand dispatcher.
   Each entry in the table may have additional [`parse-args`](#parse-args) options.
 
   Examples: see [README.md](README.md#subcommands).
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L567-L611)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L648-L679)</sub>
 ## `format-opts`
 ``` clojure
 
