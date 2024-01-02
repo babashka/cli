@@ -617,7 +617,8 @@
            {:cmd-info cmd-info
             :dispatch cmds
             :opts (dissoc all-opts ::opts-by-cmds)
-            :opts-by-cmds (::opts-by-cmds all-opts)
+            ;; NOTE: won't expose this just yet, wait for more feedback, structure may not be optimal
+            ;; :opts-by-cmds (::opts-by-cmds all-opts)
             :args args}
            (if arg
              {:error :no-match
@@ -636,7 +637,8 @@
                        (fn [{:keys [msg] :as data}]
                          (throw (ex-info msg data))))
          error-fn (fn [data]
-                    (-> {:tree tree :type :org.babashka/cli
+                    (-> {;; :tree tree
+                         :type :org.babashka/cli
                          :wrong-input wrong-input :all-commands available-commands}
                         (merge data)
                         error-fn*))]

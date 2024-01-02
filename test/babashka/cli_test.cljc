@@ -311,8 +311,7 @@
                 {:cmds ["foo" "bar" "baz"]
                  :spec {:quux {:coerce :keyword}}
                  :fn identity}])
-    (is (submap? {#_#_:tree tree
-                  :type :org.babashka/cli
+    (is (submap? {:type :org.babashka/cli
                   :cause :input-exhausted
                   :all-commands ["foo"]}
                  (try (cli/dispatch table [])
@@ -351,7 +350,7 @@
       (is (submap?
            {:dispatch ["foo" "bar"],
             :opts {:foo :dude3},
-            :opts-by-cmds
+            #_#_:opts-by-cmds
             [{:cmds [], :opts {:foo :dude1}}
              {:cmds ["foo"], :opts {:foo :dude2}}
              {:cmds ["foo" "bar"], :opts {:foo :dude3}}],
