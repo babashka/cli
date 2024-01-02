@@ -672,8 +672,8 @@
   Each entry in the table may have additional `parse-args` options.
 
   Examples: see [README.md](README.md#subcommands)."
-  ([table-or-tree args]
-   (dispatch table-or-tree args {}))
+  ([table args]
+   (dispatch table args {}))
   ([table-or-tree args opts]
    (let [tree (cond-> table-or-tree (vector? table-or-tree) table->tree)]
      (dispatch-tree tree args opts))))
