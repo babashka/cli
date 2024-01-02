@@ -488,6 +488,35 @@ Additional `parse-arg` options may be passed in each table entry:
    {:cmds []         :fn help}])
 ```
 
+### Shared options
+
+Since cli 0.8.54, babashka.cli supports parsing shared options in between and before the subcommands.
+
+E.g.:
+
+``` clojure
+(def global-spec {:foo {:coerce :keyword}})
+(def sub1-spec {:bar {:coerce :keyword}})
+(def sub2-spec {:baz {:coerce :keyword}})
+
+(def table
+  [{:cmds [] :spec global-spec}
+   {:cmds ["sub1"] :fn identity :spec sub1-spec}
+   {:cmds ["sub1" "sub2"] :fn identity :spec sub2-spec}])
+
+(cli/dispatch table ["--foo" "a" "sub1" "--bar" "b" "sub2" "--baz" "c" "arg"])
+
+;;=>
+
+{:dispatch ["sub1" "sub2"],
+ :opts {:foo :a, :bar :b, :baz :c},
+ :opts-by-cmds
+ [{:cmds [], :opts {:foo :a}}
+  {:cmds ["sub1"], :opts {:bar :b}}
+  {:cmds ["sub1" "sub2"], :opts {:baz :c}}],
+ :args ["arg"]}
+```
+
 ## Babashka tasks
 
 For documentation on babashka tasks, go
