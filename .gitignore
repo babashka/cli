@@ -9,3 +9,4 @@ target
 .clj-kondo/rewrite-clj
 .clj-kondo/funcool
 cljs-test-runner-out
+src/scratch.clj
