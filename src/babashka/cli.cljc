@@ -625,18 +625,6 @@
              {:error :input-exhausted
               :available-commands (keys (:cmd cmd-info))})))))))
 
-(comment
-  (dispatch [{:cmds ["foo"] :fn identity}
-             {:cmds [] :fn identity}]
-            [])
-
-  (dispatch [{:cmds ["foo"] :fn identity}] ["foo"])
-  (dispatch [{:cmds ["foo" "bar"]
-              :spec {:foo {:coerce :keyword}}
-              :fn identity}] ["foo" "bar" "--foo" "dude"])
-  (dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar" "baz"])
-  )
-
 (defn- dispatch-tree
   ([tree args]
    (dispatch-tree tree args nil))

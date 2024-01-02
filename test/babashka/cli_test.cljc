@@ -309,6 +309,18 @@
             :spec {:foo {:coerce :keyword}}
             :fn identity}] ["foo" "bar" "--foo" "dude"])
 
+#_(comment
+  (dispatch [{:cmds ["foo"] :fn identity}
+             {:cmds [] :fn identity}]
+            [])
+
+  (dispatch [{:cmds ["foo"] :fn identity}] ["foo"])
+  (dispatch [{:cmds ["foo" "bar"]
+              :spec {:foo {:coerce :keyword}}
+              :fn identity}] ["foo" "bar" "--foo" "dude"])
+  (dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar" "baz"])
+  )
+
 (deftest dispatch-tree-test
   (d/deflet
     (def table [{:cmds ["foo" "bar"]
@@ -328,19 +340,18 @@
     (is (submap? {:dispatch ["foo" "bar" "baz"] , :opts {:baz true :quux :xyzzy}, :args nil}
                  (cli/dispatch table ["foo" "bar" "--baz" "baz" "--quux" "xyzzy"]))))
 
-  #_#_(d/deflet
-    (def tree {:spec {:global {:coerce :boolean}}
-               "foo" {"bar" {:fn identity
-                             "baz" {:fn identity}}
-                      :spec {:bar {:coerce :keyword}
-                             }
-                      :fn identity}})
+  (d/deflet
+    (def table [{:cmds [] :spec {:global {:coerce :boolean}}}
+                {:cmds ["foo"] :spec {:bar {:coerce :keyword}}}
+                {:cmds ["foo" "bar"]
+                 :spec {:bar {:coerce :keyword}}
+                 :fn identity}])
     (is (submap?
          {:dispatch ["foo" "bar"]
           :opts {:bar :bar
                  :global true}
           :args ["arg1"]}
-         (cli/dispatch-tree tree ["--global" "foo" "--bar" "bar" "bar" "arg1"]))))
+         (cli/dispatch table ["--global" "foo" "--bar" "bar" "bar" "arg1"]))))
 
   (testing "distinguish options at every level"
     (d/deflet
