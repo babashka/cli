@@ -610,7 +610,6 @@
            [arg & rest] args
            all-opts (-> (merge all-opts opts)
                         (assoc-in (cons ::opts-by-cmd cmds) opts))]
-       (prn :all-opts all-opts :opts opts)
        (if-let [subcmd-info (get (:cmd cmd-info) arg)]
          (recur (conj cmds arg) all-opts rest subcmd-info)
          (if (:fn cmd-info)
