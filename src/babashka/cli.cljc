@@ -604,7 +604,7 @@
                                   (is-option? (first args)))
            parse-opts (deep-merge opts kwm)
            {:keys [args opts]} (if should-parse-args?
-                                 (parse-args args parse-opts)
+                                 (parse-args args (update parse-opts :exec-args merge all-opts))
                                  {:args args
                                   :opts {}})
            [arg & rest] args
