@@ -60,9 +60,8 @@ Coerce string `s` using `f`. Does not coerce when `s` is not a string.
 
 Subcommand dispatcher.
 
-  Dispatches on first matching command entry in `table`. A match is
-  determines by whether `:cmds`, a vector of strings, is a subsequence
-  (matching from the start) of the invoked commands.
+  Dispatches on longest matching command entry in `table` by matching
+  subcommands to the `:cmds` vector and invoking the correspondig `:fn`.
 
   Table is in the form:
 
@@ -79,12 +78,14 @@ Subcommand dispatcher.
   * `:args` - concatenation of unparsed commands and args
   * `:rest-cmds`: DEPRECATED, this will be removed in a future version
 
-  This function does not throw. Use an empty `:cmds` vector to always match.
+  Use an empty `:cmds` vector to always match or to provide global options.
+
+  Provide an `:error-fn` to deal with non-matches.
 
   Each entry in the table may have additional [`parse-args`](#parse-args) options.
 
-  Examples: see [README.md](README.md#subcommands).
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L650-L681)</sub>
+  For more information and examples, see [README.md](README.md#subcommands).
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L650-L682)</sub>
 ## `format-opts`
 ``` clojure
 
