@@ -609,14 +609,15 @@
                                   :opts {}})
            [arg & rest] args
            all-opts (-> (merge all-opts opts)
-                        (assoc-in (cons ::opts-by-cmd cmds) opts))]
+                        (update ::opts-by-cmds (fnil conj []) {:cmds cmds
+                                                               :opts opts}))]
        (if-let [subcmd-info (get (:cmd cmd-info) arg)]
          (recur (conj cmds arg) all-opts rest subcmd-info)
          (if (:fn cmd-info)
            {:cmd-info cmd-info
             :dispatch cmds
-            :opts (dissoc all-opts ::opts-by-cmd)
-            :opts-tree (::opts-by-cmd all-opts)
+            :opts (dissoc all-opts ::opts-by-cmds)
+            :opts-by-cmds (::opts-by-cmds all-opts)
             :args args}
            (if arg
              {:error :no-match

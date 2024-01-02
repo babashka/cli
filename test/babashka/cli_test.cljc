@@ -303,24 +303,6 @@
                                 :spec {:quux {:coerce :keyword}}
                                 :fn identity}])))))
 
-;; TODO, test
-;; TODO: add [] test
-#_(dispatch [{:cmds ["foo" "bar"]
-            :spec {:foo {:coerce :keyword}}
-            :fn identity}] ["foo" "bar" "--foo" "dude"])
-
-#_(comment
-  (dispatch [{:cmds ["foo"] :fn identity}
-             {:cmds [] :fn identity}]
-            [])
-
-  (dispatch [{:cmds ["foo"] :fn identity}] ["foo"])
-  (dispatch [{:cmds ["foo" "bar"]
-              :spec {:foo {:coerce :keyword}}
-              :fn identity}] ["foo" "bar" "--foo" "dude"])
-  (dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar" "baz"])
-  )
-
 (deftest dispatch-tree-test
   (d/deflet
     (def table [{:cmds ["foo" "bar"]
@@ -369,7 +351,10 @@
       (is (submap?
            {:dispatch ["foo" "bar"],
             :opts {:foo :dude3},
-            :opts-tree {:foo :dude1, "foo" {:foo :dude2}},
+            :opts-by-cmds
+            [{:cmds [], :opts {:foo :dude1}}
+             {:cmds ["foo"], :opts {:foo :dude2}}
+             {:cmds ["foo" "bar"], :opts {:foo :dude3}}],
             :args ["bar" "arg1"]}
            (cli/dispatch
             table
