@@ -650,9 +650,8 @@
 (defn dispatch
   "Subcommand dispatcher.
 
-  Dispatches on first matching command entry in `table`. A match is
-  determines by whether `:cmds`, a vector of strings, is a subsequence
-  (matching from the start) of the invoked commands.
+  Dispatches on longest matching command entry in `table` by matching
+  subcommands to the `:cmds` vector and invoking the correspondig `:fn`.
 
   Table is in the form:
 
@@ -669,7 +668,8 @@
   * `:args` - concatenation of unparsed commands and args
   * `:rest-cmds`: DEPRECATED, this will be removed in a future version
 
-  This function does not throw. Use an empty `:cmds` vector to always match.
+  This function does not throw.
+  Use an empty `:cmds` vector to always match or to provide global options.
 
   Each entry in the table may have additional `parse-args` options.
 
@@ -677,5 +677,5 @@
   ([table args]
    (dispatch table args {}))
   ([table args opts]
-   (let [tree (cond-> table (vector? table) table->tree)]
+   (let [tree (-> table table->tree)]
      (dispatch-tree tree args opts))))
