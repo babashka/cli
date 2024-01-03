@@ -601,7 +601,9 @@
            kwm cmd-info #_(select-keys cmd-info (filter keyword? (keys cmd-info)))
            should-parse-args? (or (has-parse-opts? kwm)
                                   (is-option? (first args)))
+           _ (prn :opts opts :kwm kwm)
            parse-opts (deep-merge opts kwm)
+           _ ((requiring-resolve 'clojure.pprint/pprint) parse-opts)
            {:keys [args opts]} (if should-parse-args?
                                  (parse-args args (update parse-opts :exec-args merge all-opts))
                                  {:args args
@@ -610,6 +612,7 @@
            all-opts (-> (merge all-opts opts)
                         (update ::opts-by-cmds (fnil conj []) {:cmds cmds
                                                                :opts opts}))]
+       (prn :arg arg :all-opts all-opts)
        (if-let [subcmd-info (get (:cmd cmd-info) arg)]
          (recur (conj cmds arg) all-opts rest subcmd-info)
          (if (:fn cmd-info)
