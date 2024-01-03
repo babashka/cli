@@ -347,7 +347,17 @@
       (is (= "my-file.edn" (-> (cli/dispatch
                                 table
                                 ["foo" ":deps-file" "my-file.edn"])
-                               :opts :deps-file))))))
+                               :opts :deps-file)))))
+
+  (testing "choose most specific"
+    (d/deflet
+      (def table [{:cmds ["foo" "bar"] :fn identity}
+                  {:cmds ["foo" "baz"] :fn identity}
+                  {:cmds ["foo"] :fn identity}])
+      (is (= ["foo" "bar"] (-> (cli/dispatch
+                               table
+                               ["foo" "bar" "baz" "--dude" "1"])
+                               :dispatch))))))
 
 (deftest table->tree-test
   (testing "internal represenation"
