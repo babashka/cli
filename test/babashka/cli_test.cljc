@@ -355,8 +355,8 @@
                   {:cmds ["foo" "baz"] :fn identity}
                   {:cmds ["foo"] :fn identity}])
       (is (= ["foo" "bar"] (-> (cli/dispatch
-                               table
-                               ["foo" "bar" "baz" "--dude" "1"])
+                                table
+                                ["foo" "bar" "baz" "--dude" "1"])
                                :dispatch))))))
 
 (deftest table->tree-test

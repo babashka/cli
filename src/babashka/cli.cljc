@@ -568,7 +568,7 @@
   (reduce (fn [tree {:as cfg :keys [cmds]}]
             (let [ks (interleave (repeat :cmd) cmds)]
               (if (seq ks)
-                (assoc-in tree ks (dissoc cfg :cmds))
+                (update-in tree ks merge (dissoc cfg :cmds))
                 ;; catch-all
                 (merge tree (dissoc cfg :cmds)))))
           {} table))
@@ -596,7 +596,6 @@
   ([tree args]
    (dispatch-tree' tree args nil))
   ([tree args opts]
-   #_(def t tree)
    (loop [cmds [] all-opts {} args args cmd-info tree]
      (let [;; cmd-info (:cmd cmd-info)
            kwm cmd-info #_(select-keys cmd-info (filter keyword? (keys cmd-info)))
@@ -646,8 +645,6 @@
        (:no-match :input-exhausted)
        (error-fn {:cause error})
        nil ((:fn cmd-info) (dissoc res :cmd-info))))))
-
-(prn :yooooo)
 
 (defn dispatch
   "Subcommand dispatcher.
