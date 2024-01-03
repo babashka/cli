@@ -362,7 +362,8 @@
   (testing "spec can be overriden"
     (d/deflet
       (def table [{:cmds ["foo" "bar"] :fn identity :spec {:version {:coerce :string}}}
-                  {:cmds ["foo"] :fn identity :spec {:version {:coerce :boolean}}}])
+                  {:cmds ["foo"] :fn identity :spec {:version {:coerce :boolean}
+                                                     :dude {:coerce :boolean}}}])
       (is (submap? {:opts {:version true}, :args ["2010"]}
                    (cli/dispatch
                     table
@@ -370,7 +371,12 @@
       (is (= "2010" (-> (cli/dispatch
                          table
                          ["foo" "bar" "--version" "2010"])
-                        :opts :version))))))
+                        :opts :version)))
+      (is (= {:dude true :version "2010"}
+             (-> (cli/dispatch
+                  table
+                  ["foo" "--dude" "bar" "--version" "2010"])
+                 :opts))))))
 
 (deftest table->tree-test
   (testing "internal represenation"
