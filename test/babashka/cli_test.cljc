@@ -357,7 +357,16 @@
       (is (= ["foo" "bar"] (-> (cli/dispatch
                                 table
                                 ["foo" "bar" "baz" "--dude" "1"])
-                               :dispatch))))))
+                               :dispatch)))))
+
+  (testing "spec can be overriden"
+    (d/deflet
+      (def table [{:cmds ["foo" "bar"] :fn identity :spec {:version {:coerce :string}}}
+                  {:cmds ["foo"] :fn identity :spec {:version {:coerce :boolean}}}])
+      (is (= "2010" (-> (cli/dispatch
+                         table
+                         ["foo" "bar" "--version" "2010"])
+                        :opts :version))))))
 
 (deftest table->tree-test
   (testing "internal represenation"
