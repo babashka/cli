@@ -488,6 +488,8 @@ Additional `parse-arg` options may be passed in each table entry:
    {:cmds []         :fn help}])
 ```
 
+Since cli 0.8.54 the order of `:cmds` in the table doesn't matter.
+
 ### Shared options
 
 Since cli 0.8.54, babashka.cli supports parsing shared options in between and before the subcommands.
