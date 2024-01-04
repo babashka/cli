@@ -98,7 +98,9 @@
            (cli/parse-opts ["--foo" "-abc"]))))
   (testing "--no- prefix"
     (is (= {:option false, :no-this-exists true}
-           (cli/parse-opts ["--no-option" "--no-this-exists"] {:coerce {:no-this-exists :bool}})))))
+           (cli/parse-opts ["--no-option" "--no-this-exists"] {:coerce {:no-this-exists :bool}})))
+    (is (= {:args ["dude"], :opts {:option false}}
+           (cli/parse-args ["--no-option" "dude"] {:coerce {:option :bool}})))))
 
 (deftest parse-opts-keywords-test
   (is (= {:version "2021a4", :no-git-tag-version true, :deps-file "foo.edn"}

@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## v0.8.55 (2024-01-04)
+
+- Fix `--no-option` (`--no` prefix) in combination with subcommands
+
 ## v0.8.54 (2024-01-04)
 
 - Prioritize `:exec-args` over spec `:default`s

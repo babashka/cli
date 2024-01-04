@@ -337,9 +337,7 @@
          [opts last-opt added]
          (if (and (::dispatch-tree opts)
                   (seq cmds))
-           (do
-             ;; (prn :result-to-dispatch cmds args :> (into (vec cmds) args))
-             [(vary-meta {} assoc-in [:org.babashka/cli :args] (into (vec cmds) args)) nil nil])
+           [(vary-meta {} assoc-in [:org.babashka/cli :args] (into (vec cmds) args)) nil nil]
            (loop [acc {}
                   current-opt nil
                   added nil
@@ -385,9 +383,12 @@
                                       k nil mode (cons arg-val (rest args)) a->o)
                                (let [next-args (next args)
                                      next-arg (first next-args)
-                                     m (parse-key next-arg mode current-opt coerce-opt added)]
+                                     m (parse-key next-arg mode current-opt coerce-opt added)
+                                     negative? (when-not (contains? known-keys k)
+                                                 (str/starts-with? (str k) ":no-"))]
                                  (if (or (:hyphen-opt m)
-                                         (empty? next-args))
+                                         (empty? next-args)
+                                         negative?)
                                    ;; implicit true
                                    (if composite-opt
                                      (let [chars (name k)
@@ -398,9 +399,7 @@
                                        (recur acc
                                               nil nil mode next-args
                                               a->o))
-                                     (let [negative? (when-not (contains? known-keys k)
-                                                       (str/starts-with? (str k) ":no-"))
-                                           k (if negative?
+                                     (let [k (if negative?
                                                (keyword (str/replace (str k) ":no-" ""))
                                                k)
                                            next-args (cons (not negative?) #_"true" next-args)]
@@ -621,7 +620,6 @@
                                                          ::dispatch-tree-ignored-args (set (keys (:cmd cmd-info)))))
                                  {:args args
                                   :opts {}})
-           ;; _ (prn :dispatch-args-post args)
            [arg & rest] args
            all-opts (-> (merge all-opts opts)
                         (update ::opts-by-cmds (fnil conj []) {:cmds cmds
@@ -639,9 +637,11 @@
            (if arg
              {:error :no-match
               :wrong-input arg
-              :available-commands (keys (:cmd cmd-info))}
+              :available-commands (keys (:cmd cmd-info))
+              :opts (dissoc all-opts ::opts-by-cmds)}
              {:error :input-exhausted
-              :available-commands (keys (:cmd cmd-info))})))))))
+              :available-commands (keys (:cmd cmd-info))
+              :opts (dissoc all-opts ::opts-by-cmds)})))))))
 
 (defn- dispatch-tree
   ([tree args]
@@ -660,7 +660,7 @@
                         error-fn*))]
      (case error
        (:no-match :input-exhausted)
-       (error-fn {:cause error})
+       (error-fn {:cause error :opts (:opts res)})
        nil ((:fn cmd-info) (dissoc res :cmd-info))))))
 
 (defn dispatch
