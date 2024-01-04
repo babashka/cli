@@ -385,11 +385,12 @@
                     ["foo" "bar" "--dude" "some-value"])
                    :opts))))
 
-      (def table [{:cmds ["foo" "bar"] :fn identity :spec {:version {:coerce :string}
-                                                           }}
-                  {:cmds ["foo"] :fn identity :spec {:version {:coerce :boolean}
-                                                     :dude {:coerce :boolean}}
-                   :args->opts [:some-option]}])
+      (def table [{:cmds ["foo"] :fn identity
+                   :spec {:version {:coerce :boolean}}
+                   :args->opts [:some-option]}
+                  {:cmds ["foo" "bar"]
+                   :fn identity
+                   :spec {:version {:coerce :string}}}])
       (testing "subcommand wins from args->opts"
         (is (= {:dispatch ["foo" "bar"], :opts {:version "2000"}, :args ["some-arg"]}
                (-> (cli/dispatch
