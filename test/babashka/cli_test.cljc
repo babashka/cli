@@ -391,11 +391,10 @@
                                                      :dude {:coerce :boolean}}
                    :args->opts [:some-option]}])
       (testing "subcommand wins from args->opts"
-        (is (= {:version "2000"}
+        (is (= {:dispatch ["foo" "bar"], :opts {:version "2000"}, :args ["some-arg"]}
                (-> (cli/dispatch
                     table
-                    ["foo" "bar" "--version" "2000"])
-                   :opts)))))))
+                    ["foo" "bar" "--version" "2000" "some-arg"]))))))))
 
 (deftest table->tree-test
   (testing "internal represenation"
