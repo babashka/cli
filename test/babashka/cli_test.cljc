@@ -385,8 +385,16 @@
                (-> (cli/dispatch
                     table
                     ["foo" "bar" "--dude" "some-value"])
-                   :opts))))
-
+                   :opts)))
+        (testing "even if the more specific spec doesn't have a spec at all"
+          (d/deflet
+            (def table [{:cmds ["foo"] :fn identity
+                         :spec {:version {:coerce :boolean}}}
+                        {:cmds ["foo" "bar"]
+                         :fn identity}])
+            (is (submap?
+                 {:dispatch ["foo" "bar"], :opts {:version "dude"}}
+                 (cli/dispatch table ["foo" "bar" "--version" "dude"]))))))
       (def table [{:cmds ["foo"] :fn identity
                    :spec {:version {:coerce :boolean}}
                    :args->opts [:some-option]}
