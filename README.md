@@ -510,10 +510,6 @@ E.g.:
 
 {:dispatch ["sub1" "sub2"],
  :opts {:foo :a, :bar :b, :baz :c},
- :opts-by-cmds
- [{:cmds [], :opts {:foo :a}}
-  {:cmds ["sub1"], :opts {:bar :b}}
-  {:cmds ["sub1" "sub2"], :opts {:baz :c}}],
  :args ["arg"]}
 ```
 
