@@ -4,9 +4,12 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased (2023-11-14)
+## v0.8.54 (2024-01-04)
 
 - Prioritize `:exec-args` over spec `:default`s
+- `dispatch` improvements ([@Sohalt](https://github.com/Sohalt), [@borkdude](https://github.com/borkdude)):
+  - The `:cmds` order of entries in the table doesn't matter
+  - Support parsing intermediate options: `foo --opt1=never bar --opt2=always`
 
 ## v0.7.53 (2023-09-28)
 
