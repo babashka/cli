@@ -383,10 +383,19 @@
                (-> (cli/dispatch
                     table
                     ["foo" "bar" "--dude" "some-value"])
-                   :opts))))))
-  ;; TODO: args->opts conflinct with subcommand
-  ;; TODO: more specific specs should not be merged, but overwritten
-  )
+                   :opts))))
+
+      (def table [{:cmds ["foo" "bar"] :fn identity :spec {:version {:coerce :string}
+                                                           }}
+                  {:cmds ["foo"] :fn identity :spec {:version {:coerce :boolean}
+                                                     :dude {:coerce :boolean}}
+                   :args->opts [:some-option]}])
+      (testing "subcommand wins from args->opts"
+        (is (= {:version "2000"}
+               (-> (cli/dispatch
+                    table
+                    ["foo" "bar" "--version" "2000"])
+                   :opts)))))))
 
 (deftest table->tree-test
   (testing "internal represenation"

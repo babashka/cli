@@ -215,20 +215,22 @@
       :args args})))
 
 (defn- args->opts
-  [args args->opts]
-  (let [[new-args args->opts]
-        (if args->opts
-          (if (seq args)
-            (let [arg-count (count args)
-                  cnt (min arg-count
-                           (bounded-count arg-count args->opts))]
-              [(concat (interleave args->opts args)
-                       (drop cnt args))
-               (drop cnt args->opts)])
-            [args args->opts])
-          [args args->opts])]
-    {:args new-args
-     :args->opts args->opts}))
+  ([args args->opts-map] (args->opts args args->opts-map #{}))
+  ([args args->opts-map ignored-args]
+   (let [[new-args args->opts]
+         (if args->opts-map
+           (if (and (seq args)
+                    (not (contains? ignored-args (first args))))
+             (let [arg-count (count args)
+                   cnt (min arg-count
+                            (bounded-count arg-count args->opts-map))]
+               [(concat (interleave args->opts-map args)
+                        (drop cnt args))
+                (drop cnt args->opts-map)])
+             [args args->opts-map])
+           [args args->opts-map])]
+     {:args new-args
+      :args->opts args->opts})))
 
 (defn- parse-key [arg mode current-opt coerce-opt added]
   (let [fst-char (first-char arg)
@@ -324,7 +326,7 @@
          (if-let [a->o (or (:args->opts opts)
                            ;; DEPRECATED:
                            (:cmds-opts opts))]
-           (args->opts cmds a->o)
+           (args->opts cmds a->o (::dispatch-tree-ignored-args opts))
            {:args->opts nil
             :args args})
          [cmds args] (if (not= new-args args)
@@ -333,7 +335,7 @@
          ;; _ (prn :cmds cmds :args args)
          opts* opts
          [opts last-opt added]
-         (if (and (::no-opts-after-args opts)
+         (if (and (::dispatch-tree opts)
                   (seq cmds))
            (do
              ;; (prn :result-to-dispatch cmds args :> (into (vec cmds) args))
@@ -419,7 +421,7 @@
                                   a->o :args->opts}
                                  (if args
                                    (if a->o
-                                     (args->opts args a->o)
+                                     (args->opts args a->o (::dispatch-tree-ignored-args opts))
                                      {:args args})
                                    {:args args})
                                  new-args? (not= args new-args)]
@@ -447,7 +449,7 @@
          collect-fn (coerce-collect-fn collect last-opt (get coerce-opts last-opt))
          opts (-> (process-previous opts last-opt added collect-fn)
                   (cond->
-                      (and (seq cmds) (not (::no-opts-after-args opts*)))
+                      (and (seq cmds) (not (::dispatch-tree opts*)))
                     (vary-meta update-in [:org.babashka/cli :args]
                                (fn [args]
                                  (into (vec cmds) args)))))
@@ -615,7 +617,8 @@
            ;; _ (prn :dispatch-args args)
            {:keys [args opts]} (if should-parse-args?
                                  (parse-args args (assoc (update parse-opts :exec-args merge all-opts)
-                                                         ::no-opts-after-args true))
+                                                         ::dispatch-tree true
+                                                         ::dispatch-tree-ignored-args (set (keys (:cmd cmd-info)))))
                                  {:args args
                                   :opts {}})
            ;; _ (prn :dispatch-args-post args)
