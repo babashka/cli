@@ -19,6 +19,11 @@
 -  [`babashka.cli.exec`](#babashkacliexec) 
     -  [`-main`](#-main) - Main entrypoint for command line usage.
     -  [`main`](#main)
+-  [`user`](#user) 
+    -  [`global-spec`](#global-spec)
+    -  [`sub1-spec`](#sub1-spec)
+    -  [`sub2-spec`](#sub2-spec)
+    -  [`table`](#table)
 # babashka.cli 
 
 
@@ -60,7 +65,7 @@ Coerce string `s` using `f`. Does not coerce when `s` is not a string.
 
 Subcommand dispatcher.
 
-  Dispatches on longest matching command entry in `table` by matching
+  Dispatches on longest matching command entry in [`table`](#table) by matching
   subcommands to the `:cmds` vector and invoking the correspondig `:fn`.
 
   Table is in the form:
@@ -85,21 +90,21 @@ Subcommand dispatcher.
   Each entry in the table may have additional [`parse-args`](#parse-args) options.
 
   For more information and examples, see [README.md](README.md#subcommands).
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L650-L682)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L666-L698)</sub>
 ## `format-opts`
 ``` clojure
 
 (format-opts {:as cfg, :keys [indent], :or {indent 2}})
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L556-L560)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L566-L570)</sub>
 ## `format-table`
 ``` clojure
 
 (format-table {:keys [rows indent]})
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L516-L527)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L526-L537)</sub>
 ## `merge-opts`
 ``` clojure
 
@@ -122,21 +127,21 @@ Merges babashka CLI options.
 (opts->table {:keys [spec order]})
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L537-L554)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L547-L564)</sub>
 ## `pad`
 ``` clojure
 
 (pad len s)
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L506-L506)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L516-L516)</sub>
 ## `pad-cells`
 ``` clojure
 
 (pad-cells rows)
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L508-L514)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L518-L524)</sub>
 ## `parse-args`
 ``` clojure
 
@@ -147,7 +152,7 @@ Merges babashka CLI options.
 
 Same as [`parse-opts`](#parse-opts) but separates parsed opts into `:opts` and adds
   `:cmds` and `:rest-args` on the top level instead of metadata.
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L484-L491)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L494-L501)</sub>
 ## `parse-cmds`
 ``` clojure
 
@@ -207,9 +212,9 @@ Parse the command line arguments `args`, a seq of strings.
   ;; => throws 'Unknown option --qux' exception b/c there is no :qux key in the spec
   ```
   
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L257-L482)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L259-L492)</sub>
 ## `rows`
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L530-L532)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L540-L542)</sub>
 ## `spec->opts`
 ``` clojure
 
@@ -252,3 +257,17 @@ Main entrypoint for command line usage.
 ```
 
 <sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L83-L86)</sub>
+# user 
+
+
+
+
+
+## `global-spec`
+<sub>[source](https://github.com/babashka/cli/blob/main/src/scratch.clj#L3-L3)</sub>
+## `sub1-spec`
+<sub>[source](https://github.com/babashka/cli/blob/main/src/scratch.clj#L4-L4)</sub>
+## `sub2-spec`
+<sub>[source](https://github.com/babashka/cli/blob/main/src/scratch.clj#L5-L5)</sub>
+## `table`
+<sub>[source](https://github.com/babashka/cli/blob/main/src/scratch.clj#L17-L19)</sub>
