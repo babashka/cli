@@ -3,6 +3,7 @@
    [babashka.cli :as cli]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
+   [borkdude.deflet :as d]
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])))
 
@@ -281,7 +282,139 @@
          {:dispatch ["dep" "search"]
           :opts {:search-term "cheshire"
                  :precision 100}}
-         (cli/dispatch table ["dep" "search" "cheshire" "100"])))))
+         (cli/dispatch table ["dep" "search" "cheshire" "100"]))))
+
+  (testing "options of super commands"
+    (d/deflet
+      (def table [{:cmds ["foo" "bar"]
+                   :spec {:baz {:coerce :boolean}}
+                   :fn identity}
+                  {:cmds ["foo" "bar" "baz"]
+                   :spec {:quux {:coerce :keyword}}
+                   :fn identity}])
+      (is (submap? {:type :org.babashka/cli
+                    :cause :input-exhausted
+                    :all-commands ["foo"]}
+                   (try (cli/dispatch table [])
+                        (catch Exception e (ex-data e)))))
+      (is (submap? {:dispatch ["foo" "bar"], :opts {:baz true}, :args ["quux"]}
+                   (cli/dispatch table ["foo" "bar" "--baz" "quux"])))
+      (is (submap? {:dispatch ["foo" "bar" "baz"] , :opts {:baz true :quux :xyzzy}, :args nil}
+                   (cli/dispatch table ["foo" "bar" "--baz" "baz" "--quux" "xyzzy"])))))
+
+  (testing "with global opts and conflicting options names"
+    (d/deflet
+      (def table [{:cmds [] :spec {:global {:coerce :boolean}}}
+                  {:cmds ["foo"] :spec {:bar {:coerce :keyword}}}
+                  {:cmds ["foo" "bar"]
+                   :spec {:bar {:coerce :keyword}}
+                   :fn identity}])
+      (is (submap?
+           {:dispatch ["foo" "bar"]
+            :opts {:bar :bar
+                   :global true}
+            :args ["arg1"]}
+           (cli/dispatch table ["--global" "foo" "--bar" "bar" "bar" "arg1"])))))
+
+  (testing "distinguish options at every level"
+    (d/deflet
+      (def spec {:foo {:coerce :keyword}})
+      (def table [{:spec spec}
+                  {:cmds ["foo"]
+                   :spec spec
+                   :fn identity}
+                  {:cmds ["foo" "bar"]
+                   :fn identity
+                   :spec spec}
+                  {:cmds ["foo" "bar" "baz"]
+                   :spec spec
+                   :fn identity}])
+      (is (submap?
+           {:dispatch ["foo" "bar"],
+            :opts {:foo :dude3},
+            #_#_:opts-by-cmds
+            [{:cmds [], :opts {:foo :dude1}}
+             {:cmds ["foo"], :opts {:foo :dude2}}
+             {:cmds ["foo" "bar"], :opts {:foo :dude3}}],
+            :args ["bar" "arg1"]}
+           (cli/dispatch
+            table
+            ["--foo" "dude1" "foo" "--foo" "dude2" "bar" "--foo" "dude3" "bar" "arg1"])))))
+
+  (testing "with colon options"
+    (d/deflet
+      (def table [{:cmds ["foo"] :fn identity}])
+      (is (= "my-file.edn" (-> (cli/dispatch
+                                table
+                                ["foo" ":deps-file" "my-file.edn"])
+                               :opts :deps-file)))))
+
+  (testing "choose most specific"
+    (d/deflet
+      (def table [{:cmds ["foo" "bar"] :fn identity}
+                  {:cmds ["foo" "baz"] :fn identity}
+                  {:cmds ["foo"] :fn identity}])
+      (is (= ["foo" "bar"] (-> (cli/dispatch
+                                table
+                                ["foo" "bar" "baz" "--dude" "1"])
+                               :dispatch)))))
+
+  (testing "spec can be overriden"
+    (d/deflet
+      (def table [{:cmds ["foo" "bar"] :fn identity :spec {:version {:coerce :string}
+                                                           }}
+                  {:cmds ["foo"] :fn identity :spec {:version {:coerce :boolean}
+                                                     :dude {:coerce :boolean}}}])
+      (is (submap? {:opts {:version true}, :args ["2010"]}
+                   (cli/dispatch
+                    table
+                    ["foo" "--version" "2010"])))
+      (is (= "2010" (-> (cli/dispatch
+                         table
+                         ["foo" "bar" "--version" "2010"])
+                        :opts :version)))
+      (is (= {:dude true :version "2010"}
+             (-> (cli/dispatch
+                  table
+                  ["foo" "--dude" "bar" "--version" "2010"])
+                 :opts)))
+      (testing "specific spec replaces less specific spec (no merge)"
+        (is (= {:dude "some-value"}
+               (-> (cli/dispatch
+                    table
+                    ["foo" "bar" "--dude" "some-value"])
+                   :opts))))
+
+      (def table [{:cmds ["foo"] :fn identity
+                   :spec {:version {:coerce :boolean}}
+                   :args->opts [:some-option]}
+                  {:cmds ["foo" "bar"]
+                   :fn identity
+                   :spec {:version {:coerce :string}}}])
+      (testing "subcommand wins from args->opts"
+        (is (= {:dispatch ["foo" "bar"], :opts {:version "2000"}, :args ["some-arg"]}
+               (-> (cli/dispatch
+                    table
+                    ["foo" "bar" "--version" "2000" "some-arg"]))))))))
+
+(deftest table->tree-test
+  (testing "internal represenation"
+    (is (= {:cmd
+            {"foo"
+             {:cmd
+              {"bar"
+               {:spec {:baz {:coerce :boolean}},
+                :fn identity
+                :cmd
+                {"baz"
+                 {:spec {:quux {:coerce :keyword}},
+                  :fn identity}}}}}}}
+           (#'cli/table->tree [{:cmds ["foo" "bar"]
+                                :spec {:baz {:coerce :boolean}}
+                                :fn identity}
+                               {:cmds ["foo" "bar" "baz"]
+                                :spec {:quux {:coerce :keyword}}
+                                :fn identity}])))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts

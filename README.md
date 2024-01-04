@@ -488,6 +488,52 @@ Additional `parse-arg` options may be passed in each table entry:
    {:cmds []         :fn help}])
 ```
 
+Since cli 0.8.54 the order of `:cmds` in the table doesn't matter.
+
+### Shared options
+
+Since cli 0.8.54, babashka.cli supports parsing shared options in between and before the subcommands.
+
+E.g.:
+
+``` clojure
+(def global-spec {:foo {:coerce :keyword}})
+(def sub1-spec {:bar {:coerce :keyword}})
+(def sub2-spec {:baz {:coerce :keyword}})
+
+(def table
+  [{:cmds [] :spec global-spec}
+   {:cmds ["sub1"] :fn identity :spec sub1-spec}
+   {:cmds ["sub1" "sub2"] :fn identity :spec sub2-spec}])
+
+(cli/dispatch table ["--foo" "a" "sub1" "--bar" "b" "sub2" "--baz" "c" "arg"])
+
+;;=>
+
+{:dispatch ["sub1" "sub2"],
+ :opts {:foo :a, :bar :b, :baz :c},
+ :args ["arg"]}
+```
+
+Note that specs are not merged, such that:
+
+``` clojure
+(cli/dispatch table ["sub1" "--foo" "bar"])
+```
+
+returns `{:dispatch ["sub1"], :opts {:foo "bar"}}` (`"bar"` is not coerced as a keyword).
+
+Note that it is possible to use `:args->opts` but subcommands are always prioritized over arguments:
+
+``` clojure
+(def table
+  [{:cmds ["sub1"] :fn identity :spec sub1-spec :args->opts [:some-opt]}
+   {:cmds ["sub1" "sub2"] :fn identity :spec sub2-spec}])
+
+(cli/dispatch table ["sub1" "dude"]) ;;=> {:dispatch ["sub1"], :opts {:some-opt "dude"}}
+(cli/dispatch table ["sub1" "sub2"]) ;;=> {:dispatch ["sub1" "sub2"], :opts {}}
+```
+
 ## Babashka tasks
 
 For documentation on babashka tasks, go

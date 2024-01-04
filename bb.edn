@@ -19,7 +19,7 @@
         :task (apply clojure "-M:test" *command-line-args*)}
 
   cljs-test {:doc "Run CLJS tests"
-             :task (apply clojure "-M:cljs-test" *command-line-args*)}
+             :task (apply clojure "-M:test:cljs-test" *command-line-args*)}
 
   quickdoc {:doc "Invoke quickdoc"
             :requires ([quickdoc.api :as api])

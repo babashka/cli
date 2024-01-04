@@ -7,7 +7,8 @@
   {:extra-paths ["test"]
    :extra-deps {io.github.cognitect-labs/test-runner
                 {:git/tag "v0.5.1" :git/sha "dfb30dd"}
-                babashka/fs {:mvn/version "0.1.11"}}
+                babashka/fs {:mvn/version "0.1.11"}
+                io.github.borkdude/deflet {:mvn/version "0.1.0"}}
    :exec-args {:cmd "bb test"}
    :main-opts ["-m" "babashka.cli.exec"]
    :exec-fn babashka.test-runner/test #_cognitect.test-runner.api/test}

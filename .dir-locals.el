@@ -1,2 +1,2 @@
 ((clojure-mode
-  (cider-clojure-cli-aliases . ":repl")))
+  (cider-clojure-cli-aliases . ":repl:test")))
