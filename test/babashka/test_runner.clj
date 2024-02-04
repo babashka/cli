@@ -1,11 +1,11 @@
 (ns babashka.test-runner
-  {:org.babashka/cli {:coerce {:dirs :strings
-                               :nses :symbols
-                               :patterns :strings
-                               :vars :symbols
-                               :includes :keywords
-                               :excludes :keywords
-                               :only :symbols}}}
+  {:org.babashka/cli {:coerce {:dirs [:string]
+                               :nses [:symbol]
+                               :patterns [:string]
+                               :vars [:symbol]
+                               :includes [:keyword]
+                               :excludes [:keyword]
+                               :only :symbol}}}
   (:refer-clojure :exclude [test])
   (:require
    [clojure.test :as test]
