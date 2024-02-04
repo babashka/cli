@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- Fix command line args for test runner `--dirs`, `--only`, etc
+
 ## v0.8.55 (2024-01-04)
 
 - Fix `--no-option` (`--no` prefix) in combination with subcommands
