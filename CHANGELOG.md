@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## v0.8.56 (2024-02-13)
+
+- Add `:opts` to `:error-fn` input
+
 ## v0.8.55 (2024-01-04)
 
 - Fix `--no-option` (`--no` prefix) in combination with subcommands

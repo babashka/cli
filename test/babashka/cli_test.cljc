@@ -63,7 +63,8 @@
                  :msg "Coerce failure: cannot transform input \"dude\" to long"
                  :option :b
                  :value "dude"
-                 :spec nil}
+                 :spec nil
+                 :opts {}}
                 (ex-data e)))))
   (is (submap? {:a [1 1]}
                (cli/parse-opts ["-a" "1" "-a" "1"] {:collect {:a []} :coerce {:a :long}})))
@@ -123,7 +124,8 @@
                    :msg "Unknown option: :b"
                    :option :b
                    :restrict #{:foo}
-                   :spec {:foo {}}}
+                   :spec {:foo {}}
+                   :opts {:foo "bar", :b true}}
                   (ex-data e))))))
   (testing ":closed #{:foo} w/ only --foo in opts is allowed"
     (is (= {:foo "bar"} (cli/parse-opts ["--foo=bar"]
@@ -142,7 +144,8 @@
                    :msg "Unknown option: :bar"
                    :option :bar
                    :restrict #{:foo}
-                   :spec nil}
+                   :spec nil
+                   :opts {:foo true, :bar true}}
                   (ex-data e))))))
   (testing ":closed true w/ :aliases {:f :foo} w/ only -f in opts is allowed"
     (is (= {:foo true} (cli/parse-opts ["-f"]
@@ -508,11 +511,12 @@
                    :spec nil
                    :value 0
                    :validate {:foo {:pred pos?
-                                    :ex-msg ex-msg-fn}}}
+                                    :ex-msg ex-msg-fn}}
+                   :opts {:foo 0}}
                   (ex-data e)))))))
 
 (deftest error-fn-test
-  (let [errors (atom #{})
+  (let [errors (atom [])
         spec {:a {:require true}
               :b {:validate pos?}
               :c {:coerce :long}}]
@@ -522,31 +526,13 @@
                     {:error-fn (fn [error] (swap! errors conj error))
                      :restrict true
                      :spec spec})
-    (is (= #{{:type :org.babashka/cli
-              :cause :validate
-              :msg "Invalid value for option :b: 0"
-              :option :b
-              :value 0
-              :validate {:b pos?}
-              :spec spec}
-             {:type :org.babashka/cli
-              :cause :coerce
-              :msg "Coerce failure: cannot transform input \"nope!\" to long"
-              :option :c
-              :value "nope!"
-              :spec spec}
-             {:type :org.babashka/cli
-              :cause :restrict
-              :msg "Unknown option: :extra"
-              :option :extra
-              :restrict #{:a :b :c}
-              :spec spec}
-             {:type :org.babashka/cli
-              :cause :require
-              :msg (str "Required option: :a")
-              :require #{:a}
-              :option :a
-              :spec spec}}
+    (is (= [{:spec spec, :type :org.babashka/cli, :cause :coerce,
+             :msg "Coerce failure: cannot transform input \"nope!\" to long", :option :c,
+             :value "nope!", :opts {:b 0}}
+            {:spec spec, :type :org.babashka/cli, :cause :restrict, :msg "Unknown option: :extra", :restrict #{:c :b :a}, :option :extra, :opts {:b 0, :extra "bad!"}}
+            {:spec spec, :type :org.babashka/cli, :cause :require, :msg "Required option: :a", :require #{:a}, :option :a, :opts {:b 0, :extra "bad!"}}
+            {:spec spec, :type :org.babashka/cli, :cause :validate, :msg "Invalid value for option :b: 0", :validate {:b pos?}, :option :b, :value 0,
+             :opts {:b 0, :extra "bad!"}}]
            @errors))))
 
 (deftest exec-args-replaced-test

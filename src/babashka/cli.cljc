@@ -437,7 +437,8 @@
                                                    :msg #?(:clj (.getMessage e)
                                                            :cljs (ex-message e))
                                                    :option current-opt
-                                                   :value arg})
+                                                   :value arg
+                                                   :opts acc})
                                         ;; Since we've encountered an error, don't add this opt
                                         acc))
                                     opt
@@ -462,14 +463,16 @@
            (error-fn {:cause :restrict
                       :msg (str "Unknown option: " k)
                       :restrict restrict
-                      :option k}))))
+                      :option k
+                      :opts opts}))))
      (when require
        (doseq [k require]
          (when-not (find opts k)
            (error-fn {:cause :require
                       :msg (str "Required option: " k)
                       :require require
-                      :option k}))))
+                      :option k
+                      :opts opts}))))
      (when validate
        (doseq [[k vf] validate]
          (let [f (or (and
@@ -487,7 +490,8 @@
                             :msg (ex-msg-fn {:option k :value v})
                             :validate validate
                             :option k
-                            :value v})))))))
+                            :value v
+                            :opts opts})))))))
      opts)))
 
 (defn parse-args
