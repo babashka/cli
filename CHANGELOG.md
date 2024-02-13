@@ -7,6 +7,7 @@ For breaking changes, check [here](#breaking-changes).
 ## v0.8.56 (2024-02-13)
 
 - Add `:opts` to `:error-fn` input
+- Fix command line args for test runner `--dirs`, `--only`, etc
 
 ## v0.8.55 (2024-01-04)
 
