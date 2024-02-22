@@ -377,7 +377,8 @@
                                                    (str/split kname #"=")
                                                    [kname])
                                  raw-k (keyword kname)
-                                 k (get aliases raw-k raw-k)]
+                                 alias (get aliases raw-k)
+                                 k (or alias raw-k)]
                              (if arg-val
                                (recur (process-previous acc current-opt added collect-fn)
                                       k nil mode (cons arg-val (rest args)) a->o)
@@ -390,7 +391,7 @@
                                          (empty? next-args)
                                          negative?)
                                    ;; implicit true
-                                   (if composite-opt
+                                   (if (and (not alias) composite-opt)
                                      (let [chars (name k)
                                            args (mapcat (fn [char]
                                                           [(str "-" char) true])
