@@ -540,3 +540,8 @@
                                                                       :exec-args {:dude [:baz]}})))
   (is (= {:foo [:bar]} (cli/parse-opts ["--foo" ":bar"] {:coerce {:foo []}
                                                          :exec-args {:foo [:baz]}}))))
+
+(deftest issue-82-alias-preference
+  (is (= {:opts {:verbose2 true}}
+         (cli/parse-args ["-vv"] {:spec {:verbose1 {:alias :v}
+                                         :verbose2 {:alias :vv}}}))))
