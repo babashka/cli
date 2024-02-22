@@ -411,6 +411,39 @@ For example to add a header row with labels for each column, you could do someth
   :indent 2})
 ```
 
+### Aliases
+
+An `:alias` specifies a mapping from short to long name.
+
+The library can distinguish aliases with characters in common, so a way to implement the common `-v`/`-vv` unix pattern is:
+``` clojure
+(def spec {:verbose      {:alias :v
+                          :desc  "Enable verbose output."}
+           :very-verbose {:alias :vv
+                          :desc  "Enable very verbose output."}})
+```
+
+You get:
+
+```clojure
+(cli/parse-opts ["-v"] {:spec spec})
+;;=> {:verbose true}
+
+(cli/parse-opts ["-vv"] {:spec spec})
+;;=> {:very-verbose true}
+```
+
+Another way would be to collect the flags in a vector with `:coerce` (and base verbosity on the size of that vector):
+
+``` clojure
+(def spec {:verbose {:alias :v
+                     :desc  "Enable verbose output."
+                     :coerce []}})
+
+user=> (cli/parse-opts ["-vvv"] {:spec spec})
+{:verbose [true true true]}
+```
+
 ## Subcommands
 
 To handle subcommands, use
