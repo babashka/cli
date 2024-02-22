@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## v0.8.57 (2024-02-22)
 
 Fix [#82](https://github.com/babashka/cli/issues/82): prefer alias over composite option
 
