@@ -135,7 +135,7 @@ Missing required argument: :num
       --flag I am just a flag
 ```
 
-Using the above [`spec`](https://github.com/babashka/cli#spec) format is optional and you can implement you own parsing logic just with [`parse-opts`/`parse-args`](https://github.com/babashka/cli#options).
+Using the [`spec`](https://github.com/babashka/cli#spec) format is optional and you can implement you own parsing logic just with [`parse-opts`/`parse-args`](https://github.com/babashka/cli#options).
 However, many would find the above example familiar.
 
 ## Options
