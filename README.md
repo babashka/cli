@@ -64,12 +64,79 @@ your exec functions into CLIs.
 
 ## TOC
 
+- [Simple example](#simple-example)
 - [Options](#options)
 - [Arguments](#arguments)
 - [Subcommands](#subcommands)
 - [Babashka tasks](#babashka-tasks)
 - [Clojure CLI](#clojure-cli)
 - [Leiningen](#leiningen)
+
+## Simple example
+Here is an example script to get you started!
+
+```clojure
+#!/usr/bin/env bb
+(require '[babashka.cli :as cli]
+         '[babashka.fs :as fs])
+
+(defn dir-exists?
+  [path]
+  (fs/directory? path))
+
+(defn show-help
+  [spec]
+  (cli/format-opts (merge spec {:order (vec (keys (:spec spec)))})))
+
+(def cli-spec
+  {:spec
+   {:num {:coerce :long
+          :desc "Number of some items"
+          :alias :n                     ; adds -n alias for --num
+          :validate pos?                ; tests if supplied --num >0
+          :require true}                ; --num,-n is required
+    :dir {:desc "Directory name to do stuff"
+          :alias :d
+          :validate dir-exists?}        ; tests if --dir exists
+    :flag {:coerce :boolean             ; defines a boolean flag
+           :desc "I am just a flag"}}
+    :error-fn                           ; a function to handle errors
+    (fn [{:keys [spec type cause msg option] :as data}]
+      (if (= :org.babashka/cli type)
+        (case cause
+          :require
+          (println
+            (format "Missing required argument: %s\n" option))
+          :validate
+          (println
+            (format "%s does not exist!\n" msg)))))
+   })
+
+(defn -main
+  [args]
+  (let [opts (cli/parse-opts args cli-spec)]
+    (if (or (:help opts) (:h opts))
+      (println (show-help cli-spec))
+      (println "Here are your cli args!:" opts))))
+
+(-main *command-line-args*)
+```
+
+And this is how you run it:
+```
+$ bb try-me.clj --num 1 --dir my_dir --flag
+Here are your cli args!: {:num 1, :dir my_dir, :flag true}
+
+$ bb try-me.clj --help
+Missing required argument: :num
+
+  -n, --num  Number of some items
+  -d, --dir  Directory name to do stuff
+      --flag I am just a flag
+```
+
+Using the [`spec`](https://github.com/babashka/cli#spec) format is optional and you can implement you own parsing logic just with [`parse-opts`/`parse-args`](https://github.com/babashka/cli#options).
+However, many would find the above example familiar.
 
 ## Options
 
