@@ -92,15 +92,15 @@ Here is an example script to get you started!
   {:spec
    {:num {:coerce :long
           :desc "Number of some items"
-          :alias :n ; adds -n alias for --num
-          :validate pos? ; tests if supplied --num >0
-          :require true} ; --num,-n is required
+          :alias :n                     ; adds -n alias for --num
+          :validate pos?                ; tests if supplied --num >0
+          :require true}                ; --num,-n is required
     :dir {:desc "Directory name to do stuff"
           :alias :d
-          :validate dir-exists?} ; tests if --dir exists
-    :flag {:coerce :boolean ; defines a boolean flag
+          :validate dir-exists?}        ; tests if --dir exists
+    :flag {:coerce :boolean             ; defines a boolean flag
            :desc "I am just a flag"}}
-    :error-fn ; a function to handle errors
+    :error-fn                           ; a function to handle errors
     (fn [{:keys [spec type cause msg option] :as data}]
       (if (= :org.babashka/cli type)
         (case cause
