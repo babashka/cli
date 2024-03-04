@@ -100,16 +100,16 @@ Here is an example script to get you started!
           :validate dir-exists?}        ; tests if --dir exists
     :flag {:coerce :boolean             ; defines a boolean flag
            :desc "I am just a flag"}}
-    :error-fn                           ; a function to handle errors
-    (fn [{:keys [spec type cause msg option] :as data}]
-      (if (= :org.babashka/cli type)
-        (case cause
-          :require
-          (println
-            (format "Missing required argument: %s\n" option))
-          :validate
-          (println
-            (format "%s does not exist!\n" msg)))))
+   :error-fn                           ; a function to handle errors
+   (fn [{:keys [spec type cause msg option] :as data}]
+     (if (= :org.babashka/cli type)
+       (case cause
+         :require
+         (println
+           (format "Missing required argument: %s\n" option))
+         :validate
+         (println
+           (format "%s does not exist!\n" msg)))))
    })
 
 (defn -main
