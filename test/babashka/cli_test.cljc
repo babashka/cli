@@ -545,3 +545,6 @@
   (is (= {:opts {:verbose2 true}}
          (cli/parse-args ["-vv"] {:spec {:verbose1 {:alias :v}
                                          :verbose2 {:alias :vv}}}))))
+
+(deftest issue-89-alias-only-for-short-opt
+  (is (= {:f "dude"} (cli/parse-opts ["--f" "dude"] {:spec {:foo {:alias :f}}}))))
