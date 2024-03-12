@@ -377,7 +377,8 @@
                                                    (str/split kname #"=")
                                                    [kname])
                                  raw-k (keyword kname)
-                                 alias (get aliases raw-k)
+                                 alias (when-not long-opt?
+                                         (get aliases raw-k))
                                  k (or alias raw-k)]
                              (if arg-val
                                (recur (process-previous acc current-opt added collect-fn)
