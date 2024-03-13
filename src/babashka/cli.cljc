@@ -644,9 +644,11 @@
              {:error :no-match
               :wrong-input arg
               :available-commands (keys (:cmd cmd-info))
+              :dispatch cmds
               :opts (dissoc all-opts ::opts-by-cmds)}
              {:error :input-exhausted
               :available-commands (keys (:cmd cmd-info))
+              :dispatch cmds
               :opts (dissoc all-opts ::opts-by-cmds)})))))))
 
 (defn- dispatch-tree
@@ -664,7 +666,7 @@
                   {:type :org.babashka/cli
                    :cause error
                    :all-commands available-commands}
-                  (select-keys res [:wrong-input :opts])))
+                  (select-keys res [:wrong-input :opts :dispatch])))
        nil ((:fn cmd-info) (dissoc res :cmd-info))))))
 
 (defn dispatch
