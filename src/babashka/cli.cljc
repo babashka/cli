@@ -644,29 +644,29 @@
              {:error :no-match
               :wrong-input arg
               :available-commands (keys (:cmd cmd-info))
+              :dispatch cmds
               :opts (dissoc all-opts ::opts-by-cmds)}
              {:error :input-exhausted
               :available-commands (keys (:cmd cmd-info))
+              :dispatch cmds
               :opts (dissoc all-opts ::opts-by-cmds)})))))))
 
 (defn- dispatch-tree
   ([tree args]
    (dispatch-tree tree args nil))
   ([tree args opts]
-   (let [{:as res :keys [cmd-info error wrong-input available-commands]}
+   (let [{:as res :keys [cmd-info error available-commands]}
          (dispatch-tree' tree args opts)
-         error-fn* (or (:error-fn opts)
+         error-fn (or (:error-fn opts)
                        (fn [{:keys [msg] :as data}]
-                         (throw (ex-info msg data))))
-         error-fn (fn [data]
-                    (-> {;; :tree tree
-                         :type :org.babashka/cli
-                         :wrong-input wrong-input :all-commands available-commands}
-                        (merge data)
-                        error-fn*))]
+                         (throw (ex-info msg data))))]
      (case error
        (:no-match :input-exhausted)
-       (error-fn {:cause error :opts (:opts res)})
+       (error-fn (merge
+                  {:type :org.babashka/cli
+                   :cause error
+                   :all-commands available-commands}
+                  (select-keys res [:wrong-input :opts :dispatch])))
        nil ((:fn cmd-info) (dissoc res :cmd-info))))))
 
 (defn dispatch
