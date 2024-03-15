@@ -408,7 +408,12 @@
         (is (= {:dispatch ["foo" "bar"], :opts {:version "2000"}, :args ["some-arg"]}
                (-> (cli/dispatch
                     table
-                    ["foo" "bar" "--version" "2000" "some-arg"]))))))))
+                    ["foo" "bar" "--version" "2000" "some-arg"])))))
+      (testing "dispatch errors return :dispatch key"
+        (is (= {:type :org.babashka/cli, :dispatch ["foo" "bar"], :all-commands '("baz"), :cause :input-exhausted, :opts {}}
+               (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar"] {:error-fn identity})))
+        (is (= {:type :org.babashka/cli, :dispatch ["foo" "bar"], :wrong-input "wrong", :all-commands '("baz"), :cause :no-match, :opts {}}
+               (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar" "wrong"] {:error-fn identity})))))))
 
 (deftest table->tree-test
   (testing "internal represenation"
