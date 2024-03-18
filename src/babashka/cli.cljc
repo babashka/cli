@@ -235,7 +235,8 @@
 (defn- parse-key [arg mode current-opt coerce-opt added]
   (let [fst-char (first-char arg)
         snd-char (second-char arg)
-        hyphen-opt? (and (= fst-char \-)
+        hyphen-opt? (and (not= :keywords mode)
+                         (= fst-char \-)
                          (not (number-char? snd-char)))
         mode (or mode (when hyphen-opt? :hyphens))
         fst-colon? (= \: fst-char)
