@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- Fix #91: keyword options and hyphen options should not mix
+
 ## v0.8.58 (2024-03-12)
 
 Fix [#89](https://github.com/babashka/cli/issues/89): long option never represents alias

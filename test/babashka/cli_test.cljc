@@ -548,3 +548,7 @@
 
 (deftest issue-89-alias-only-for-short-opt
   (is (= {:f "dude"} (cli/parse-opts ["--f" "dude"] {:spec {:foo {:alias :f}}}))))
+
+(deftest issue-91-keyword-mode-overrides-hypens-mode
+  (is (= {:args ["--baz"], :opts {:foo 1}}
+         (cli/parse-args [":foo" 1 "--baz"] {}))))
