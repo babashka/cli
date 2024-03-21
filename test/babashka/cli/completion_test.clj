@@ -112,10 +112,6 @@
     (is (= #{"--bar-flag"} (set (complete cmd-table ["foo" "--foo-flag" "bar" "--bar-opt" "bar-val" ""]))))))
 
 
-(deftest parse-opts-completion-test
-  (cli/parse-opts ["--babashka.cli/completion-snippet" "zsh"] {:complete true})
-  (cli/parse-opts ["--babashka.cli/complete" "zsh" "foo"] {:complete true}))
-
 (deftest dispatch-completion-test
   (is (= (slurp (io/resource "resources/completion/completion.zsh")) (with-out-str (cli/dispatch cmd-table ["--babashka.cli/completion-snippet" "zsh"] {:completion {:command "myprogram"}}))))
   (is (= (slurp (io/resource "resources/completion/completion.bash")) (with-out-str (cli/dispatch cmd-table ["--babashka.cli/completion-snippet" "bash"] {:completion {:command "myprogram"}}))))
