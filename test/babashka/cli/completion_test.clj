@@ -1,5 +1,5 @@
 (ns babashka.cli.completion-test
-  (:require [babashka.cli :as cli :refer [complete]]
+  (:require [babashka.cli :as cli :refer [complete-options complete]]
             [clojure.java.io :as io]
             [clojure.test :refer :all]))
 
@@ -13,6 +13,37 @@
                                :bar-flag {:coerce :boolean}}}
    {:cmds ["bar"]}
    {:cmds ["bar-baz"]}])
+
+(def opts {:spec {:aopt {:alias :a
+                         :coerce :string}
+                  :aopt2 {:coerce :string
+                          :validate #{"aval2"}}
+                  :bflag {:alias :b
+                          :coerce :boolean}}})
+
+(deftest complete-options-test
+  (is (= #{"--aopt" "--aopt2" "--bflag" "-b" "-a"} (set (complete-options opts [""]))))
+  (is (= #{"--aopt" "--aopt2" "--bflag" "-b" "-a"} (set (complete-options opts ["-"]))))
+  (is (= #{"--aopt" "--aopt2" "--bflag"} (set (complete-options opts ["--"]))))
+  (is (= #{"--aopt" "--aopt2"} (set (complete-options opts ["--a"]))))
+  (is (= #{"--bflag"} (set (complete-options opts ["--b"]))))
+  (is (= #{} (set (complete-options opts ["--bflag"]))))
+  (is (= #{"--aopt" "--aopt2" "-a"} (set (complete-options opts ["--bflag" ""]))))
+  (is (= #{} (set (complete-options opts ["--aopt" ""]))))
+  (is (= #{} (set (complete-options opts ["--aopt" "aval"]))))
+  (is (= #{"--aopt2" "--bflag" "-b"} (set (complete-options opts ["--aopt" "aval" ""]))))
+  (is (= #{"--aopt" "--bflag" "-b" "-a"} (set (complete-options opts ["--aopt2" "aval2" ""]))))
+  (testing "failing options"
+    (is (= #{} (set (complete-options opts ["--aopt" "-"]))))
+    (is (= #{} (set (complete-options opts ["--aopt" "--bflag"]))))
+    ;;FIXME
+    #_(is (= #{} (set (complete-options opts ["--aopt" "--bflag" ""])))))
+  (testing "invalid option value"
+    ;;FIXME
+    #_(is (= #{} (set (complete-options opts ["--aopt2" "invalid" ""])))))
+  (testing "complete option with same prefix"
+    (is (= #{"--aopt" "--aopt2"} (set (complete-options opts ["--a"]))))
+    (is (= #{"--aopt2"} (set (complete-options opts ["--aopt"]))))))
 
 (deftest completion-test
   (testing "complete commands"
