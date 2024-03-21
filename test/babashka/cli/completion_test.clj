@@ -5,9 +5,9 @@
             [clojure.test :refer :all]))
 
 (def cmd-table
-  [{:cmds ["foo"] :spec {:foo-opt {:coerece :string
+  [{:cmds ["foo"] :spec {:foo-opt {:coerce :string
                                    :alias :f}
-                         :foo-opt2 {:coerece :string}
+                         :foo-opt2 {:coerce :string}
                          :foo-flag {:coerce :boolean
                                     :alias :l}}}
    {:cmds ["foo" "bar"] :spec {:bar-opt {:coerce :keyword}
