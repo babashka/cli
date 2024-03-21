@@ -115,10 +115,10 @@
 
 (deftest dispatch-completion-test
   (when-not (fs/windows?)
-    (is (= (slurp (io/resource "resources/completion/completion.zsh")) (with-out-str (cli/dispatch cmd-table ["--babashka.cli/completion-snippet" "zsh"] {:completion {:command "myprogram"}})))) ;
-    (is (= (slurp (io/resource "resources/completion/completion.bash")) (with-out-str (cli/dispatch cmd-table ["--babashka.cli/completion-snippet" "bash"] {:completion {:command "myprogram"}}))))
-    (is (= (slurp (io/resource "resources/completion/completion.fish")) (with-out-str (cli/dispatch cmd-table ["--babashka.cli/completion-snippet" "fish"] {:completion {:command "myprogram"}}))))
+    (is (= (slurp (io/resource "resources/completion/completion.zsh")) (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/completion-snippet" "zsh"] {:completion {:command "myprogram"}})))) ;
+    (is (= (slurp (io/resource "resources/completion/completion.bash")) (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/completion-snippet" "bash"] {:completion {:command "myprogram"}}))))
+    (is (= (slurp (io/resource "resources/completion/completion.fish")) (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/completion-snippet" "fish"] {:completion {:command "myprogram"}}))))
 
-    (is (= "compadd -- foo\n" (with-out-str (cli/dispatch cmd-table ["--babashka.cli/complete" "zsh" "myprogram f"] {:completion {:command "myprogram"}}))))
-    (is (= "COMPREPLY+=( \"foo\" )\n" (with-out-str (cli/dispatch cmd-table ["--babashka.cli/complete" "bash" "myprogram f "] {:completion {:command "myprogram"}}))))
-    (is (= "foo\n" (with-out-str (cli/dispatch cmd-table ["--babashka.cli/complete" "fish" "myprogram f "] {:completion {:command "myprogram"}}))))))
+    (is (= "compadd -- foo\n" (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/complete" "zsh" "myprogram f"] {:completion {:command "myprogram"}}))))
+    (is (= "COMPREPLY+=( \"foo\" )\n" (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/complete" "bash" "myprogram f "] {:completion {:command "myprogram"}}))))
+    (is (= "foo\n" (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/complete" "fish" "myprogram f "] {:completion {:command "myprogram"}}))))))

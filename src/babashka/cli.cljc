@@ -327,14 +327,14 @@
                         error-fn*))
          [opt shell cmdline] args
          _ (case opt
-             "--babashka.cli/completion-snippet"
+             "--org.babashka.cli/completion-snippet"
              (if-let [command-name (get-in opts [:completion :command])]
                (do (print-completion-shell-snippet (keyword shell) command-name)
                    (System/exit 0))
                (binding [*out* *err*]
-                 (println "Need `:completion {:command \"<name>\"}` in opts to support shell completions")
+                 (println "Need `:completion {:command \"<name>\"}` in `opts` to support shell completions")
                  (System/exit 1)))
-             "--babashka.cli/complete"
+             "--org.babashka.cli/complete"
              (do (print-opts-completions (keyword shell) opts cmdline)
                  (System/exit 0))
              :noop)
@@ -715,16 +715,16 @@
   (case type
     :bash (format "_babashka_cli_dynamic_completion()
 {
-    source <( \"$1\" --babashka.cli/complete \"bash\" \"${COMP_WORDS[*]// / }\" )
+    source <( \"$1\" --org.babashka.cli/complete \"bash\" \"${COMP_WORDS[*]// / }\" )
 }
 complete -o nosort -F _babashka_cli_dynamic_completion %s
 " program-name)
     :zsh (format "#compdef %s
-source <( \"${words[1]}\" --babashka.cli/complete \"zsh\" \"${words[*]// / }\" )
+source <( \"${words[1]}\" --org.babashka.cli/complete \"zsh\" \"${words[*]// / }\" )
 " program-name)
     :fish (format "function _babashka_cli_dynamic_completion
     set --local COMP_LINE (commandline --cut-at-cursor)
-    %s --babashka.cli/complete fish $COMP_LINE
+    %s --org.babashka.cli/complete fish $COMP_LINE
 end
 complete --command %s --no-files --arguments \"(_babashka_cli_dynamic_completion)\"
 " program-name program-name)))
@@ -818,9 +818,9 @@ complete --command %s --no-files --arguments \"(_babashka_cli_dynamic_completion
    (let [command-name (get-in opts [:completion :command])
          [opt shell cmdline] args]
      (case opt
-       "--babashka.cli/completion-snippet"
+       "--org.babashka.cli/completion-snippet"
        (print-completion-shell-snippet (keyword shell) command-name)
-       "--babashka.cli/complete"
+       "--org.babashka.cli/complete"
        (print-dispatch-completions (keyword shell) tree cmdline)
        (let [{:as res :keys [cmd-info error available-commands]}
              (dispatch-tree' tree args opts)
