@@ -6,7 +6,8 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
-- Fix #91: keyword options and hyphen options should not mix
+- Fix [#96](https://github.com/babashka/cli/issues/96): prevent false defaults from being removed/ignored
+- Fix [#91](https://github.com/babashka/cli/issues/91): keyword options and hyphen options should not mix
 
 ## v0.8.58 (2024-03-12)
 

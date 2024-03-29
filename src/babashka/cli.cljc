@@ -197,8 +197,9 @@
                         (assoc aliases alias k)))
         require (update :require (fnil #(conj % k) #{}))
         validate (update :validate assoc k validate)
-        default (update :exec-args (fn [new-exec-args]
-                                     (assoc new-exec-args k (get exec-args k default))))))
+        (some? default) (update :exec-args
+                                (fn [new-exec-args]
+                                  (assoc new-exec-args k (get exec-args k default))))))
     {}
     spec)))
 
@@ -560,8 +561,8 @@
                    (when (:ref columns)
                      (if ref ref ""))
                    (when (or (:default-desc columns)
-                             (:default columns))
-                     (str (or default-desc default "")))
+                             (some? (:default columns)))
+                     (str (or default-desc (str default) "")))
                    (when (:desc columns)
                      (if desc desc ""))]))
           (if (map? spec)
