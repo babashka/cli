@@ -203,10 +203,11 @@
             :exec-args {:from :edn, :to :json, :paths ["src" "test"]}}
            (cli/spec->opts spec nil)))
     (is (= (str/trim "
-  -p, --pretty          Pretty-print output.
+  -p, --pretty false    Pretty-print output.
       --paths  src test Paths of files to transform.
 ") (str/trim
     (cli/format-opts {:spec [[:pretty {:desc "Pretty-print output."
+                                       :default false
                                        :alias :p}]
                              [:paths {:desc "Paths of files to transform."
                                       :coerce []
