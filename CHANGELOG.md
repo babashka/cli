@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## v0.8.59 (2024-04-30)
 
 - Fix [#96](https://github.com/babashka/cli/issues/96): prevent false defaults from being removed/ignored
 - Fix [#91](https://github.com/babashka/cli/issues/91): keyword options and hyphen options should not mix
