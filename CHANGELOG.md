@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- Fix [#98](https://github.com/babashka/cli/issues/98): internal options should not interfere with :restrict
+
 ## v0.8.59 (2024-04-30)
 
 - Fix [#96](https://github.com/babashka/cli/issues/96): prevent false defaults from being removed/ignored
