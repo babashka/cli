@@ -558,3 +558,17 @@
 (deftest issue-91-keyword-mode-overrides-hypens-mode
   (is (= {:args ["--baz"], :opts {:foo 1}}
          (cli/parse-args [":foo" 1 "--baz"] {}))))
+
+(deftest issue-98-dispatch+restrict-test
+  (is (thrown? Exception
+         (cli/dispatch [{:cmds ["foo"]
+                         :fn identity
+                         :spec {:x {:coerce :boolean}}}]
+                       ["foo" "--y"]
+                       {:restrict true})))
+  (is (= {:dispatch ["foo"], :opts {}, :args nil}
+         (cli/dispatch [{:cmds ["foo"]
+                         :fn identity
+                         :spec {:x {:coerce :boolean}}}]
+                       ["foo"]
+                       {:restrict true}))))

@@ -463,7 +463,8 @@
                 opts)]
      (when restrict
        (doseq [k (keys opts)]
-         (when-not (contains? restrict k)
+         (when (and (not (contains? restrict k))
+                    (not= (namespace k) "babashka.cli"))
            (error-fn {:cause :restrict
                       :msg (str "Unknown option: " k)
                       :restrict restrict
