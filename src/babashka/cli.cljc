@@ -672,7 +672,7 @@
   Table is in the form:
 
   ```clojure
-  [{:cmds [\"sub_1\" .. \"sub_n\"] :fn f :cmds-opts [:lib]}
+  [{:cmds [\"sub_1\" .. \"sub_n\"] :fn f}
    ...
    {:cmds [] :fn f}]
   ```
