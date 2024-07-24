@@ -39,7 +39,7 @@ The main ideas:
 - Put as little effort as possible into turning a clojure function into a CLI,
   similar to `-X` style invocations. For lazy people like me! If you are not
   familiar with `clj -X`, read the docs
-  [here](https://clojure.org/reference/deps_and_cli#_execute_a_function).
+  [here](https://clojure.org/reference/clojure_cli#use_fn).
 - But with a better UX by not having to use quotes on the command line as a
   result of having to pass EDN directly: `:dir foo` instead of `:dir '"foo"'` or
   who knows how to write the latter in `cmd.exe` or Powershell.
