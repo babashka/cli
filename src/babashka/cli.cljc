@@ -521,17 +521,24 @@
 (defn- kw->str [kw]
   (subs (str kw) 1))
 
-(defn pad [len s] (str s (apply str (repeat (- len (count s)) " "))))
+(defn- str-width
+  "Width of `s` when printed, i.e. without ANSI escape codes."
+  [s]
+  (let [strip-escape-codes #(str/replace %
+                                         (re-pattern "(\\x9B|\\x1B\\[)[0-?]*[ -\\/]*[@-~]") "")]
+    (count (strip-escape-codes s))))
+
+(defn pad [len s] (str s (apply str (repeat (- len (str-width s)) " "))))
 
 (defn pad-cells [rows]
-  (let [widths (reduce
-                (fn [widths row]
-                  (map max (map count row) widths)) (repeat 0) rows)
+  (let [widths  (reduce
+                 (fn [widths row]
+                   (map max (map str-width row) widths)) (repeat 0) rows)
         pad-row (fn [row]
-                  (map (fn [width col] (pad width col)) widths row))]
+                  (map (fn [width cell] (pad width cell)) widths row))]
     (map pad-row rows)))
 
-(defn format-table [{:keys [rows indent]}]
+(defn format-table [{:keys [rows indent] :or {indent 2}}]
   (let [rows (pad-cells rows)
         fmt-row (fn [leader divider trailer row]
                   (str leader
