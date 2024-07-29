@@ -487,6 +487,21 @@
                                           :desc "Barbarbar" :default-desc "Mos def"}}}))
              :indent 2})))))
 
+(deftest format-table-test
+  (let [contains-row-matching (fn [re table]
+                                (let [rows (str/split-lines table)]
+                                  (is (some #(re-find re %) rows)
+                                      (str "expected " (pr-str rows)
+                                           " to contain a row matching " (pr-str re)))))]
+    (testing "ANSI escape codes don't count towards a cell's width"
+      (let [table (cli/format-table {:rows [["widest" "<- sets column width to 6"]
+                                            ["\033[31mfoo\033[0m" "<- needs 3+1 padding"]
+                                            ["bar" "<- needs 3+1 padding"]]})]
+        (contains-row-matching #"\033\[31mfoo\033\[0m    <-"
+                               table)
+        (contains-row-matching #"bar    <-"
+                               table)))))
+
 (deftest require-test
   (is (thrown-with-msg?
        Exception #"Required option: :bar"
