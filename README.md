@@ -102,15 +102,14 @@ Here is an example script to get you started!
            :desc "I am just a flag"}}
    :error-fn                           ; a function to handle errors
    (fn [{:keys [spec type cause msg option] :as data}]
-     (if (= :org.babashka/cli type)
+     (when (= :org.babashka/cli type)
        (case cause
          :require
          (println
            (format "Missing required argument: %s\n" option))
          :validate
          (println
-           (format "%s does not exist!\n" msg)))))
-   })
+           (format "%s does not exist!\n" msg)))))})
 
 (defn -main
   [args]
