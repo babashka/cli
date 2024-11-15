@@ -7,7 +7,6 @@
 
 (set! *warn-on-reflection* true)
 
-#_:clj-kondo/ignore
 (def ^:private ^:dynamic *basis* "For testing" nil)
 
 (defmacro ^:private req-resolve [f]
@@ -54,16 +53,18 @@
                               (str/starts-with? f "{")
                               [(edn/read-string f) cmds]
                               :else [nil (cons f cmds)])
-        f (case (count cmds)
-            0 (resolve-exec-fn ns-default exec-fn)
-            1 (let [f (first cmds)]
-                (if (str/includes? f "/")
-                  (symbol f)
-                  (resolve-exec-fn ns-default (symbol f))))
-            2 (let [[ns-default f] cmds]
-                (if (str/includes? f "/")
-                  (symbol f)
-                  (resolve-exec-fn (symbol ns-default) (symbol f)))))
+        [f unconsumed-args] (case (count cmds)
+            0 [(resolve-exec-fn ns-default exec-fn)]
+            1 [(let [f (first cmds)]
+                 (if (str/includes? f "/")
+                   (symbol f)
+                   (resolve-exec-fn ns-default (symbol f))))]
+            (let [[ns-default f & unconsumed-args] cmds]
+              [(if (str/includes? f "/")
+                     (symbol f)
+                     (resolve-exec-fn (symbol ns-default) (symbol f)))
+               unconsumed-args]))
+        args (concat unconsumed-args args)
         f* f
         f (req-resolve f)
         _ (assert (ifn? f) (str "Could not resolve function: " f*))
