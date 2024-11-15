@@ -7,6 +7,7 @@ For breaking changes, check [here](#breaking-changes).
 ## Unreleased
 
 - Fix [#102](https://github.com/babashka/cli/issues/102): `format-table` correctly pads cells containing ANSI escape codes
+- Fix [#106](https://github.com/babashka/cli/issues/106): Multiple options before subcommand conflict with subcommand
 
 ## v0.8.60 (2024-07-23)
 

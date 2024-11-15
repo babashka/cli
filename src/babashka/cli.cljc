@@ -418,7 +418,9 @@
                                             (not= arg "true")
                                             (not= arg "false"))
                                        (and (= added current-opt)
-                                            (not collect-fn)))]
+                                            (or
+                                             (not collect-fn)
+                                             (contains? (::dispatch-tree-ignored-args opts) (first args)))))]
                          (if the-end?
                            (let [{new-args :args
                                   a->o :args->opts}
@@ -535,7 +537,7 @@
                  (fn [widths row]
                    (map max (map str-width row) widths)) (repeat 0) rows)
         pad-row (fn [row]
-                  (map (fn [width cell] (pad width cell)) widths row))]
+                  (map pad widths row))]
     (map pad-row rows)))
 
 (defn format-table [{:keys [rows indent] :or {indent 2}}]

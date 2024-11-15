@@ -587,3 +587,34 @@
                          :spec {:x {:coerce :boolean}}}]
                        ["foo"]
                        {:restrict true}))))
+
+(deftest issue-106-test
+  (d/deflet
+    (def global-spec {:config  {:desc "Config edn file to use"
+                                :coerce []}
+                      :verbose {:coerce :boolean}})
+    (def dns-spec {})
+    (def dns-get-spec {})
+    (def table
+      [{:cmds []            :fn identity :spec global-spec}
+       {:cmds ["dns"]       :fn identity :spec dns-spec}
+       {:cmds ["dns" "get"] :fn identity :spec dns-get-spec}])
+    (is (submap?
+         {:dispatch ["dns"], :opts {:config ["config-dev.edn" "other.edn"]}, :args nil}
+         (cli/dispatch table ["--config" "config-dev.edn" "--config" "other.edn" "dns"])))
+    (is (submap?
+         {:dispatch ["dns" "get"],
+          :opts {:config ["config-dev.edn" "other.edn"]},
+          :args nil}
+         (cli/dispatch table ["--config" "config-dev.edn" "--config" "other.edn" "dns" "get"])))
+    (is (submap?
+         {:dispatch ["dns" "get"],
+          :opts {:config ["config-dev.edn" "other.edn"], :verbose true},
+          :args nil}
+         (cli/dispatch table ["--config" "config-dev.edn" "--verbose" "--config" "other.edn" "dns" "get"])))
+    (is (submap?
+         {:dispatch ["dns" "get"],
+          :opts {:config ["config-dev.edn" "other.edn"]},
+          :args nil}
+         (cli/dispatch table ["--config" "config-dev.edn" "--config=other.edn" "dns" "get"]))))
+  )
