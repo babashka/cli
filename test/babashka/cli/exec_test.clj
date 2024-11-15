@@ -20,6 +20,11 @@
   (is (submap? {:a 1 :b 2} (main "babashka.cli.exec-test/foo" ":a" "1" ":b" "2")))
   (is (submap? {:b 1} (main "babashka.cli.exec-test" "foo" ":b" "1")))
   (is (submap? {:a 1 :b 2} (main "babashka.cli.exec-test" "foo" ":a" "1" ":b" "2")))
+  (is (submap? {:args ["arg"]
+                :exec true}
+               (-> (main "babashka.cli.exec-test" "foo" "arg" ":a" "1" ":b" "2")
+               meta
+               :org.babashka/cli)))
   (is (submap? {:a 1 :b 2} (main
                             "{:coerce {:a :long}}"
                             "babashka.cli.exec-test" "foo" ":a" "1" ":b" "2")))
@@ -35,20 +40,20 @@
                               ":a" "1" ":b" "2"))))
   (is (submap? {:a 1 :b 2}
                (binding [babashka.cli.exec/*basis* '{:argmap {:org.babashka/cli {:coerce {:a :long}}
-                                                                    :exec-fn babashka.cli.exec-test/foo}}]
+                                                              :exec-fn babashka.cli.exec-test/foo}}]
                  (main
                   ":a" "1" ":b" "2"))))
   (is (submap? {:a 1 :b 2}
                (binding [babashka.cli.exec/*basis*
                          '{:argmap {:org.babashka/cli {:coerce {:a :long}}
-                                          :ns-default babashka.cli.exec-test}}]
+                                    :ns-default babashka.cli.exec-test}}]
                  (main
                   "foo" ":a" "1" ":b" "2"))))
   (is (submap? {:a 1 :b 2}
                (binding [babashka.cli.exec/*basis*
                          '{:argmap {:org.babashka/cli {:coerce {:a :long}}
-                                          :ns-default babashka.cli.exec-test
-                                          :exec-fn foo}}]
+                                    :ns-default babashka.cli.exec-test
+                                    :exec-fn foo}}]
                  (main ":a" "1" ":b" "2"))))
   (let [basis "{:argmap {:org.babashka/cli {:coerce {:a :long}}
                                :ns-default babashka.cli.exec-test
@@ -63,18 +68,20 @@
                (edn/read-string
                 (with-out-str (binding [babashka.cli.exec/*basis*
                                         '{:argmap {:org.babashka/cli {:coerce {:a :long}}
-                                                         :ns-default babashka.cli.exec-test
-                                                         :exec-fn foo}}]
+                                                   :ns-default babashka.cli.exec-test
+                                                   :exec-fn foo}}]
                                 (main "clojure.core/prn" ":a" "1" ":b" "2"))))))
   (is (submap? {:a 1 :b 2}
                (edn/read-string
                 (with-out-str (binding [babashka.cli.exec/*basis*
                                         '{:argmap {:ns-default clojure.pprint
-                                                         :exec-fn foo}}]
+                                                   :exec-fn foo}}]
                                 (main "pprint" ":a" "1" ":b" "2"))))))
   (is (:exec (:org.babashka/cli
               (meta (binding [babashka.cli.exec/*basis*
                               '{:argmap {:org.babashka/cli {:coerce {:a :long}}
-                                        :ns-default babashka.cli.exec-test
-                                        :exec-fn foo}}]
-                      (main ":a" "1" ":b" "2")))))))
+                                         :ns-default babashka.cli.exec-test
+                                         :exec-fn foo}}]
+                      (main ":a" "1" ":b" "2"))))))
+
+  )
