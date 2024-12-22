@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## v0.8.62 (2024-12-22)
+
+- Fix [#109](https://github.com/babashka/cli/issues/109): allow options to start with a number
+
 ## v0.8.61 (2024-11-15)
 
 - Fix [#102](https://github.com/babashka/cli/issues/102): `format-table` correctly pads cells containing ANSI escape codes

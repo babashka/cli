@@ -466,7 +466,10 @@
   (is (= -10 (cli/auto-coerce "-10")))
   (is (submap? {:foo -10} (cli/parse-opts ["--foo" "-10"])))
   (is (submap? {:foo -10} (cli/parse-opts ["--foo" "-10"] {:coerce {:foo :number}})))
-  (is (submap? {:foo "-10"} (cli/parse-opts ["--foo" "-10"] {:coerce {:foo :string}}))))
+  (is (submap? {:foo "-10"} (cli/parse-opts ["--foo" "-10"] {:coerce {:foo :string}})))
+  (is (submap? {:6 true} (cli/parse-opts ["-6"] {:spec {:6 {}}})))
+  (is (submap? {:6 true} (cli/parse-opts ["-6"] {:coerce {:6 :boolean}})))
+  (is (submap? {:ipv6 true} (cli/parse-opts ["-6"] {:aliases {:6 :ipv6}}))))
 
 (deftest format-opts-test
   (testing "default width with default and default-desc"

@@ -233,19 +233,23 @@
      {:args new-args
       :args->opts args->opts})))
 
-(defn- parse-key [arg mode current-opt coerce-opt added]
+(defn- parse-key [arg mode current-opt coerce-opt added known-keys alias-keys]
   (let [fst-char (first-char arg)
         snd-char (second-char arg)
         hyphen-opt? (and (not= :keywords mode)
-                         (= fst-char \-)
-                         (not (number-char? snd-char)))
+                         (= \- fst-char)
+                         (let [k (keyword (subs arg 1))]
+                           (or
+                            (contains? known-keys k)
+                            (contains? alias-keys k)
+                            (not (number-char? snd-char)))))
         mode (or mode (when hyphen-opt? :hyphens))
         fst-colon? (= \: fst-char)
         kwd-opt? (and (not= :hyphens mode)
                       fst-colon?
                       (or (= :boolean coerce-opt)
-                          (or (not current-opt)
-                              (= added current-opt))))
+                          (not current-opt)
+                          (= added current-opt)))
         mode (or mode
                  (when kwd-opt?
                    :keywords))
@@ -307,8 +311,10 @@
          no-keyword-opts (:no-keyword-opts opts)
          restrict (or (:restrict opts)
                       (:closed opts))
-         known-keys (set (concat (keys (if (map? spec)
-                                         spec (into {} spec)))
+         spec-map (if (map? spec)
+                    spec (into {} spec))
+         alias-keys (set (concat (keys aliases) (map :alias (vals spec-map))))
+         known-keys (set (concat (keys spec-map)
                                  (vals aliases)
                                  (keys coerce-opts)))
          restrict (if (true? restrict)
@@ -362,7 +368,7 @@
                          {:keys [hyphen-opt
                                  composite-opt
                                  kwd-opt
-                                 mode fst-colon]} (parse-key arg mode current-opt coerce-opt added)]
+                                 mode fst-colon]} (parse-key arg mode current-opt coerce-opt added known-keys alias-keys)]
                      (if (or hyphen-opt
                              kwd-opt)
                        (let [long-opt? (str/starts-with? arg "--")
@@ -387,7 +393,7 @@
                                       k nil mode (cons arg-val (rest args)) a->o)
                                (let [next-args (next args)
                                      next-arg (first next-args)
-                                     m (parse-key next-arg mode current-opt coerce-opt added)
+                                     m (parse-key next-arg mode current-opt coerce-opt added known-keys alias-keys)
                                      negative? (when-not (contains? known-keys k)
                                                  (str/starts-with? (str k) ":no-"))]
                                  (if (or (:hyphen-opt m)
