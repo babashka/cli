@@ -186,9 +186,10 @@
   ([spec] (spec->opts spec nil))
   ([spec {:keys [exec-args]}]
    (reduce
-    (fn [acc [k {:keys [coerce alias default require validate]}]]
+    (fn [acc [k {:keys [coerce collect alias default require validate]}]]
       (cond-> acc
         coerce (update :coerce assoc k coerce)
+        collect (update :collect assoc k collect)
         alias (update :alias
                       (fn [aliases]
                         (when (contains? aliases alias)
