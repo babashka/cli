@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## v0.8.63
 
 - [#116](https://github.com/babashka/cli/issues/116): Undeprecate `:collect` option to support custom transformation of arguments to collections
 
