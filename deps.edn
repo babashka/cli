@@ -14,7 +14,7 @@
    :exec-fn babashka.test-runner/test #_cognitect.test-runner.api/test}
 
   :build ;; added by neil
-  {:deps {io.github.clojure/tools.build {:git/tag "v0.8.2" :git/sha "ba1a2bf"}
+  {:deps {io.github.clojure/tools.build {:mvn/version "0.10.8"}
           slipset/deps-deploy {:mvn/version "0.2.0"}}
    :extra-paths ["." ".build"]
    :ns-default build
