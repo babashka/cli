@@ -21,7 +21,18 @@
                 :lib lib
                 :version version
                 :basis basis
-                :src-dirs ["src"]})
+                :src-dirs ["src"]
+                :scm {:url "https://github.com/babashka/cli"
+                      :connection "scm:git:git@github.com:babashka/cli.git"
+                      :developerConnection "scm:git:git@github.com:babashka/cli.git"
+                      :tag (format "v%s" version)}
+                :pom-data
+                [[:description "Turn Clojure functions into CLIs!"]
+                 [:url "https://github.com/babashka/ci"]
+                 [:licenses
+                  [:license
+                   [:name "MIT License"]
+                   [:url "https://opensource.org/license/mit/"]]]]})
   (b/copy-dir {:src-dirs ["src" "resources"]
                :target-dir class-dir})
   (b/jar {:class-dir class-dir
