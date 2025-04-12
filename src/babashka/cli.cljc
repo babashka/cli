@@ -282,6 +282,7 @@
   * `:exec-args` - a map of default args. Will be overridden by args specified in `args`.
   * `:no-keyword-opts` - `true`. Support only `--foo`-style opts (i.e. `:foo` will not work).
   * `:args->opts` - consume unparsed commands and args as options
+  * `:collect` - a map of collection fns. See [custom collection handling](https://github.com/babashka/cli#custom-collection-handling).
 
   Examples:
 

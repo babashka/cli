@@ -208,6 +208,19 @@ Arguments that start with `--no-` arg parsed as negative flags (since 0.7.51):
 ;;=> {:colors false}
 ```
 
+### Custom collection handling
+
+Usually the above will suffice, but for custom transformation to a collection, you can use `:collect`.
+Here's an example of parsing out `,` separated multi-arg-values:
+
+``` clojure
+(cli/parse-opts ["--foo" "a,b" "--foo=c,d,e" "--foo" "f"]
+                {:collect {:foo (fn [coll arg-value]
+                                  (into (or coll [])
+                                        (str/split arg-value #",")))}})
+;; => {:foo ["a" "b" "c" "d" "e" "f"]}
+```
+
 ### Auto-coercion
 
 Since `v0.3.35` babashka CLI auto-coerces values that have no explicit coercion
@@ -430,6 +443,7 @@ An explanation of each key:
 - `:require`: `true` make this opt required.
 - `:validate`: a function used to validate the value of this opt (as described
   in the [Validate](#validate) section).
+- `:collect`: for custom collection/transformation of argument values
 
 ## Help
 

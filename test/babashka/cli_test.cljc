@@ -172,7 +172,10 @@
                                                  :coerce {:verbose []}}))))
 
 (deftest spec-test
-  (let [spec {:from {:ref "<format>"
+  (let [multi-arg-val-collect (fn [coll arg-value]
+                                  (into (or coll [])
+                                        (str/split arg-value #":")))
+        spec {:from {:ref "<format>"
                      :desc "The input format. <format> can be edn, json or transit."
                      :coerce :keyword
                      :alias :i
@@ -189,18 +192,23 @@
               :paths {:desc "Paths of files to transform."
                       :coerce []
                       :default ["src" "test"]
-                      :default-desc "src test"}}]
+                      :default-desc "src test"}
+              :multi {:desc "Custom multi-arg-val test."
+                      :alias :m
+                      :collect multi-arg-val-collect}}]
     (is (= (str/trim "
   -i, --from   <format> edn      The input format. <format> can be edn, json or transit.
   -o, --to     <format> json     The output format. <format> can be edn, json or transit.
       --paths           src test Paths of files to transform.
-  -p, --pretty                   Pretty-print output.")
+  -p, --pretty                   Pretty-print output.
+  -m, --multi                    Custom multi-arg-val test.")
            (str/trim (cli/format-opts {:spec spec
-                                       :order [:from :to :paths :pretty]}))))
+                                       :order [:from :to :paths :pretty :multi]}))))
     (is (= {:coerce {:from :keyword,
                      :to :keyword, :paths []},
-            :alias {:i :from, :o :to, :p :pretty},
-            :exec-args {:from :edn, :to :json, :paths ["src" "test"]}}
+            :alias {:i :from, :o :to, :p :pretty :m :multi},
+            :exec-args {:from :edn, :to :json, :paths ["src" "test"]}
+            :collect {:multi multi-arg-val-collect}}
            (cli/spec->opts spec nil)))
     (is (= (str/trim "
   -p, --pretty false    Pretty-print output.
@@ -214,6 +222,11 @@
                                       :default ["src" "test"]
                                       :default-desc "src test"}]]}))))
     (is (submap?
+          {:opts {:from :edn :to :json :paths ["src" "test"]
+                  :multi ["a" "b" "c" "d" "e" "f" "g" "h"]}}
+          (cli/parse-args ["--multi" "a:b" "--multi" "c:d:e" "--multi" "f" "--multi" "g" "h"]
+                          {:spec spec})))
+    (is (submap?
          {:opts {:from :edn, :to :json, :paths ["src" "test"]}}
          (cli/parse-args [] {:spec spec})))
     (is (submap? "  --deps/root The root"
@@ -222,6 +235,7 @@
          #:deps{:root "the-root"}
          (cli/parse-opts ["--deps/root" "the-root"]
                          {:spec [[:deps/root {:desc "The root"}]]})))
+
     (testing "exec-args wins over spec"
       (is (= 2 (:foo (cli/parse-opts [] {:spec {:foo {:default 1}}
                                          :exec-args {:foo 2}}))))
