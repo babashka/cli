@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## v0.8.65
 
 - [#119](https://github.com/babashka/cli/issues/119): `format-table` now formats multiline cells appropriately
 ([@lread](https://github.com/lread))
