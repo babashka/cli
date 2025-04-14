@@ -519,6 +519,20 @@
         (contains-row-matching #"bar    <-"
                                table)))))
 
+(deftest format-multiline-celled-table-test
+  (is (= ["  r1c1       r1c2       r1c3"
+          "  r1c1 l2"
+          "  r2c1 wider r2c2       r2c3"
+          "             r2c2 l2    r2c3 l2"
+          "             r2c2 l3"
+          "  r3c1       r3c2 wider r3c3"
+          "                        r3c3 l2"
+          "                        r3c3 l3"]
+         (-> (cli/format-table {:rows [["r1c1\nr1c1 l2" "r1c2" "r1c3"]
+                                       ["r2c1 wider" "r2c2\nr2c2 l2\nr2c2 l3" "r2c3\nr2c3 l2"]
+                                       ["r3c1" "r3c2 wider" "r3c3\nr3c3 l2\nr3c3 l3"]]})
+             str/split-lines))))
+
 (deftest require-test
   (is (thrown-with-msg?
        Exception #"Required option: :bar"

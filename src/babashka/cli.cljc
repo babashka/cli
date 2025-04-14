@@ -548,8 +548,22 @@
                   (map pad widths row))]
     (map pad-row rows)))
 
+(defn- expand-multiline-cells [rows]
+  (if (empty? rows)
+    []
+    (let [col-cnt (count (first rows))]
+      (mapcat (fn [row]
+                (let [row-lines (mapv #(str/split-lines (str %)) row)
+                      max-lines (reduce max (map count row-lines))]
+                  (map (fn [line-idx]
+                         (map #(get-in row-lines [% line-idx] "") (range col-cnt)))
+                       (range max-lines))))
+              rows))))
+
 (defn format-table [{:keys [rows indent] :or {indent 2}}]
-  (let [rows (pad-cells rows)
+  (let [rows (-> rows
+                 expand-multiline-cells
+                 pad-cells)
         fmt-row (fn [leader divider trailer row]
                   (str leader
                        (apply str (interpose divider row))
@@ -565,9 +579,29 @@
   (def rows [["a" "fooo" "bara" "bazzz"  "aa"]
              ["foo" "bar" "bazzz"]
              ["fooo" "bara" "bazzz"]])
+
   (pad-cells rows)
-  (format-table {:rows rows
-                 :indent 2}))
+  (-> (format-table {:rows rows
+                     :indent 2})
+      str/split-lines)
+  ;; => ["  a    fooo bara  bazzz aa"
+  ;;     "  foo  bar  bazzz"
+  ;;     "  fooo bara bazzz"]
+
+  (-> (format-table {:rows [["r1c1\nr1c1 l2" "r1c2" "r1c3"]
+                            ["r2c1 wider" "r2c2\nr2c2 l2\nr2c2 l3" "r2c3\nr2c3 l2"]
+                            ["r3c1" "r3c2 wider" "r3c3\nr3c3 l2\nr3c3 l3"]]
+                     :indent 5})
+      str/split-lines)
+  ;; => ["     r1c1       r1c2       r1c3"
+  ;;     "     r1c1 l2"
+  ;;     "     r2c1 wider r2c2       r2c3"
+  ;;     "                r2c2 l2    r2c3 l2"
+  ;;     "                r2c2 l3"
+  ;;     "     r3c1       r3c2 wider r3c3"
+  ;;     "                           r3c3 l2"
+  ;;     "                           r3c3 l3"]
+  )
 
 (defn opts->table [{:keys [spec order]}]
   (let [columns (set (mapcat (fn [[_ s]] (keys s)) spec))]
