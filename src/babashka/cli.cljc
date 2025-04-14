@@ -549,14 +549,16 @@
     (map pad-row rows)))
 
 (defn- expand-multiline-cells [rows]
-  (let [col-cnt (count (first rows))]
-    (->> (for [row rows]
-           (let [row-lines (mapv str/split-lines row)
-                 max-lines-cell (reduce max (mapv count row-lines))]
-             (for [line-ndx (range max-lines-cell)]
-               (for [col-ndx (range col-cnt)]
-                 (get-in row-lines [col-ndx line-ndx] "")))))
-         (into [] cat))))
+  (if (empty? rows)
+    []
+    (let [col-cnt (count (first rows))]
+      (mapcat (fn [row]
+                (let [row-lines (mapv #(str/split-lines (str %)) row)
+                      max-lines (reduce max (map count row-lines))]
+                  (map (fn [line-idx]
+                         (map #(get-in row-lines [% line-idx] "") (range col-cnt)))
+                       (range max-lines))))
+              rows))))
 
 (defn format-table [{:keys [rows indent] :or {indent 2}}]
   (let [rows (-> rows
