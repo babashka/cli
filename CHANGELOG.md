@@ -16,6 +16,7 @@ For breaking changes, check [here](#breaking-changes).
 ## v0.8.63
 
 - [#116](https://github.com/babashka/cli/issues/116): Un-deprecate `:collect` option to support custom transformation of arguments to collections ([@lread](https://github.com/lread))
+- Support `:collect` in `:spec`
 
 ## v0.8.62 (2024-12-22)
 
