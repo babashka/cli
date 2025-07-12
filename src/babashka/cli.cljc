@@ -281,6 +281,7 @@
   * `:validate` - a map of validator functions. See [validate](https://github.com/babashka/cli#validate).
   * `:exec-args` - a map of default args. Will be overridden by args specified in `args`.
   * `:no-keyword-opts` - `true`. Support only `--foo`-style opts (i.e. `:foo` will not work).
+  * `:repeated-opts` - `true`. Forces writing the option name for every value, e.g. `--foo a --foo b`, rather than `--foo a b`
   * `:args->opts` - consume unparsed commands and args as options
   * `:collect` - a map of collection fns. See [custom collection handling](https://github.com/babashka/cli#custom-collection-handling).
 
@@ -414,12 +415,12 @@
                                      (let [k (if negative?
                                                (keyword (str/replace (str k) ":no-" ""))
                                                k)
-                                           next-args (cons (not negative?) #_"true" next-args)]
+                                           next-args (cons (not negative?) next-args)]
                                        (recur (process-previous acc current-opt added collect-fn)
                                               k added mode next-args
                                               a->o)))
                                    (recur (process-previous acc current-opt added collect-fn)
-                                          k added mode next-args
+                                          k nil mode next-args
                                           a->o)))))))
                        (let [the-end? (or
                                        (and (= :boolean coerce-opt)
@@ -428,6 +429,7 @@
                                        (and (= added current-opt)
                                             (or
                                              (not collect-fn)
+                                             (:repeated-opts opts)
                                              (contains? (::dispatch-tree-ignored-args opts) (first args)))))]
                          (if the-end?
                            (let [{new-args :args

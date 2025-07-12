@@ -4,7 +4,13 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## v0.8.65
+## v0.8.66 (2025-07-12)
+
+- [#122](https://github.com/babashka/cli/issues/122): introduce new
+  `:repeated-opts` option to enforce repeating the option for accepting multiple
+  values (e.g. `--foo 1 --foo 2` rather than `--foo 1 2`)
+
+## v0.8.65 (2025-04-14)
 
 - [#119](https://github.com/babashka/cli/issues/119): `format-table` now formats multiline cells appropriately
 ([@lread](https://github.com/lread))
