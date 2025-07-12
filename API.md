@@ -91,21 +91,21 @@ Subcommand dispatcher.
   Each entry in the table may have additional [`parse-args`](#parse-args) options.
 
   For more information and examples, see [README.md](README.md#subcommands).
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L684-L716)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L728-L760)</sub>
 ## `format-opts`
 ``` clojure
 
 (format-opts {:as cfg, :keys [indent], :or {indent 2}})
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L583-L587)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L627-L631)</sub>
 ## `format-table`
 ``` clojure
 
 (format-table {:keys [rows indent], :or {indent 2}})
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L543-L554)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L565-L578)</sub>
 ## `merge-opts`
 ``` clojure
 
@@ -128,21 +128,21 @@ Merges babashka CLI options.
 (opts->table {:keys [spec order]})
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L564-L581)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L608-L625)</sub>
 ## `pad`
 ``` clojure
 
 (pad len s)
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L533-L533)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L543-L543)</sub>
 ## `pad-cells`
 ``` clojure
 
 (pad-cells rows)
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L535-L541)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L545-L551)</sub>
 ## `parse-args`
 ``` clojure
 
@@ -153,7 +153,7 @@ Merges babashka CLI options.
 
 Same as [`parse-opts`](#parse-opts) but separates parsed opts into `:opts` and adds
   `:cmds` and `:rest-args` on the top level instead of metadata.
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L504-L511)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L514-L521)</sub>
 ## `parse-cmds`
 ``` clojure
 
@@ -165,7 +165,7 @@ Same as [`parse-opts`](#parse-opts) but separates parsed opts into `:opts` and a
 Parses sub-commands (arguments not starting with an option prefix) and returns a map with:
   * `:cmds` - The parsed subcommands
   * `:args` - The remaining (unparsed) arguments
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L206-L216)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L207-L217)</sub>
 ## `parse-keyword`
 ``` clojure
 
@@ -200,7 +200,9 @@ Parse the command line arguments `args`, a seq of strings.
   * `:validate` - a map of validator functions. See [validate](https://github.com/babashka/cli#validate).
   * `:exec-args` - a map of default args. Will be overridden by args specified in `args`.
   * `:no-keyword-opts` - `true`. Support only `--foo`-style opts (i.e. `:foo` will not work).
+  * `:repeated-opts` - `true`. Forces writing the option name for every value, e.g. `--foo a --foo b`, rather than `--foo a b`
   * `:args->opts` - consume unparsed commands and args as options
+  * `:collect` - a map of collection fns. See [custom collection handling](https://github.com/babashka/cli#custom-collection-handling).
 
   Examples:
 
@@ -213,9 +215,9 @@ Parse the command line arguments `args`, a seq of strings.
   ;; => throws 'Unknown option --qux' exception b/c there is no :qux key in the spec
   ```
   
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L261-L502)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L266-L512)</sub>
 ## `rows`
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L557-L559)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L581-L583)</sub>
 ## `spec->opts`
 ``` clojure
 
@@ -225,7 +227,7 @@ Parse the command line arguments `args`, a seq of strings.
 
 
 Converts spec into opts format. Pass existing opts as optional second argument.
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L184-L204)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L184-L205)</sub>
 # babashka.cli.exec 
 
 
