@@ -647,5 +647,10 @@
          {:dispatch ["dns" "get"],
           :opts {:config ["config-dev.edn" "other.edn"]},
           :args nil}
-         (cli/dispatch table ["--config" "config-dev.edn" "--config=other.edn" "dns" "get"]))))
-  )
+         (cli/dispatch table ["--config" "config-dev.edn" "--config=other.edn" "dns" "get"])))))
+
+(deftest repeated-opts-test
+  (is (= {:opts {:foo [1 2]}}
+         (cli/parse-args ["--foo" "1" "--foo" "2"] {:repeated-opts true :spec {:foo {:coerce []}}})))
+  (is (= {:args ["2"], :opts {:foo [1]}}
+         (cli/parse-args ["--foo" "1" "2"] {:repeated-opts true :spec {:foo {:coerce []}}}))))
