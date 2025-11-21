@@ -656,4 +656,5 @@
          (cli/parse-args ["--foo" "1" "2"] {:repeated-opts true :spec {:foo {:coerce []}}}))))
 
 (deftest issue-126-test
-  (is (= {:file "-"} (cli/parse-opts ["--file" "-"]))))
+  (is (= {:file "-"} (cli/parse-opts ["--file" "-"])))
+  (is (= {:file "-"} (cli/parse-opts ["-"] {:args->opts [:file]}))))
