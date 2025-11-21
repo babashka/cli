@@ -14,6 +14,14 @@
   ;; return map argument:
   m)
 
+(defmacro with-test-env [& body]
+  `(let [oldbasis# (System/clearProperty "clojure.basis")]
+     (binding [babashka.cli.exec/*basis* nil]
+       (with-redefs [requiring-resolve identity]
+         (try ~@body
+              (finally (when oldbasis#
+                         (System/setProperty "clojure.basis" oldbasis#))))))))
+
 (deftest parse-opts-test
   (System/clearProperty "clojure.basis") ;; this needed to clear the test runner basis
   (is (submap? {:foo :bar :b 1} (main "babashka.cli.exec-test/foo" ":b" "1")))
@@ -83,5 +91,13 @@
                                          :ns-default babashka.cli.exec-test
                                          :exec-fn foo}}]
                       (main ":a" "1" ":b" "2"))))))
+  (is (= '[dimigi.extraction/-main {:a :b}]
+         (with-test-env
+           (#'babashka.cli.exec/parse-exec-opts ["dimigi.extraction" "-main" ":a" ":b"]))))
+  (is (= '[dimigi.extraction/-main {:a :b}]
+         (with-test-env
+           (binding [babashka.cli.exec/*basis*
+                     '{:argmap {:ns-default babashka.cli.exec-test}}])
+           (#'babashka.cli.exec/parse-exec-opts ["dimigi.extraction" "-main" ":a" ":b"]))))
 
   )

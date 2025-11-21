@@ -9,13 +9,6 @@
 
 (def ^:private ^:dynamic *basis* "For testing" nil)
 
-(defmacro ^:private req-resolve [f]
-  (if (resolve 'clojure.core/requiring-resolve)
-    ;; in bb, requiring-resolve must be used in function position currently
-    `(clojure.core/requiring-resolve ~f)
-    `(do (require (symbol (namespace ~f)))
-         (resolve ~f))))
-
 (defn- resolve-exec-fn [ns-default exec-fn]
   (if (simple-symbol? exec-fn)
     (symbol (str ns-default) (str exec-fn))
@@ -47,7 +40,15 @@
                    (:resolve-args basis))
         exec-fn (:exec-fn argmap)
         ns-default (:ns-default argmap)
+        first-arg (first args)
+        [base-args args] (if (and (not exec-fn)
+                                  first-arg
+                                  (not (str/includes? first-arg "/")))
+                           (let [base-arg-count (if ns-default 1 2)]
+                             [(take base-arg-count args) (drop base-arg-count args)])
+                           [nil args])
         {:keys [cmds args]} (cli/parse-cmds args)
+        cmds (concat base-args cmds)
         [f & cmds] cmds
         [cli-opts cmds] (cond (not f) nil
                               (str/starts-with? f "{")
@@ -66,7 +67,7 @@
                unconsumed-args]))
         args (concat unconsumed-args args)
         f* f
-        f (req-resolve f)
+        f (requiring-resolve f)
         _ (assert (ifn? f) (str "Could not resolve function: " f*))
         ns-opts (:org.babashka/cli (meta (:ns (meta f))))
         fn-opts (:org.babashka/cli (meta f))
@@ -80,6 +81,13 @@
                          (when exec-args {:exec-args exec-args}))
         opts (parse-opts args opts)]
     [f opts]))
+
+#_(comment
+    (System/clearProperty "clojure.basis")
+    (binding [*basis* nil]
+      (with-redefs [requiring-resolve identity]
+        (parse-exec-opts ["dimigi.extraction" "-main" ":a" ":b"])))
+    )
 
 (defn main [& args]
   (let [[f opts] (parse-exec-opts args)]
