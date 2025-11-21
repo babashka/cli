@@ -9,13 +9,6 @@
 
 (def ^:private ^:dynamic *basis* "For testing" nil)
 
-(defmacro ^:private req-resolve [f]
-  (if (resolve 'clojure.core/requiring-resolve)
-    ;; in bb, requiring-resolve must be used in function position currently
-    `(clojure.core/requiring-resolve ~f)
-    `(do (require (symbol (namespace ~f)))
-         (resolve ~f))))
-
 (defn- resolve-exec-fn [ns-default exec-fn]
   (if (simple-symbol? exec-fn)
     (symbol (str ns-default) (str exec-fn))
@@ -74,7 +67,7 @@
                unconsumed-args]))
         args (concat unconsumed-args args)
         f* f
-        f (req-resolve f)
+        f (requiring-resolve f)
         _ (assert (ifn? f) (str "Could not resolve function: " f*))
         ns-opts (:org.babashka/cli (meta (:ns (meta f))))
         fn-opts (:org.babashka/cli (meta f))

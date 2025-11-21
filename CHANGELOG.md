@@ -8,6 +8,7 @@ For breaking changes, check [here](#breaking-changes).
 
 - [#126](https://github.com/babashka/cli/issues/126): `-` value accidentally parsed as option, e.g. `--file -`
 - [#124](https://github.com/babashka/cli/issues/124): Specifying exec fn that starts with hyphen is treated as option
+- Drop Clojure 1.9 support. Minimum Clojure version is now 1.10.3.
 
 ## v0.8.66 (2025-07-12)
 
