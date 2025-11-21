@@ -85,7 +85,7 @@
     (try
       (let [s ^String s
             fst-char (first-char s)
-            #?@(:clj [leading-num-char (if (= fst-char \-)
+            #?@(:clj [leading-num-char (if (= \- fst-char)
                                          (second-char s)
                                          fst-char)])]
         (cond (or (= "true" s)
@@ -239,6 +239,7 @@
         snd-char (second-char arg)
         hyphen-opt? (and (not= :keywords mode)
                          (= \- fst-char)
+                         (> (count arg) 1)
                          (let [k (keyword (subs arg 1))]
                            (or
                             (contains? known-keys k)
