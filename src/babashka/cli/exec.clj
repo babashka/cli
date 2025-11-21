@@ -47,7 +47,15 @@
                    (:resolve-args basis))
         exec-fn (:exec-fn argmap)
         ns-default (:ns-default argmap)
+        first-arg (first args)
+        [base-args args] (if (and (not exec-fn)
+                                  first-arg
+                                  (not (str/includes? first-arg "/")))
+                           (let [base-arg-count (if ns-default 1 2)]
+                             [(take base-arg-count args) (drop base-arg-count args)])
+                           [nil args])
         {:keys [cmds args]} (cli/parse-cmds args)
+        cmds (concat base-args cmds)
         [f & cmds] cmds
         [cli-opts cmds] (cond (not f) nil
                               (str/starts-with? f "{")
@@ -80,6 +88,13 @@
                          (when exec-args {:exec-args exec-args}))
         opts (parse-opts args opts)]
     [f opts]))
+
+#_(comment
+    (System/clearProperty "clojure.basis")
+    (binding [*basis* nil]
+      (with-redefs [requiring-resolve identity]
+        (parse-exec-opts ["dimigi.extraction" "-main" ":a" ":b"])))
+    )
 
 (defn main [& args]
   (let [[f opts] (parse-exec-opts args)]

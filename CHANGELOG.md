@@ -7,6 +7,7 @@ For breaking changes, check [here](#breaking-changes).
 ## Unreleased
 
 - [#126](https://github.com/babashka/cli/issues/126): `-` value accidentally parsed as option, e.g. `--file -`
+- [#124](https://github.com/babashka/cli/issues/124): Specifying exec fn that starts with hyphen is treated as option
 
 ## v0.8.66 (2025-07-12)
 
