@@ -4,7 +4,8 @@
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    [babashka.cli.internal :as internal]
-   [clojure.string :as str])
+   [clojure.string :as str]
+   [clojure.set :as set])
   #?(:clj (:import (clojure.lang ExceptionInfo))))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -264,6 +265,9 @@
      :kwd-opt kwd-opt?
      :fst-colon fst-colon?}))
 
+(declare print-completion-shell-snippet)
+(declare print-opts-completions)
+
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.
   Instead of a leading `:` either `--` or `-` may be used as well.
@@ -332,6 +336,19 @@
                     (-> {:spec spec :type :org.babashka/cli}
                         (merge data)
                         error-fn*))
+         [opt shell cmdline] args
+         _ (case opt
+             "--org.babashka.cli/completion-snippet"
+             (if-let [command-name (get-in opts [:completion :command])]
+               (do (print-completion-shell-snippet (keyword shell) command-name)
+                   (System/exit 0))
+               (binding [*out* *err*]
+                 (println "Need `:completion {:command \"<name>\"}` in `opts` to support shell completions")
+                 (System/exit 1)))
+             "--org.babashka.cli/complete"
+             (do (print-opts-completions (keyword shell) opts cmdline)
+                 (System/exit 0))
+             :noop)
          {:keys [cmds args]} (parse-cmds args)
          {new-args :args
           a->o :args->opts}
@@ -646,8 +663,150 @@
           {} table))
 
 (comment
-  (table->tree [{:cmds [] :fn identity}])
- )
+  (table->tree [{:cmds [] :fn identity}]))
+
+;; completion
+(defn format-long-opt [k]
+  (str "--" (kw->str k)))
+(defn format-short-opt [k]
+  (str "-" (kw->str k)))
+
+(defn possibilities [cmd-tree]
+  (concat (keys (:cmd cmd-tree))
+          (map format-long-opt (keys (:spec cmd-tree)))
+          (map format-short-opt (keep :alias (vals (:spec cmd-tree))))))
+
+(defn true-prefix? [prefix s]
+  (and (< (count prefix) (count s))
+       (str/starts-with? s prefix)))
+
+(defn second-to-last [xs]
+  (when (>= (count xs) 2) (nth xs (- (count xs) 2))))
+
+;; TODO complete option values
+(def possible-values (constantly []))
+
+(defn strip-prefix [prefix s]
+  (if (str/starts-with? s prefix)
+    (subs s (count prefix))
+    s))
+
+(defn bool-opt? [o opts]
+  (let [long-opt? (str/starts-with? o "--")
+        opt-kw (if long-opt?
+                 (keyword (strip-prefix "--" o))
+                 (get-in opts [:alias (keyword (strip-prefix "-" o))]))]
+    (= :boolean (get-in opts [:coerce opt-kw]))))
+
+(defn is-gnu-option? [s]
+  (and s (str/starts-with? s "-")))
+
+(defn complete-options
+  "given an opts map as expected by parse-opts and input as a list of tokens,
+  returns possible tokens to complete the input"
+  [opts input]
+  (let [spec (:spec opts)
+        opts (if spec
+               (merge-opts
+                opts
+                (spec->opts spec opts))
+               opts)
+        coerce-opts (:coerce opts)
+        aliases (or
+                 (:alias opts)
+                 (:aliases opts))
+        known-keys (set (concat (keys (if (map? spec)
+                                        spec (into {} spec)))
+                                (vals aliases)
+                                (keys coerce-opts)))
+        {parsed-opts :opts :keys [args err]} (try (parse-args input opts)
+                                                  (catch clojure.lang.ExceptionInfo _ {:err :error}))
+        to-complete (last input)]
+    (cond
+      (and args (not (str/blank? (first args)))) []
+      :else
+      (let [previous-token (second-to-last input)
+            ;; don't suggest options which we already have parsed
+            possible-options (set/difference known-keys (set (keys parsed-opts)))
+            ;; generate string representation of possible options
+            possible-completions (concat (map format-long-opt possible-options)
+                                         (keep (fn [option-name]
+                                                 (when-let [alias (some (fn [[alias long]] (when (= long option-name) alias)) aliases)]
+                                                   (format-short-opt alias)))
+                                               possible-options))]
+        (if (and (is-gnu-option? previous-token) (not (bool-opt? previous-token opts)))
+          (possible-values previous-token to-complete opts)
+          (filter (partial true-prefix? to-complete) possible-completions))))))
+
+(defn complete-tree
+  "given a CLI spec in tree form and input as a list of tokens,
+  returns possible tokens to complete the input"
+  [cmd-tree input]
+  (let [[head & tail] input
+        head (or head "")
+        subtree (get-in cmd-tree [:cmd head])]
+    (if (and subtree (first tail))
+      ;; matching command -> descend tree
+      (complete-tree subtree tail)
+      (if (is-gnu-option? head)
+        (let [{:keys [args]} (try (parse-args input cmd-tree)
+                                  (catch clojure.lang.ExceptionInfo _))]
+          (if (and args (not (str/blank? (first args))))
+            ;; parsed/consumed options and still have args left -> descend tree
+            (complete-tree cmd-tree args)
+            ;; no more args -> last input is (part of) an opt or opt value or empty string
+            (let [opts (spec->opts (:spec cmd-tree))
+                  to-complete (last input)
+                  previous-token (second-to-last input)
+                  incomplete-option? (and (is-gnu-option? previous-token) (not (bool-opt? previous-token opts)))
+                  possible-commands (if incomplete-option? [] (filter (partial true-prefix? to-complete) (keys (:cmd cmd-tree))))
+                  possible-options (complete-options opts input)]
+              (concat possible-commands possible-options))))
+        (filter (partial true-prefix? head) (possibilities cmd-tree))))))
+
+(defn complete [cmd-table input]
+  (complete-tree (table->tree cmd-table) input))
+
+(defn generate-completion-shell-snippet [type program-name]
+  (case type
+    :bash (format "_babashka_cli_dynamic_completion()
+{
+    source <( \"$1\" --org.babashka.cli/complete \"bash\" \"${COMP_WORDS[*]// / }\" )
+}
+complete -o nosort -F _babashka_cli_dynamic_completion %s
+" program-name)
+    :zsh (format "#compdef %s
+source <( \"${words[1]}\" --org.babashka.cli/complete \"zsh\" \"${words[*]// / }\" )
+" program-name)
+    :fish (format "function _babashka_cli_dynamic_completion
+    set --local COMP_LINE (commandline --cut-at-cursor)
+    %s --org.babashka.cli/complete fish $COMP_LINE
+end
+complete --command %s --no-files --arguments \"(_babashka_cli_dynamic_completion)\"
+" program-name program-name)))
+
+(defn print-completion-shell-snippet [type program-name]
+  (print (generate-completion-shell-snippet type program-name)))
+
+(defn format-completion [shell {:keys [completion description]}]
+  (case shell
+    :bash (format "COMPREPLY+=( \"%s\" )" completion)
+    :zsh (str "compadd" (when description (str " -x \"" description "\"")) " -- " completion)
+    :fish completion))
+
+(defn print-opts-completions [shell opts cmdline]
+  (let [[_program-name & to-complete] (str/split (str/triml cmdline) #" +" -1)
+        completions (complete-options opts to-complete)]
+    (doseq [completion completions]
+      (println (format-completion shell {:completion completion})))))
+
+(defn print-dispatch-completions [shell tree cmdline]
+  (let [[_program-name & to-complete] (str/split (str/triml cmdline) #" +" -1)
+        completions (complete-tree tree to-complete)]
+    (doseq [completion completions]
+      (println (format-completion shell {:completion completion})))))
+
+;; dispatch
 
 (defn- deep-merge [a b]
   (reduce (fn [acc k] (update acc k (fn [v]
@@ -712,19 +871,26 @@
   ([tree args]
    (dispatch-tree tree args nil))
   ([tree args opts]
-   (let [{:as res :keys [cmd-info error available-commands]}
-         (dispatch-tree' tree args opts)
-         error-fn (or (:error-fn opts)
-                       (fn [{:keys [msg] :as data}]
-                         (throw (ex-info msg data))))]
-     (case error
-       (:no-match :input-exhausted)
-       (error-fn (merge
-                  {:type :org.babashka/cli
-                   :cause error
-                   :all-commands available-commands}
-                  (select-keys res [:wrong-input :opts :dispatch])))
-       nil ((:fn cmd-info) (dissoc res :cmd-info))))))
+   (let [command-name (get-in opts [:completion :command])
+         [opt shell cmdline] args]
+     (case opt
+       "--org.babashka.cli/completion-snippet"
+       (print-completion-shell-snippet (keyword shell) command-name)
+       "--org.babashka.cli/complete"
+       (print-dispatch-completions (keyword shell) tree cmdline)
+       (let [{:as res :keys [cmd-info error available-commands]}
+             (dispatch-tree' tree args opts)
+             error-fn (or (:error-fn opts)
+                          (fn [{:keys [msg] :as data}]
+                            (throw (ex-info msg data))))]
+         (case error
+           (:no-match :input-exhausted)
+           (error-fn (merge
+                      {:type :org.babashka/cli
+                       :cause error
+                       :all-commands available-commands}
+                      (select-keys res [:wrong-input :opts :dispatch])))
+           nil ((:fn cmd-info) (dissoc res :cmd-info))))))))
 
 (defn dispatch
   "Subcommand dispatcher.
