@@ -291,9 +291,9 @@
   ```clojure
   (parse-opts [\"foo\" \":bar\" \"1\"])
   ;; => {:bar \"1\", :org.babashka/cli {:cmds [\"foo\"]}}
-  (parse-args [\":b\" \"1\"] {:aliases {:b :bar} :coerce {:bar parse-long}})
+  (parse-opts [\":b\" \"1\"] {:aliases {:b :bar} :coerce {:bar parse-long}})
   ;; => {:bar 1}
-  (parse-args [\"--baz\" \"--qux\"] {:spec {:baz {:desc \"Baz\"}} :restrict true})
+  (parse-opts [\"--baz\" \"--qux\"] {:spec {:baz {:desc \"Baz\"}} :restrict true})
   ;; => throws 'Unknown option --qux' exception b/c there is no :qux key in the spec
   ```
   "

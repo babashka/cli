@@ -19,12 +19,6 @@
 -  [`babashka.cli.exec`](#babashkacliexec) 
     -  [`-main`](#-main) - Main entrypoint for command line usage.
     -  [`main`](#main)
--  [`scratch`](#scratch) 
-    -  [`-main`](#-main-1)
-    -  [`dns-get-spec`](#dns-get-spec)
-    -  [`dns-spec`](#dns-spec)
-    -  [`global-spec`](#global-spec)
-    -  [`table`](#table)
 # babashka.cli 
 
 
@@ -66,7 +60,7 @@ Coerce string `s` using `f`. Does not coerce when `s` is not a string.
 
 Subcommand dispatcher.
 
-  Dispatches on longest matching command entry in [`table`](#table) by matching
+  Dispatches on longest matching command entry in `table` by matching
   subcommands to the `:cmds` vector and invoking the correspondig `:fn`.
 
   Table is in the form:
@@ -91,21 +85,21 @@ Subcommand dispatcher.
   Each entry in the table may have additional [`parse-args`](#parse-args) options.
 
   For more information and examples, see [README.md](README.md#subcommands).
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L728-L760)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L729-L761)</sub>
 ## `format-opts`
 ``` clojure
 
 (format-opts {:as cfg, :keys [indent], :or {indent 2}})
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L627-L631)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L628-L632)</sub>
 ## `format-table`
 ``` clojure
 
 (format-table {:keys [rows indent], :or {indent 2}})
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L565-L578)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L566-L579)</sub>
 ## `merge-opts`
 ``` clojure
 
@@ -128,21 +122,21 @@ Merges babashka CLI options.
 (opts->table {:keys [spec order]})
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L608-L625)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L609-L626)</sub>
 ## `pad`
 ``` clojure
 
 (pad len s)
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L543-L543)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L544-L544)</sub>
 ## `pad-cells`
 ``` clojure
 
 (pad-cells rows)
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L545-L551)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L546-L552)</sub>
 ## `parse-args`
 ``` clojure
 
@@ -153,7 +147,7 @@ Merges babashka CLI options.
 
 Same as [`parse-opts`](#parse-opts) but separates parsed opts into `:opts` and adds
   `:cmds` and `:rest-args` on the top level instead of metadata.
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L514-L521)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L515-L522)</sub>
 ## `parse-cmds`
 ``` clojure
 
@@ -209,15 +203,15 @@ Parse the command line arguments `args`, a seq of strings.
   ```clojure
   (parse-opts ["foo" ":bar" "1"])
   ;; => {:bar "1", :org.babashka/cli {:cmds ["foo"]}}
-  (parse-args [":b" "1"] {:aliases {:b :bar} :coerce {:bar parse-long}})
+  (parse-opts [":b" "1"] {:aliases {:b :bar} :coerce {:bar parse-long}})
   ;; => {:bar 1}
-  (parse-args ["--baz" "--qux"] {:spec {:baz {:desc "Baz"}} :restrict true})
+  (parse-opts ["--baz" "--qux"] {:spec {:baz {:desc "Baz"}} :restrict true})
   ;; => throws 'Unknown option --qux' exception b/c there is no :qux key in the spec
   ```
   
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L266-L512)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L267-L513)</sub>
 ## `rows`
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L581-L583)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L582-L584)</sub>
 ## `spec->opts`
 ``` clojure
 
@@ -252,32 +246,11 @@ Main entrypoint for command line usage.
   clojure -M:exec clojure.core prn :a 1 :b 2
   ;;=> {:a "1" :b "2"}
   ```
-<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L89-L102)</sub>
+<br><sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L97-L110)</sub>
 ## `main`
 ``` clojure
 
 (main & args)
 ```
 
-<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L84-L87)</sub>
-# scratch 
-
-
-
-
-
-## `-main`
-``` clojure
-
-(-main & args)
-```
-
-<sub>[source](https://github.com/babashka/cli/blob/main/src/scratch.clj#L15-L17)</sub>
-## `dns-get-spec`
-<sub>[source](https://github.com/babashka/cli/blob/main/src/scratch.clj#L8-L8)</sub>
-## `dns-spec`
-<sub>[source](https://github.com/babashka/cli/blob/main/src/scratch.clj#L7-L7)</sub>
-## `global-spec`
-<sub>[source](https://github.com/babashka/cli/blob/main/src/scratch.clj#L4-L6)</sub>
-## `table`
-<sub>[source](https://github.com/babashka/cli/blob/main/src/scratch.clj#L10-L13)</sub>
+<sub>[source](https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L92-L95)</sub>
