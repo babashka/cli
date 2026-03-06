@@ -10,10 +10,10 @@
     -  [`opts->table`](#babashka.cli/opts->table)
     -  [`pad`](#babashka.cli/pad)
     -  [`pad-cells`](#babashka.cli/pad-cells)
-    -  [`parse-args`](#babashka.cli/parse-args) - Same as [<code>parse-opts</code>](#babashka.cli/parse-opts) but separates parsed opts into <code>:opts</code> and adds <code>:cmds</code> and <code>:rest-args</code> on the top level instead of metadata.
-    -  [`parse-cmds`](#babashka.cli/parse-cmds) - Parses sub-commands (arguments not starting with an option prefix) and returns a map with: * <code>:cmds</code> - The parsed subcommands * <code>:args</code> - The remaining (unparsed) arguments.
+    -  [`parse-args`](#babashka.cli/parse-args) - Same as [<code>parse-opts</code>](#babashka.cli/parse-opts) with return data reshaped.
+    -  [`parse-cmds`](#babashka.cli/parse-cmds) - Parses sub-commands (arguments not starting with an option prefix).
     -  [`parse-keyword`](#babashka.cli/parse-keyword) - Parse keyword from <code>s</code>.
-    -  [`parse-opts`](#babashka.cli/parse-opts) - Parse the command line arguments <code>args</code>, a seq of strings.
+    -  [`parse-opts`](#babashka.cli/parse-opts) - Returns a map of options parsed from command line arguments <code>args</code>, a seq of strings.
     -  [`spec->opts`](#babashka.cli/spec->opts) - Converts spec into opts format.
 -  [`babashka.cli.exec`](#babashka.cli.exec) 
     -  [`-main`](#babashka.cli.exec/-main) - Main entrypoint for command line usage.
@@ -86,21 +86,21 @@ Subcommand dispatcher.
   Each entry in the table may have additional [`parse-args`](#babashka.cli/parse-args) options.
 
   For more information and examples, see [README.md](README.md#subcommands).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L729-L761">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L720-L752">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-opts">`format-opts`</a>
 ``` clojure
 (format-opts {:as cfg, :keys [indent], :or {indent 2}})
 ```
 Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L628-L632">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L619-L623">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-table">`format-table`</a>
 ``` clojure
 (format-table {:keys [rows indent], :or {indent 2}})
 ```
 Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L566-L579">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L557-L570">Source</a></sub></p>
 
 ## <a name="babashka.cli/merge-opts">`merge-opts`</a>
 ``` clojure
@@ -123,21 +123,21 @@ Function.
 (opts->table {:keys [spec order]})
 ```
 Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L609-L626">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L600-L617">Source</a></sub></p>
 
 ## <a name="babashka.cli/pad">`pad`</a>
 ``` clojure
 (pad len s)
 ```
 Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L544-L544">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L535-L535">Source</a></sub></p>
 
 ## <a name="babashka.cli/pad-cells">`pad-cells`</a>
 ``` clojure
 (pad-cells rows)
 ```
 Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L546-L552">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L537-L543">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-args">`parse-args`</a>
 ``` clojure
@@ -146,9 +146,12 @@ Function.
 ```
 Function.
 
-Same as [`parse-opts`](#babashka.cli/parse-opts) but separates parsed opts into `:opts` and adds
-  `:cmds` and `:rest-args` on the top level instead of metadata.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L515-L522">Source</a></sub></p>
+Same as [`parse-opts`](#babashka.cli/parse-opts) with return data reshaped.
+
+  Returns a map with:
+  * `:opts` parsed opts
+  * `:args` remaining unparsed `args`
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L513-L523">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-cmds">`parse-cmds`</a>
 ``` clojure
@@ -157,7 +160,7 @@ Same as [`parse-opts`](#babashka.cli/parse-opts) but separates parsed opts into 
 ```
 Function.
 
-Parses sub-commands (arguments not starting with an option prefix) and returns a map with:
+Parses sub-commands (arguments not starting with an option prefix). Returns a map with:
   * `:cmds` - The parsed subcommands
   * `:args` - The remaining (unparsed) arguments
 <p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L207-L217">Source</a></sub></p>
@@ -178,15 +181,13 @@ Parse keyword from `s`. Ignores leading `:`.
 ```
 Function.
 
-Parse the command line arguments `args`, a seq of strings.
+Returns a map of options parsed from command line arguments `args`, a seq of strings.
   Instead of a leading `:` either `--` or `-` may be used as well.
 
-  Return value: a map with parsed opts.
+  Metadata on returned map, under `:org.babashka/cli`:
+  * `:args` remaining unparsed `args` (not corresponding to any options)
 
-  Additional data such as arguments (not corresponding to any options)
-  are available under the `:org.babashka/cli` key in the metadata.
-
-  Supported options:
+  Supported `opts`:
   * `:coerce` - a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
   * `:alias` - a map of short names to long names.
   * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
@@ -203,14 +204,14 @@ Parse the command line arguments `args`, a seq of strings.
 
   ```clojure
   (parse-opts ["foo" ":bar" "1"])
-  ;; => {:bar "1", :org.babashka/cli {:cmds ["foo"]}}
+  ;; => ^{:org.babashka/cli {:args ["foo"]}} {:bar 1}
   (parse-opts [":b" "1"] {:aliases {:b :bar} :coerce {:bar parse-long}})
   ;; => {:bar 1}
   (parse-opts ["--baz" "--qux"] {:spec {:baz {:desc "Baz"}} :restrict true})
   ;; => throws 'Unknown option --qux' exception b/c there is no :qux key in the spec
   ```
-  
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L267-L513">Source</a></sub></p>
+  See also: [`parse-args`](#babashka.cli/parse-args)
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L267-L511">Source</a></sub></p>
 
 ## <a name="babashka.cli/spec->opts">`spec->opts`</a>
 ``` clojure
