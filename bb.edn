@@ -1,7 +1,7 @@
 {:pods {clj-kondo/clj-kondo {:version "2022.05.31"}}
  :deps {io.github.borkdude/quickdoc
         #_{:local/root "/Users/borkdude/dev/quickdoc"}
-        {:git/sha "ca5893c0d81f26443dd178a747d0851e75d39eca"}}
+        {:git/sha "026b4fab8570853e38c3097fe1f8619abc95b2e0"}}
  :paths ["src" ".build"]
 
  :tasks
@@ -26,7 +26,8 @@
             :task (api/quickdoc (merge {:git/branch "main"
                                         :github/repo "https://github.com/babashka/cli"
                                         :toc true
-                                        :var-links true}
+                                        :var-links true
+                                        :var-pattern :wikilinks}
                                        cmd-line-opts))}
 
   bump-release {:doc "Bump release counter"

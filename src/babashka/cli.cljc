@@ -78,8 +78,8 @@
   "Auto-coerces `s` to data. Does not coerce when `s` is not a string.
   If `s`:
   * is `true` or `false`, it is coerced as boolean
-  * starts with number, it is coerced as a number (through `edn/read-string`)
-  * starts with `:`, it is coerced as a keyword (through `parse-keyword`)"
+  * starts with number, it is coerced as a number (through Clojure's `edn/read-string`)
+  * starts with `:`, it is coerced as a keyword (through [[parse-keyword]])"
   [s]
   (if (string? s)
     (try
@@ -513,7 +513,7 @@
      opts)))
 
 (defn parse-args
-  "Same as `parse-opts` but separates parsed opts into `:opts` and adds
+  "Same as [[parse-opts]] but separates parsed opts into `:opts` and adds
   `:cmds` and `:rest-args` on the top level instead of metadata."
   ([args] (parse-args args {}))
   ([args opts]
@@ -741,7 +741,7 @@
   ```
 
   When a match is found, `:fn` called with the return value of
-  `parse-args` applied to `args` enhanced with:
+  [[parse-args]] applied to `args` enhanced with:
 
   * `:dispatch` - the matching commands
   * `:args` - concatenation of unparsed commands and args
@@ -751,7 +751,7 @@
 
   Provide an `:error-fn` to deal with non-matches.
 
-  Each entry in the table may have additional `parse-args` options.
+  Each entry in the table may have additional [[parse-args]] options.
 
   For more information and examples, see [README.md](README.md#subcommands)."
   ([table args]
