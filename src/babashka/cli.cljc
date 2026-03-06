@@ -205,7 +205,7 @@
     spec)))
 
 (defn parse-cmds
-  "Parses sub-commands (arguments not starting with an option prefix) and returns a map with:
+  "Parses sub-commands (arguments not starting with an option prefix). Returns a map with:
   * `:cmds` - The parsed subcommands
   * `:args` - The remaining (unparsed) arguments"
   ([args] (parse-cmds args nil))
@@ -265,15 +265,13 @@
      :fst-colon fst-colon?}))
 
 (defn parse-opts
-  "Parse the command line arguments `args`, a seq of strings.
+  "Returns a map of options parsed from command line arguments `args`, a seq of strings.
   Instead of a leading `:` either `--` or `-` may be used as well.
 
-  Return value: a map with parsed opts.
+  Metadata on returned map, under `:org.babashka/cli`:
+  * `:args` remaining unparsed `args` (not corresponding to any options)
 
-  Additional data such as arguments (not corresponding to any options)
-  are available under the `:org.babashka/cli` key in the metadata.
-
-  Supported options:
+  Supported `opts`:
   * `:coerce` - a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
   * `:alias` - a map of short names to long names.
   * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
@@ -290,13 +288,13 @@
 
   ```clojure
   (parse-opts [\"foo\" \":bar\" \"1\"])
-  ;; => {:bar \"1\", :org.babashka/cli {:cmds [\"foo\"]}}
+  ;; => ^{:org.babashka/cli {:args [\"foo\"]}} {:bar 1}
   (parse-opts [\":b\" \"1\"] {:aliases {:b :bar} :coerce {:bar parse-long}})
   ;; => {:bar 1}
   (parse-opts [\"--baz\" \"--qux\"] {:spec {:baz {:desc \"Baz\"}} :restrict true})
   ;; => throws 'Unknown option --qux' exception b/c there is no :qux key in the spec
   ```
-  "
+  See also: [[parse-args]]"
   ([args] (parse-opts args {}))
   ([args opts]
    (let [spec (:spec opts)
@@ -513,23 +511,16 @@
      opts)))
 
 (defn parse-args
-  "Same as [[parse-opts]] but separates parsed opts into `:opts` and adds
-  `:cmds` and `:rest-args` on the top level instead of metadata."
+  "Same as [[parse-opts]] with return data reshaped.
+
+  Returns a map with:
+  * `:opts` parsed opts
+  * `:args` remaining unparsed `args`"
   ([args] (parse-args args {}))
   ([args opts]
    (let [opts (parse-opts args opts)
          cli-opts (-> opts meta :org.babashka/cli)]
      (assoc cli-opts :opts (dissoc opts :org.babashka/cli)))))
-
-#_(defn commands
-    "Returns commands, i.e. non-option arguments passed before the first option argument."
-    [parsed-opts]
-    (-> parsed-opts meta :org.babashka/cli :cmds))
-
-#_(defn remaining
-    "Returns remaining arguments, i.e. arguments after `--`"
-    [parsed-opts]
-    (-> parsed-opts meta :org.babashka/cli :rest-args))
 
 (defn- kw->str [kw]
   (subs (str kw) 1))
