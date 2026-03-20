@@ -253,8 +253,8 @@
 
 (defn- ->error-fn [spec error-fn-opt]
   (let [f (or error-fn-opt
-              (fn [{:keys [msg] :as data}]
-                (throw (ex-info msg data))))]
+              (fn [data]
+                (throw (ex-info (:msg data) data))))]
     (fn [data]
       (f (merge {:spec spec :type :org.babashka/cli} data)))))
 
@@ -280,8 +280,9 @@
          opts (resolve-opts opts)
          coerce-map (:coerce opts)
          implicit-true-keys (::implicit-true-keys opts)
+         auto-coerce? (::auto-coerce opts)
          error-fn (->error-fn spec (:error-fn opts))]
-     (if (seq coerce-map)
+     (if (or (seq coerce-map) auto-coerce?)
        (let [coerce-1 (fn [v cf implicit-true?]
                          (if cf (coerce* v cf implicit-true?) (auto-coerce v)))]
          (with-meta
@@ -310,7 +311,9 @@
                                  :value v
                                  :opts acc})
                       acc)))
-                (assoc acc k v)))
+                (if auto-coerce?
+                  (assoc acc k (auto-coerce v))
+                  (assoc acc k v))))
             {} m)
            (meta m)))
        m))))
@@ -394,7 +397,7 @@
   [args {:keys [coerce collect no-keyword-opts repeated-opts] :as opts}]
   (let [aliases (or (:alias opts) (:aliases opts))
         spec (:spec opts)
-        spec-map (if (map? spec) spec (into {} spec))
+        spec-map (if (map? spec) spec (when spec (into {} spec)))
         alias-keys (set (concat (keys aliases) (map :alias (vals spec-map))))
         known-keys (set (concat (keys spec-map) (vals aliases) (keys coerce)))
         bool? (fn [k] (#{:boolean :bool} (coerce-coerce-fn (get coerce k))))
@@ -542,13 +545,12 @@
          ;; Step 1: Parse (raw strings, no coercion)
          parsed (parse-opts* args opts)
          ;; Step 2: Coerce
-         coerce-map (:coerce opts)
-         auto-coerce-map (reduce (fn [m k] (if (contains? coerce-map k) m (assoc m k :auto)))
-                                 (or coerce-map {}) (keys parsed))
-         coerced (coerce-opts parsed {:coerce auto-coerce-map
+         coerced (coerce-opts parsed {:coerce (:coerce opts)
                                       :spec (:spec opts)
                                       :error-fn (:error-fn opts)
-                                      ::implicit-true-keys (::implicit-true-keys (meta parsed))})
+                                      ::implicit-true-keys (::implicit-true-keys (meta parsed))
+                                      ::auto-coerce true
+                                      ::resolved true})
          ;; Step 3: Apply defaults
          coerced (if-let [exec-args (:exec-args opts)]
                    (with-meta (merge exec-args coerced) (meta coerced))
