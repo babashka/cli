@@ -658,3 +658,92 @@
 (deftest issue-126-test
   (is (= {:file "-"} (cli/parse-opts ["--file" "-"])))
   (is (= {:file "-"} (cli/parse-opts ["-"] {:args->opts [:file]}))))
+
+(deftest coerce-opts-test
+  (testing "simple coercion"
+    (is (= {:foo 1 :bar "hello"}
+           (cli/coerce-opts {:foo "1" :bar "hello"} {:coerce {:foo :long}}))))
+  (testing "multiple coercions"
+    (is (= {:foo 1 :bar :baz}
+           (cli/coerce-opts {:foo "1" :bar "baz"} {:coerce {:foo :long :bar :keyword}}))))
+  (testing "non-string values pass through"
+    (is (= {:foo 1} (cli/coerce-opts {:foo 1} {:coerce {:foo :long}}))))
+  (testing "collection coerce on sequential value"
+    (is (= {:foo [1 2 3]}
+           (cli/coerce-opts {:foo ["1" "2" "3"]} {:coerce {:foo [:long]}}))))
+  (testing "collection coerce on single value"
+    (is (= {:foo [1]}
+           (cli/coerce-opts {:foo "1"} {:coerce {:foo [:long]}}))))
+  (testing "collection coerce with set"
+    (is (= {:foo #{1 2 3}}
+           (cli/coerce-opts {:foo ["1" "2" "3"]} {:coerce {:foo #{:long}}}))))
+  (testing "non-string collection elements pass through"
+    (is (= {:foo [1 2 3]}
+           (cli/coerce-opts {:foo [1 2 3]} {:coerce {:foo [:long]}}))))
+  (testing "auto-coerce without coerce fn"
+    (is (= {:foo [1 :bar true]}
+           (cli/coerce-opts {:foo ["1" ":bar" "true"]} {:coerce {:foo []}}))))
+  (testing "using spec"
+    (is (= {:foo :bar}
+           (cli/coerce-opts {:foo "bar"} {:spec {:foo {:coerce :keyword}}}))))
+  (testing "error-fn on coercion failure"
+    (let [errors (atom [])]
+      (cli/coerce-opts {:foo "not-a-number"} {:coerce {:foo :long}
+                                              :error-fn (fn [e] (swap! errors conj e))})
+      (is (= :coerce (:cause (first @errors))))))
+  (testing "keys without coerce spec pass through unchanged"
+    (is (= {:foo "1" :bar "hello"}
+           (cli/coerce-opts {:foo "1" :bar "hello"} {:coerce {}})))))
+
+(deftest validate-opts-test
+  (testing "restrict"
+    (is (thrown-with-msg?
+         Exception #"Unknown option: :bar"
+         (cli/validate-opts {:foo 1 :bar 2} {:restrict #{:foo}}))))
+  (testing "restrict with true and spec"
+    (is (thrown-with-msg?
+         Exception #"Unknown option: :bar"
+         (cli/validate-opts {:foo 1 :bar 2} {:spec {:foo {:coerce :long}} :restrict true}))))
+  (testing "restrict passes for known keys"
+    (is (= {:foo 1}
+           (cli/validate-opts {:foo 1} {:restrict #{:foo}}))))
+  (testing "require"
+    (is (thrown-with-msg?
+         Exception #"Required option: :bar"
+         (cli/validate-opts {:foo 1} {:require [:bar]}))))
+  (testing "require passes when present"
+    (is (= {:foo 1 :bar 2}
+           (cli/validate-opts {:foo 1 :bar 2} {:require [:bar]}))))
+  (testing "validate"
+    (is (thrown-with-msg?
+         Exception #"Invalid value for option :foo"
+         (cli/validate-opts {:foo 0} {:validate {:foo pos?}}))))
+  (testing "validate passes"
+    (is (= {:foo 1}
+           (cli/validate-opts {:foo 1} {:validate {:foo pos?}}))))
+  (testing "validate with pred and ex-msg"
+    (is (thrown-with-msg?
+         Exception #"Expected positive"
+         (cli/validate-opts {:foo 0} {:validate {:foo {:pred pos?
+                                                       :ex-msg (fn [{:keys [option value]}]
+                                                                 (str "Expected positive for " option ": " value))}}}))))
+  (testing "using spec"
+    (is (thrown-with-msg?
+         Exception #"Required option: :foo"
+         (cli/validate-opts {} {:spec {:foo {:require true}}}))))
+  (testing "error-fn"
+    (let [errors (atom [])]
+      (cli/validate-opts {:foo 0}
+                         {:require [:bar]
+                          :validate {:foo pos?}
+                          :error-fn (fn [e] (swap! errors conj e))})
+      (is (= 2 (count @errors)))
+      (is (= :require (:cause (first @errors))))
+      (is (= :validate (:cause (second @errors))))))
+  (testing "returns the input map"
+    (is (= {:foo 1} (cli/validate-opts {:foo 1} {}))))
+  (testing "composing coerce-opts and validate-opts"
+    (is (= {:foo 1}
+           (-> {:foo "1"}
+               (cli/coerce-opts {:coerce {:foo :long}})
+               (cli/validate-opts {:validate {:foo pos?}}))))))

@@ -148,38 +148,25 @@
   [s f]
   (coerce* s f false))
 
-(defn- coerce->collect [k]
-  (when (coll? k)
-    (empty k)))
+(defn- collect-fn
+  "Returns the collection function for opt, derived from collect-opts and coerce-map."
+  [collect-opts coerce-map opt]
+  (let [f (or (get collect-opts opt)
+              (let [k (get coerce-map opt)]
+                (when (coll? k) (empty k))))]
+    (when f
+      (if (coll? f) (fnil conj f) f))))
 
-(defn- coerce-collect-fn [collect-opts opt coercek]
-  (let [collect-fn (or (get collect-opts opt)
-                       (coerce->collect coercek))
-        collect-fn (when collect-fn
-                     (if (coll? collect-fn)
-                       (fnil conj collect-fn)
-                       collect-fn))]
-    collect-fn))
-
-(defn- process-previous [acc current-opt added collect-fn]
+(defn- process-previous [acc current-opt added cf]
   (if (not= current-opt added)
-    (if-let [[_ curr-val] (find acc current-opt)]
-      (assoc acc current-opt (if collect-fn
-                               (collect-fn curr-val true)
-                               true))
-      (assoc acc current-opt
-             (if collect-fn
-               (collect-fn nil true)
-               true)))
+    (let [v (if cf (cf (get acc current-opt) true) true)]
+      (assoc acc current-opt v))
     acc))
 
-(defn- add-val [acc current-opt collect-fn coerce-fn arg implicit-true?]
-  (let [arg (if (and coerce-fn
-                     (not (coll? coerce-fn))) (coerce* arg coerce-fn implicit-true?)
-                (auto-coerce arg))]
-    (if collect-fn
-      (update acc current-opt collect-fn arg)
-      (assoc acc current-opt arg))))
+(defn- add-val [acc current-opt cf arg]
+  (if cf
+    (update acc current-opt cf arg)
+    (assoc acc current-opt arg)))
 
 (defn spec->opts
   "Converts spec into opts format. Pass existing opts as optional second argument."
@@ -234,7 +221,7 @@
      {:args new-args
       :args->opts args->opts})))
 
-(defn- parse-key [arg mode current-opt coerce-opt added known-keys alias-keys]
+(defn- parse-key [arg mode current-opt boolean-opt? added known-keys alias-keys]
   (let [fst-char (first-char arg)
         snd-char (second-char arg)
         hyphen-opt? (and (not= :keywords mode)
@@ -249,7 +236,7 @@
         fst-colon? (= \: fst-char)
         kwd-opt? (and (not= :hyphens mode)
                       fst-colon?
-                      (or (= :boolean coerce-opt)
+                      (or boolean-opt?
                           (not current-opt)
                           (= added current-opt)))
         mode (or mode
@@ -263,6 +250,258 @@
      :composite-opt composite-opt?
      :kwd-opt kwd-opt?
      :fst-colon fst-colon?}))
+
+(defn- ->error-fn [spec error-fn-opt]
+  (let [f (or error-fn-opt
+              (fn [{:keys [msg] :as data}]
+                (throw (ex-info msg data))))]
+    (fn [data]
+      (f (merge {:spec spec :type :org.babashka/cli} data)))))
+
+(defn- resolve-opts [opts]
+  (if (::resolved opts)
+    opts
+    (let [spec (:spec opts)]
+      (assoc (if spec (merge-opts opts (spec->opts spec opts)) opts)
+             ::resolved true))))
+
+(defn coerce-opts
+  "Coerces values in the map `m` using the provided configuration.
+  Does not coerce values that are not strings.
+  Returns a new map with coerced values.
+
+  Supported options:
+  * `:coerce` - a map of option (keyword) names to type keywords (optionally wrapped in a collection).
+  * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
+  * `:error-fn` - error handler, called with a map containing `:cause` (`:coerce`), `:msg`, `:option`, `:value`, and `:opts`."
+  ([m] (coerce-opts m {}))
+  ([m opts]
+   (let [spec (:spec opts)
+         opts (resolve-opts opts)
+         coerce-map (:coerce opts)
+         implicit-true-keys (::implicit-true-keys opts)
+         error-fn (->error-fn spec (:error-fn opts))]
+     (if (seq coerce-map)
+       (let [coerce-1 (fn [v cf implicit-true?]
+                         (if cf (coerce* v cf implicit-true?) (auto-coerce v)))]
+         (with-meta
+           (reduce-kv
+            (fn [acc k v]
+              (if-let [coerce-k (get coerce-map k)]
+                (let [coll-coerce? (coll? coerce-k)
+                      empty-coll (when coll-coerce? (or (empty coerce-k) []))
+                      cf (coerce-coerce-fn coerce-k)
+                      it? (and implicit-true-keys (contains? implicit-true-keys k))]
+                  (try
+                    (cond
+                      (and coll-coerce? (coll? v))
+                      (assoc acc k (reduce (fn [coll elem] (conj coll (coerce-1 elem cf it?))) empty-coll v))
+                      coll-coerce?
+                      (assoc acc k (conj empty-coll (coerce-1 v cf it?)))
+                      (coll? v)
+                      (assoc acc k (into (empty v) (map #(coerce-1 % cf it?)) v))
+                      :else
+                      (assoc acc k (coerce-1 v cf it?)))
+                    (catch #?(:clj ExceptionInfo :cljs :default) e
+                      (error-fn {:cause :coerce
+                                 :msg #?(:clj (.getMessage e)
+                                         :cljs (ex-message e))
+                                 :option k
+                                 :value v
+                                 :opts acc})
+                      acc)))
+                (assoc acc k v)))
+            {} m)
+           (meta m)))
+       m))))
+
+(defn validate-opts
+  "Validates the map `m` using the provided configuration. Returns `m`.
+
+  Supported options:
+  * `:restrict` - `true` or coll of keys. Error on keys in `m` not in the restrict set or not derivable from `:spec` and `:coerce`.
+  * `:require` - a coll of options that are required.
+  * `:validate` - a map of option keys to validator functions (or maps with `:pred` and `:ex-msg`).
+  * `:spec` - a spec of options (restrict, require, validate extracted from it).
+  * `:coerce` - used with `:restrict true` to derive the set of known keys.
+  * `:error-fn` - error handler, called with a map containing `:cause`, `:msg`, `:option`, and `:opts`."
+  ([m] (validate-opts m {}))
+  ([m opts]
+   (let [spec (:spec opts)
+         opts (resolve-opts opts)
+         coerce-map (:coerce opts)
+         aliases (or (:alias opts)
+                     (:aliases opts))
+         spec-map (if (map? spec)
+                    spec (when spec (into {} spec)))
+         known-keys (set (concat (keys spec-map)
+                                 (vals aliases)
+                                 (keys coerce-map)))
+         restrict (or (:restrict opts)
+                      (:closed opts))
+         restrict (if (true? restrict)
+                    known-keys
+                    (some-> restrict set))
+         require (:require opts)
+         validate (:validate opts)
+         error-fn (->error-fn spec (:error-fn opts))]
+     (when restrict
+       (doseq [k (keys m)]
+         (when (and (not (contains? restrict k))
+                    (not= (namespace k) "babashka.cli"))
+           (error-fn {:cause :restrict
+                      :msg (str "Unknown option: " k)
+                      :restrict restrict
+                      :option k
+                      :opts m}))))
+     (when require
+       (doseq [k require]
+         (when-not (find m k)
+           (error-fn {:cause :require
+                      :msg (str "Required option: " k)
+                      :require require
+                      :option k
+                      :opts m}))))
+     (when validate
+       (doseq [[k vf] validate]
+         (let [f (or (and
+                      ;; we allow sets (typically of keywords) as predicates,
+                      ;; but maps are less commmon
+                      (map? vf)
+                      (:pred vf))
+                     vf)]
+           (when-let [[_ v] (find m k)]
+             (when-not (f v)
+               (let [ex-msg-fn (or (:ex-msg vf)
+                                   (fn [{:keys [option value]}]
+                                     (str "Invalid value for option " option ": " value)))]
+                 (error-fn {:cause :validate
+                            :msg (ex-msg-fn {:option k :value v})
+                            :validate validate
+                            :option k
+                            :value v
+                            :opts m})))))))
+     m)))
+
+;;
+;; Parsing
+;;
+
+(defn- parse-opts*
+  "Parses CLI args into a raw opts map (string values, no coercion).
+  Returns the raw map with :org.babashka/cli metadata.
+  ::implicit-true-keys in metadata tracks which keys got implicit true."
+  [args {:keys [coerce collect no-keyword-opts repeated-opts] :as opts}]
+  (let [aliases (or (:alias opts) (:aliases opts))
+        spec (:spec opts)
+        spec-map (if (map? spec) spec (into {} spec))
+        alias-keys (set (concat (keys aliases) (map :alias (vals spec-map))))
+        known-keys (set (concat (keys spec-map) (vals aliases) (keys coerce)))
+        bool? (fn [k] (#{:boolean :bool} (coerce-coerce-fn (get coerce k))))
+        track-itk (fn [itk current-opt added]
+                    (cond-> itk (not= current-opt added) (conj current-opt)))
+        {:keys [cmds args]} (parse-cmds args)
+        {new-args :args a->o :args->opts}
+        (if-let [a->o (or (:args->opts opts) (:cmds-opts opts))]
+          (args->opts cmds a->o (::dispatch-tree-ignored-args opts))
+          {:args->opts nil :args args})
+        [cmds args] (if (not= new-args args)
+                      [nil (concat new-args args)]
+                      [cmds args])
+        [parsed last-opt added itk]
+        (if (and (::dispatch-tree opts) (seq cmds))
+          [(vary-meta {} assoc-in [:org.babashka/cli :args] (into (vec cmds) args)) nil nil #{}]
+          (loop [acc {}
+                 current-opt nil
+                 added nil
+                 mode (when no-keyword-opts :hyphens)
+                 args (seq args)
+                 a->o a->o
+                 itk #{}]
+            (if-not args
+              [acc current-opt added itk]
+              (let [raw-arg (first args)
+                    opt? (keyword? raw-arg)]
+                (if opt?
+                  (recur (process-previous acc current-opt added nil)
+                         raw-arg added mode (next args) a->o
+                         (track-itk itk current-opt added))
+                  (let [implicit-true? (true? raw-arg)
+                        arg (str raw-arg)
+                        cf (collect-fn collect coerce current-opt)
+                        boolean-opt? (bool? current-opt)
+                        {:keys [hyphen-opt composite-opt kwd-opt mode fst-colon]}
+                        (parse-key arg mode current-opt boolean-opt? added known-keys alias-keys)]
+                    (if (or hyphen-opt kwd-opt)
+                      (let [long-opt? (str/starts-with? arg "--")
+                            the-end? (and long-opt? (= "--" arg))]
+                        (if the-end?
+                          (let [nargs (next args)]
+                            [(cond-> acc
+                               nargs (vary-meta assoc-in [:org.babashka/cli :args] (vec nargs)))
+                             current-opt added itk])
+                          (let [kname (if long-opt?
+                                        (subs arg 2)
+                                        (str/replace arg #"^(:|-|)" ""))
+                                [kname arg-val] (if long-opt?
+                                                  (str/split kname #"=")
+                                                  [kname])
+                                raw-k (keyword kname)
+                                alias (when-not long-opt? (get aliases raw-k))
+                                k (or alias raw-k)]
+                            (if arg-val
+                              (recur (process-previous acc current-opt added cf)
+                                     k nil mode (cons arg-val (rest args)) a->o
+                                     (track-itk itk current-opt added))
+                              (let [next-args (next args)
+                                    next-arg (first next-args)
+                                    m (parse-key next-arg mode current-opt boolean-opt? added known-keys alias-keys)
+                                    negative? (when-not (contains? known-keys k)
+                                                (str/starts-with? (str k) ":no-"))]
+                                (if (or (:hyphen-opt m) (empty? next-args) negative?)
+                                  ;; implicit true
+                                  (if (and (not alias) composite-opt)
+                                    (let [expanded (mapcat (fn [c] [(str "-" c) true]) (name k))]
+                                      (recur acc nil nil mode (concat expanded next-args) a->o itk))
+                                    (let [k (if negative?
+                                              (keyword (str/replace (str k) ":no-" ""))
+                                              k)]
+                                      (recur (process-previous acc current-opt added cf)
+                                             k added mode (cons (not negative?) next-args) a->o
+                                             (track-itk itk current-opt added))))
+                                  (recur (process-previous acc current-opt added cf)
+                                         k nil mode next-args a->o
+                                         (track-itk itk current-opt added))))))))
+                      (let [the-end? (or
+                                      (and boolean-opt?
+                                           (not= arg "true")
+                                           (not= arg "false"))
+                                      (and (= added current-opt)
+                                           (or (not cf)
+                                               repeated-opts
+                                               (contains? (::dispatch-tree-ignored-args opts) (first args)))))]
+                        (if the-end?
+                          (let [{new-args :args a->o :args->opts}
+                                (if (and args a->o)
+                                  (args->opts args a->o (::dispatch-tree-ignored-args opts))
+                                  {:args args})
+                                new-args? (not= args new-args)]
+                            (if new-args?
+                              (recur acc current-opt added mode new-args a->o itk)
+                              [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt added itk]))
+                          (let [opt (when-not (and (= :keywords mode) fst-colon) current-opt)]
+                            (recur (add-val acc current-opt cf arg)
+                                   opt opt mode (next args) a->o
+                                   (cond-> itk implicit-true? (conj current-opt)))))))))))))]
+    ;; Finalize: process last opt, prepend cmds to args metadata
+    (let [itk (track-itk itk last-opt added)
+          cf (collect-fn collect coerce last-opt)
+          parsed (-> (process-previous parsed last-opt added cf)
+                     (cond->
+                         (and (seq cmds) (not (::dispatch-tree opts)))
+                       (vary-meta update-in [:org.babashka/cli :args]
+                                  (fn [args] (into (vec cmds) args)))))]
+      (vary-meta parsed assoc ::implicit-true-keys itk))))
 
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.
@@ -299,218 +538,23 @@
   "
   ([args] (parse-opts args {}))
   ([args opts]
-   (let [spec (:spec opts)
-         opts (if spec
-                (merge-opts
-                 opts
-                 (spec->opts spec opts))
-                opts)
-         coerce-opts (:coerce opts)
-         aliases (or
-                  (:alias opts)
-                  (:aliases opts))
-         collect (:collect opts)
-         require (:require opts)
-         exec-args (:exec-args opts)
-         no-keyword-opts (:no-keyword-opts opts)
-         restrict (or (:restrict opts)
-                      (:closed opts))
-         spec-map (if (map? spec)
-                    spec (into {} spec))
-         alias-keys (set (concat (keys aliases) (map :alias (vals spec-map))))
-         known-keys (set (concat (keys spec-map)
-                                 (vals aliases)
-                                 (keys coerce-opts)))
-         restrict (if (true? restrict)
-                    known-keys
-                    (some-> restrict set))
-         validate (:validate opts)
-         error-fn* (or (:error-fn opts)
-                       (fn [{:keys [msg] :as data}]
-                         (throw (ex-info msg data))))
-         error-fn (fn [data]
-                    (-> {:spec spec :type :org.babashka/cli}
-                        (merge data)
-                        error-fn*))
-         {:keys [cmds args]} (parse-cmds args)
-         {new-args :args
-          a->o :args->opts}
-         (if-let [a->o (or (:args->opts opts)
-                           ;; DEPRECATED:
-                           (:cmds-opts opts))]
-           (args->opts cmds a->o (::dispatch-tree-ignored-args opts))
-           {:args->opts nil
-            :args args})
-         [cmds args] (if (not= new-args args)
-                       [nil (concat new-args args)]
-                       [cmds args])
-         ;; _ (prn :cmds cmds :args args)
-         opts* opts
-         [opts last-opt added]
-         (if (and (::dispatch-tree opts)
-                  (seq cmds))
-           [(vary-meta {} assoc-in [:org.babashka/cli :args] (into (vec cmds) args)) nil nil]
-           (loop [acc {}
-                  current-opt nil
-                  added nil
-                  mode (when no-keyword-opts :hyphens)
-                  args (seq args)
-                  a->o a->o]
-             ;; (prn :acc acc :current-opt current-opt :added added :args args)
-             (if-not args
-               [acc current-opt added]
-               (let [raw-arg (first args)
-                     opt? (keyword? raw-arg)]
-                 (if opt?
-                   (recur (process-previous acc current-opt added nil)
-                          raw-arg added mode (next args)
-                          a->o)
-                   (let [implicit-true? (true? raw-arg)
-                         arg (str raw-arg)
-                         collect-fn (coerce-collect-fn collect current-opt (get coerce-opts current-opt))
-                         coerce-opt (get coerce-opts current-opt)
-                         {:keys [hyphen-opt
-                                 composite-opt
-                                 kwd-opt
-                                 mode fst-colon]} (parse-key arg mode current-opt coerce-opt added known-keys alias-keys)]
-                     (if (or hyphen-opt
-                             kwd-opt)
-                       (let [long-opt? (str/starts-with? arg "--")
-                             the-end? (and long-opt? (= "--" arg))]
-                         (if the-end?
-                           (let [nargs (next args)]
-                             [(cond-> acc
-                                nargs (vary-meta assoc-in [:org.babashka/cli :args] (vec nargs)))
-                              current-opt added])
-                           (let [kname (if long-opt?
-                                         (subs arg 2)
-                                         (str/replace arg #"^(:|-|)" ""))
-                                 [kname arg-val] (if long-opt?
-                                                   (str/split kname #"=")
-                                                   [kname])
-                                 raw-k (keyword kname)
-                                 alias (when-not long-opt?
-                                         (get aliases raw-k))
-                                 k (or alias raw-k)]
-                             (if arg-val
-                               (recur (process-previous acc current-opt added collect-fn)
-                                      k nil mode (cons arg-val (rest args)) a->o)
-                               (let [next-args (next args)
-                                     next-arg (first next-args)
-                                     m (parse-key next-arg mode current-opt coerce-opt added known-keys alias-keys)
-                                     negative? (when-not (contains? known-keys k)
-                                                 (str/starts-with? (str k) ":no-"))]
-                                 (if (or (:hyphen-opt m)
-                                         (empty? next-args)
-                                         negative?)
-                                   ;; implicit true
-                                   (if (and (not alias) composite-opt)
-                                     (let [chars (name k)
-                                           args (mapcat (fn [char]
-                                                          [(str "-" char) true])
-                                                        chars)
-                                           next-args (concat args next-args)]
-                                       (recur acc
-                                              nil nil mode next-args
-                                              a->o))
-                                     (let [k (if negative?
-                                               (keyword (str/replace (str k) ":no-" ""))
-                                               k)
-                                           next-args (cons (not negative?) next-args)]
-                                       (recur (process-previous acc current-opt added collect-fn)
-                                              k added mode next-args
-                                              a->o)))
-                                   (recur (process-previous acc current-opt added collect-fn)
-                                          k nil mode next-args
-                                          a->o)))))))
-                       (let [the-end? (or
-                                       (and (= :boolean coerce-opt)
-                                            (not= arg "true")
-                                            (not= arg "false"))
-                                       (and (= added current-opt)
-                                            (or
-                                             (not collect-fn)
-                                             (:repeated-opts opts)
-                                             (contains? (::dispatch-tree-ignored-args opts) (first args)))))]
-                         (if the-end?
-                           (let [{new-args :args
-                                  a->o :args->opts}
-                                 (if args
-                                   (if a->o
-                                     (args->opts args a->o (::dispatch-tree-ignored-args opts))
-                                     {:args args})
-                                   {:args args})
-                                 new-args? (not= args new-args)]
-                             (if new-args?
-                               (recur acc current-opt added mode new-args a->o)
-                               [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt added]))
-                           (let [opt (when-not (and (= :keywords mode)
-                                                    fst-colon)
-                                       current-opt)]
-                             (recur (try
-                                      (add-val acc current-opt collect-fn (coerce-coerce-fn coerce-opt) arg implicit-true?)
-                                      (catch #?(:clj ExceptionInfo :cljs :default) e
-                                        (error-fn {:cause :coerce
-                                                   :msg #?(:clj (.getMessage e)
-                                                           :cljs (ex-message e))
-                                                   :option current-opt
-                                                   :value arg
-                                                   :opts acc})
-                                        ;; Since we've encountered an error, don't add this opt
-                                        acc))
-                                    opt
-                                    opt
-                                    mode
-                                    (next args)
-                                    a->o)))))))))))
-         collect-fn (coerce-collect-fn collect last-opt (get coerce-opts last-opt))
-         opts (-> (process-previous opts last-opt added collect-fn)
-                  (cond->
-                      (and (seq cmds) (not (::dispatch-tree opts*)))
-                    (vary-meta update-in [:org.babashka/cli :args]
-                               (fn [args]
-                                 (into (vec cmds) args)))))
-         opts (if exec-args
-                (with-meta (merge exec-args opts)
-                  (meta opts))
-                opts)]
-     (when restrict
-       (doseq [k (keys opts)]
-         (when (and (not (contains? restrict k))
-                    (not= (namespace k) "babashka.cli"))
-           (error-fn {:cause :restrict
-                      :msg (str "Unknown option: " k)
-                      :restrict restrict
-                      :option k
-                      :opts opts}))))
-     (when require
-       (doseq [k require]
-         (when-not (find opts k)
-           (error-fn {:cause :require
-                      :msg (str "Required option: " k)
-                      :require require
-                      :option k
-                      :opts opts}))))
-     (when validate
-       (doseq [[k vf] validate]
-         (let [f (or (and
-                      ;; we allow sets (typically of keywords) as predicates,
-                      ;; but maps are less commmon
-                      (map? vf)
-                      (:pred vf))
-                     vf)]
-           (when-let [[_ v] (find opts k)]
-             (when-not (f v)
-               (let [ex-msg-fn (or (:ex-msg vf)
-                                   (fn [{:keys [option value]}]
-                                     (str "Invalid value for option " option ": " value)))]
-                 (error-fn {:cause :validate
-                            :msg (ex-msg-fn {:option k :value v})
-                            :validate validate
-                            :option k
-                            :value v
-                            :opts opts})))))))
-     opts)))
+   (let [opts (resolve-opts opts)
+         ;; Step 1: Parse (raw strings, no coercion)
+         parsed (parse-opts* args opts)
+         ;; Step 2: Coerce
+         coerce-map (:coerce opts)
+         auto-coerce-map (reduce (fn [m k] (if (contains? coerce-map k) m (assoc m k :auto)))
+                                 (or coerce-map {}) (keys parsed))
+         coerced (coerce-opts parsed {:coerce auto-coerce-map
+                                      :spec (:spec opts)
+                                      :error-fn (:error-fn opts)
+                                      ::implicit-true-keys (::implicit-true-keys (meta parsed))})
+         ;; Step 3: Apply defaults
+         coerced (if-let [exec-args (:exec-args opts)]
+                   (with-meta (merge exec-args coerced) (meta coerced))
+                   coerced)]
+     ;; Step 4: Validate
+     (validate-opts coerced opts))))
 
 (defn parse-args
   "Same as `parse-opts` but separates parsed opts into `:opts` and adds
@@ -669,14 +713,10 @@
    (dispatch-tree' tree args nil))
   ([tree args opts]
    (loop [cmds [] all-opts {} args args cmd-info tree]
-     (let [;; cmd-info (:cmd cmd-info)
-           kwm cmd-info #_(select-keys cmd-info (filter keyword? (keys cmd-info)))
+     (let [kwm cmd-info
            should-parse-args? (or (has-parse-opts? kwm)
                                   (is-option? (first args)))
-           ;; _ (prn :opts opts :kwm kwm)
            parse-opts (deep-merge opts kwm)
-           ;; _ ((requiring-resolve 'clojure.pprint/pprint) parse-opts)
-           ;; _ (prn :dispatch-args args)
            {:keys [args opts]} (if should-parse-args?
                                  (parse-args args (assoc (update parse-opts :exec-args merge all-opts)
                                                          ::dispatch-tree true
@@ -687,15 +727,12 @@
            all-opts (-> (merge all-opts opts)
                         (update ::opts-by-cmds (fnil conj []) {:cmds cmds
                                                                :opts opts}))]
-       ;; (prn :arg arg :all-opts all-opts)
        (if-let [subcmd-info (get (:cmd cmd-info) arg)]
          (recur (conj cmds arg) all-opts rest subcmd-info)
          (if (:fn cmd-info)
            {:cmd-info cmd-info
             :dispatch cmds
             :opts (dissoc all-opts ::opts-by-cmds)
-            ;; NOTE: won't expose this just yet, wait for more feedback, structure may not be optimal
-            ;; :opts-by-cmds (::opts-by-cmds all-opts)
             :args args}
            (if arg
              {:error :no-match
