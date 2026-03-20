@@ -1,9 +1,9 @@
 (ns babashka.cli-test
   (:require
    [babashka.cli :as cli]
+   [borkdude.deflet :as d]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
-   [borkdude.deflet :as d]
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])))
 
@@ -467,7 +467,7 @@
   (testing "auto-coerce multiple keywords in keywords mode"
     (is (submap? {:foo [:bar :baz]} (cli/parse-opts [":foo" ":bar" ":foo" ":baz"] {:coerce {:foo []}}))))
   (is (= 1 (cli/auto-coerce 1)))
-  (testing (str "We want to catch most normal keywords, staying close to the Clojure reader.")
+  (testing "We want to catch most normal keywords, staying close to the Clojure reader."
     (is (= "1. This is a title." (cli/auto-coerce "1. This is a title.")))
     (is (= ":1. This is a title." (cli/auto-coerce ":1. This is a title.")))
     (is (= :abc (cli/auto-coerce ":abc")))
@@ -476,7 +476,7 @@
     (is (= (keyword "a/b/c") (cli/auto-coerce ":a/b/c")))
     (is (= ":a.b c.d" (cli/auto-coerce ":a.b c.d")))
     (is (= ":a.b\tc.d" (cli/auto-coerce ":a.b\tc.d"))))
-  (is (= nil (cli/auto-coerce "nil")))
+  (is (nil? (cli/auto-coerce "nil")))
   (is (= -10 (cli/auto-coerce "-10")))
   (is (submap? {:foo -10} (cli/parse-opts ["--foo" "-10"])))
   (is (submap? {:foo -10} (cli/parse-opts ["--foo" "-10"] {:coerce {:foo :number}})))

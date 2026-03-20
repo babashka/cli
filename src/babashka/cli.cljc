@@ -351,7 +351,7 @@
      (when restrict
        (doseq [k (keys m)]
          (when (and (not (contains? restrict k))
-                    (not= (namespace k) "babashka.cli"))
+                    (not= "babashka.cli" (namespace k)))
            (error-fn {:cause :restrict
                       :msg (str "Unknown option: " k)
                       :restrict restrict
@@ -477,8 +477,8 @@
                                          (track-itk itk current-opt added))))))))
                       (let [the-end? (or
                                       (and boolean-opt?
-                                           (not= arg "true")
-                                           (not= arg "false"))
+                                           (not= "true" arg)
+                                           (not= "false" arg))
                                       (and (= added current-opt)
                                            (or (not cf)
                                                repeated-opts
@@ -495,16 +495,16 @@
                           (let [opt (when-not (and (= :keywords mode) fst-colon) current-opt)]
                             (recur (add-val acc current-opt cf arg)
                                    opt opt mode (next args) a->o
-                                   (cond-> itk implicit-true? (conj current-opt)))))))))))))]
-    ;; Finalize: process last opt, prepend cmds to args metadata
-    (let [itk (track-itk itk last-opt added)
-          cf (collect-fn collect coerce last-opt)
-          parsed (-> (process-previous parsed last-opt added cf)
-                     (cond->
-                         (and (seq cmds) (not (::dispatch-tree opts)))
-                       (vary-meta update-in [:org.babashka/cli :args]
-                                  (fn [args] (into (vec cmds) args)))))]
-      (vary-meta parsed assoc ::implicit-true-keys itk))))
+                                   (cond-> itk implicit-true? (conj current-opt)))))))))))))
+        ;; Finalize: process last opt, prepend cmds to args metadata
+        itk (track-itk itk last-opt added)
+        cf (collect-fn collect coerce last-opt)
+        parsed (-> (process-previous parsed last-opt added cf)
+                   (cond->
+                    (and (seq cmds) (not (::dispatch-tree opts)))
+                     (vary-meta update-in [:org.babashka/cli :args]
+                                (fn [args] (into (vec cmds) args)))))]
+    (vary-meta parsed assoc ::implicit-true-keys itk)))
 
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.
