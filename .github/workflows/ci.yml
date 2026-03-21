@@ -18,7 +18,7 @@ jobs:
     - name: Prepare java
       uses: actions/setup-java@v5
       with:
-        distribution: "adopt"
+        distribution: "zulu"
         java-version: ${{ matrix.java-version }}
 
     - name: "Restore Cache"
@@ -47,7 +47,7 @@ jobs:
     - name: Prepare java
       uses: actions/setup-java@v5
       with:
-        distribution: "adopt"
+        distribution: "zulu"
         java-version: 21
 
     - name: "Restore Cache"
