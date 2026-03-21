@@ -25,7 +25,7 @@
   :clj-1.11 {:extra-deps {org.clojure/clojure {:mvn/version "1.11.1"}}}
 
   :cljs-test
-  {:extra-deps {olical/cljs-test-runner {:mvn/version "3.7.0"}
+  {:extra-deps {olical/cljs-test-runner {:mvn/version "3.8.0"}
                 org.clojure/clojurescript {:mvn/version "1.12.134"}}
    :extra-paths ["test" "cljs-test-runner-out/gen"]
    :main-opts ["-m" "cljs-test-runner.main" "-d" "test"]}}}
