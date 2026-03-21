@@ -35,9 +35,9 @@ jobs:
 
     - name: Run tests
       run: |
-        bb clojure -M:clj-1.10:test -i windows
-        bb clojure -M:clj-1.11:test -i windows
-        bb clojure -M:clj-1.12:test -i windows
+        bb clojure -M:clj-1.10:test
+        bb clojure -M:clj-1.11:test
+        bb clojure -M:clj-1.12:test
   test-cljs:
     runs-on: ubuntu-latest
 
