@@ -43,15 +43,14 @@ The main ideas:
 - But with a better UX by not having to use quotes on the command line as a
   result of having to pass EDN directly: `:dir foo` instead of `:dir '"foo"'` or
   who knows how to write the latter in `cmd.exe` or Powershell.
-- Open world assumption: passing extra arguments does not break and arguments
+- By default, employ an open world assumption: passing extra arguments does not break and arguments
   can be re-used in multiple contexts.
+- But also support incremental validations as a form of polishing a cli for production use.
 
 Both `:` and `--` are supported as the initial characters of a named option, but
-cannot be mixed. See [options](https://github.com/babashka/cli#options) for more
-details.
+cannot be mixed. See [options](#options) for more details.
 
-See [clojure CLI](https://github.com/babashka/cli#clojure-cli) for how to turn
-your exec functions into CLIs.
+See [clojure CLI](#clojure-cli) for how to turn your exec functions into CLIs.
 
 ## Projects using babashka CLI
 
@@ -67,13 +66,15 @@ your exec functions into CLIs.
 - [Simple example](#simple-example)
 - [Options](#options)
 - [Arguments](#arguments)
+- [Adding Production Polish](#adding-production-polish)
 - [Subcommands](#subcommands)
 - [Babashka tasks](#babashka-tasks)
 - [Clojure CLI](#clojure-cli)
 - [Leiningen](#leiningen)
 
 ## Simple example
-Here is an example script to get you started!
+Babashka cli works in Clojure, ClojureScript and [babashka](https://book.babashka.org/).
+Here is an example babashka script to get you started!
 
 ```clojure
 #!/usr/bin/env bb
@@ -134,12 +135,12 @@ Missing required argument: :num
       --flag I am just a flag
 ```
 
-Using the [`spec`](https://github.com/babashka/cli#spec) format is optional and you can implement you own parsing logic just with [`parse-opts`/`parse-args`](https://github.com/babashka/cli#options).
+Using the [`spec`](#spec) format is optional and you can implement you own parsing logic just with [`parse-opts`/`parse-args`](#options).
 However, many would find the above example familiar.
 
 ## Options
 
-For parsing options, use either [`parse-opts`](https://github.com/babashka/cli/blob/main/API.md#parse-opts) or [`parse-args`](https://github.com/babashka/cli/blob/main/API.md#parse-args).
+For parsing options, use either [`parse-opts`](/API.md#parse-opts) or [`parse-args`](/API.md#parse-args).
 
 Examples:
 
@@ -225,7 +226,7 @@ Here's an example of parsing out `,` separated multi-arg-values:
 
 Since `v0.3.35` babashka CLI auto-coerces values that have no explicit coercion
 with
-[`auto-coerce`](https://github.com/babashka/cli/blob/main/API.md#auto-coerce):
+[`auto-coerce`](/API.md#auto-coerce):
 it automatically tries to convert booleans, numbers and keywords.
 
 ## Arguments
@@ -282,6 +283,13 @@ and specify the variable number of arguments with `repeat`:
 (cli/parse-opts ["arg1" "arg2" "arg3" "arg4"] cli-opts)
 ;;=> {:foo "arg1", :bar ["arg2" "arg3" "arg4"]}
 ```
+
+## Adding Production Polish
+Babashka cli lets you get up and running quickly.
+As you move toward production quality, it’s helpful to let users know when their inputs are invalid.
+Strict validation can be introduced with [:restrict](#restrict), [:require](#require), and [:validate](#validate).
+
+As you add polish, you'll likely make use of a [:spec](#spec), a custom [:error_fn](#error-handling), and maybe [subcommand dispatching](#subcommands). 
 
 ## Restrict
 
@@ -372,12 +380,10 @@ The following keys are present depending on `:cause`:
 - `:cause :coerce`
   - `:value` - the value of the option that failed coercion.
 
-It is recommended to either throw an exception or otherwise exit in the error
-handler function, unless you want to collect all of the errors and act on them
-in the end (see `babashka.cli-test/error-fn-test` for an example of this).
+By default, babashka cli will throw exception on errors it detects.
+You can do the same from your custom error handler.
 
-For example:
-
+For a more polished user experience, you might choose to have your custom error handler print the error and exit. For example:
 ``` clojure
 (cli/parse-opts
  []
@@ -396,13 +402,14 @@ For example:
       (throw (ex-info msg data)))
     (System/exit 1))})
 ```
-
 would print:
 
 ```
 Missing required argument:
   --foo <val> You know what this is.
 ```
+
+You can also choose collect and then report all detected errors (see `babashka.cli-test/error-fn-test` for an example of this).
 
 ## Spec
 
@@ -527,7 +534,7 @@ user=> (cli/parse-opts ["-vvv"] {:spec spec})
 ## Subcommands
 
 To handle subcommands, use
-[dispatch](https://github.com/babashka/cli/blob/main/API.md#dispatch).
+[dispatch](/API.md#dispatch).
 
 An example. Say we want to create a CLI that can be called as:
 
@@ -918,6 +925,6 @@ $ lein clj-new app --name foobar/baz --verbose 3 -f
 
 ## License
 
-Copyright © 2022 Michiel Borkent
+Copyright © 2022-2026 Michiel Borkent
 
 Distributed under the MIT License. See LICENSE.
