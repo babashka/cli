@@ -4,6 +4,12 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- [#141](https://github.com/babashka/cli/issues/141): docs: briefly cover adding production polish to a cli
+([@lread](https://github.com/lread))
+
+
 ## v0.8.67 (2025-11-21)
 
 - [#126](https://github.com/babashka/cli/issues/126): `-` value accidentally parsed as option, e.g. `--file -`
