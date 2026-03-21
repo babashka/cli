@@ -8,7 +8,7 @@ For breaking changes, check [here](#breaking-changes).
 
 - [#141](https://github.com/babashka/cli/issues/141): docs: briefly cover adding production polish to a cli
 ([@lread](https://github.com/lread))
-- [#144](https://github.com/babashka/cli/issues/144): deployed pom now reflects min support clojure version & doc supported platforms/versions
+- [#144](https://github.com/babashka/cli/issues/144): deployed pom now reflects min supported clojure version & doc supported platforms/versions
 ([@lread](https://github.com/lread))
 
 ## v0.8.67 (2025-11-21)
