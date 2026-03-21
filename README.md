@@ -3,7 +3,10 @@
 [![Clojars Project](https://img.shields.io/clojars/v/org.babashka/cli.svg)](https://clojars.org/org.babashka/cli)
 [![bb built-in](https://raw.githubusercontent.com/babashka/babashka/master/logo/built-in-badge.svg)](https://book.babashka.org#badges)
 
-Turn Clojure functions into CLIs!
+Turn Clojure functions into CLIs! This library can be used from:
+- [babashka](https://github.com/babashka/babashka) - included as a built-in library
+- [Clojure on the JVM](https://www.clojure.org/guides/install_clojure) - we support Clojure 1.10.3 and above on Java 11 and above
+- [ClojureScript](https://clojurescript.org) - we test against the current release
 
 ## [API](API.md)
 
