@@ -37,6 +37,7 @@ jobs:
       run: |
         bb clojure -M:clj-1.10:test -i windows
         bb clojure -M:clj-1.11:test -i windows
+        bb clojure -M:clj-1.12:test -i windows
   test-cljs:
     runs-on: ubuntu-latest
 
