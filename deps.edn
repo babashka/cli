@@ -2,30 +2,30 @@
  :aliases
  {:repl
   {:extra-paths ["test"]
-   :extra-deps {babashka/fs {:mvn/version "0.1.11"}}}
+   :extra-deps {babashka/fs {:mvn/version "0.5.32"}}}
   :test ;; added by neil
   {:extra-paths ["test"]
    :extra-deps {io.github.cognitect-labs/test-runner
                 {:git/tag "v0.5.1" :git/sha "dfb30dd"}
-                babashka/fs {:mvn/version "0.1.11"}
+                babashka/fs {:mvn/version "0.5.32"}
                 io.github.borkdude/deflet {:mvn/version "0.1.0"}}
    :exec-args {:cmd "bb test"}
    :main-opts ["-m" "babashka.cli.exec"]
    :exec-fn babashka.test-runner/test #_cognitect.test-runner.api/test}
 
   :build ;; added by neil
-  {:deps {io.github.clojure/tools.build {:mvn/version "0.10.8"}
+  {:deps {io.github.clojure/tools.build {:mvn/version "0.10.13"}
           slipset/deps-deploy {:mvn/version "0.2.0"}}
    :extra-paths ["." ".build"]
    :ns-default build
    :main-opts ["-m" "babashka.cli.exec"]}
 
-  :clj-1.9 {:extra-deps {org.clojure/clojure {:mvn/version "1.9.0"}}}
   :clj-1.10 {:extra-deps {org.clojure/clojure {:mvn/version "1.10.3"}}}
-  :clj-1.11 {:extra-deps {org.clojure/clojure {:mvn/version "1.11.1"}}}
+  :clj-1.11 {:extra-deps {org.clojure/clojure {:mvn/version "1.11.4"}}}
+  :clj-1.12 {:extra-deps {org.clojure/clojure {:mvn/version "1.12.4"}}}
 
   :cljs-test
-  {:extra-deps {olical/cljs-test-runner {:mvn/version "3.7.0"}
+  {:extra-deps {olical/cljs-test-runner {:mvn/version "3.8.0"}
                 org.clojure/clojurescript {:mvn/version "1.12.134"}}
    :extra-paths ["test" "cljs-test-runner-out/gen"]
    :main-opts ["-m" "cljs-test-runner.main" "-d" "test"]}}}

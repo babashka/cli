@@ -1,6 +1,7 @@
 (ns babashka.cli-test
   (:require
    [babashka.cli :as cli]
+   [babashka.cli.test-report]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [borkdude.deflet :as d]

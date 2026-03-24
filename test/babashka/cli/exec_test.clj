@@ -2,6 +2,7 @@
   {:org.babashka/cli {:exec-args {:foo :bar}}}
   (:require
    [babashka.cli-test :refer [submap?]]
+   [babashka.cli.test-report]
    [babashka.cli.exec :refer [main]]
    [babashka.fs :as fs]
    [clojure.edn :as edn]

@@ -13,51 +13,52 @@ jobs:
 
     steps:
     - name: "Checkout code"
-      uses: "actions/checkout@v4"
+      uses: "actions/checkout@v6"
 
     - name: Prepare java
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       with:
-        distribution: "adopt"
+        distribution: "zulu"
         java-version: ${{ matrix.java-version }}
 
     - name: "Restore Cache"
-      uses: "actions/cache@v4"
+      uses: "actions/cache@v5"
       with:
         path: "~/.m2/repository"
         key: "${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}"
         restore-keys: "${{ runner.os }}-deps-"
 
     - name: Setup Clojure
-      uses: DeLaGuardo/setup-clojure@13.2
+      uses: DeLaGuardo/setup-clojure@13.5
       with:
         bb: latest
 
     - name: Run tests
       run: |
-        bb clojure -M:clj-1.10:test -i windows
-        bb clojure -M:clj-1.11:test -i windows
+        bb clojure -M:clj-1.10:test
+        bb clojure -M:clj-1.11:test
+        bb clojure -M:clj-1.12:test
   test-cljs:
     runs-on: ubuntu-latest
 
     steps:
     - name: "Checkout code"
-      uses: "actions/checkout@v4"
+      uses: "actions/checkout@v6"
 
     - name: Prepare java
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       with:
-        distribution: "adopt"
+        distribution: "zulu"
         java-version: 21
 
     - name: "Restore Cache"
-      uses: "actions/cache@v4"
+      uses: "actions/cache@v5"
       with:
         path: "~/.m2/repository"
         key: "${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}"
         restore-keys: "${{ runner.os }}-deps-"
     - name: Setup Clojure
-      uses: DeLaGuardo/setup-clojure@13.2
+      uses: DeLaGuardo/setup-clojure@13.5
       with:
         bb: latest
 
