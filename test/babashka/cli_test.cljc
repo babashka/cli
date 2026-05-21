@@ -503,7 +503,27 @@
                                           :desc "Thingy"}
                                     :bar {:alias :b, :default "sure", :ref "<bar>"
                                           :desc "Barbarbar" :default-desc "Mos def"}}}))
-             :indent 2})))))
+             :indent 2}))))
+  (testing "custom columns exclusion"
+    (is (= '[("--foo" "<foo>" "yupyupyupyup" "Thingy") ("--bar" "<bar>" "Mos def" "Barbarbar")]
+           (cli/opts->table
+            {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
+                          :desc "Thingy"}
+                    :bar {:alias :b, :default "sure", :ref "<bar>"
+                          :desc "Barbarbar" :default-desc "Mos def"}}
+             ;; No alias column.
+             :columns [:default :ref :desc]}))))
+  (testing "custom columns forced inclusion"
+    (is (= '[("--foo" "" "yupyupyupyup" "Thingy") ("--bar" "" "Mos def" "Barbarbar")]
+           (cli/opts->table
+            {:spec {:foo {:alias :f, :default "yupyupyupyup"
+                          :desc "Thingy"}
+                    :bar {:alias :b, :default "sure"
+                          :desc "Barbarbar" :default-desc "Mos def"}}
+             ;; Include ref column, although not present in spec.
+             :columns [:default :ref :desc]})))))
+
+
 
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]
