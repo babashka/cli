@@ -14,8 +14,6 @@ For breaking changes, check [here](#breaking-changes).
 - Expose `coerce-opts`: standalone coerce step
 - Expose `validate-opts`: standalone `:restrict` / `:require` / `:validate` step
 - Add `apply-defaults`: fills missing keys from `:exec-args` or spec `:default`
-- `parse-opts` no longer leaks internal `:babashka.cli/implicit-true-keys` and `:babashka.cli/keys-order` into result meta
-- Stable coerce error order (parse order, not hash order) for maps with >8 keys
 - Coerce error data includes `:implicit-true true` when the failure was an implicit `--foo` with no value
 
 ## v0.8.67 (2025-11-21)
