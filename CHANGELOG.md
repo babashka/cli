@@ -4,12 +4,13 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## v0.9.68 (2026-05-23)
 
 - [#141](https://github.com/babashka/cli/issues/141): docs: briefly cover adding production polish to a cli
 ([@lread](https://github.com/lread))
 - [#144](https://github.com/babashka/cli/issues/144): deployed pom now reflects min supported clojure version & doc supported platforms/versions
 ([@lread](https://github.com/lread))
+- [#147](https://github.com/babashka/cli/issues/147): `opts->table` accepts `:columns` to override auto-detected columns ([@jeeger](https://github.com/jeeger))
 - Expose `parse-opts*`: parses args to raw map, no coercion / defaults / validation
 - Expose `coerce-opts`: standalone coerce step
 - Expose `validate-opts`: standalone `:restrict` / `:require` / `:validate` step
