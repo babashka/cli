@@ -10,27 +10,13 @@ For breaking changes, check [here](#breaking-changes).
 ([@lread](https://github.com/lread))
 - [#144](https://github.com/babashka/cli/issues/144): deployed pom now reflects min supported clojure version & doc supported platforms/versions
 ([@lread](https://github.com/lread))
-- Expose `parse-opts*`: parses CLI args to a raw map (string values, no
-  coercion, no defaults, no validation). Returns `:org.babashka/cli`
-  metadata plus `:babashka.cli/implicit-true-keys` and
-  `:babashka.cli/keys-order` for downstream `coerce-opts`.
-- Add `coerce-opts`: standalone coercion of a map using `:coerce`/`:spec`.
-- Add `validate-opts`: standalone `:restrict`/`:require`/`:validate` of a
-  map.
-- Add `apply-defaults`: fills missing keys in a map from `:exec-args` or
-  spec `:default` entries. Preserves metadata.
-- Pipeline: `parse-opts*` → external merge → `apply-defaults` →
-  `coerce-opts` → `validate-opts` lets callers interleave external
-  config (e.g. config files) between parse and coerce.
-- `parse-opts` strips internal `:babashka.cli/implicit-true-keys` and
-  `:babashka.cli/keys-order` from result metadata (was leaking).
-- Coerce errors fire in parse order (stable across runs), not hash order
-  for maps with >8 keys.
-- Coerce error data now includes `:implicit-true true` when the failure
-  originates from an implicit-true coercion (e.g. `--foo` with no
-  value). Lets callers distinguish "user supplied no value" from a real
-  coerce failure without pattern-matching on the parser-internal string
-  `"true"`.
+- Expose `parse-opts*`: parses args to raw map, no coercion / defaults / validation
+- Expose `coerce-opts`: standalone coerce step
+- Expose `validate-opts`: standalone `:restrict` / `:require` / `:validate` step
+- Add `apply-defaults`: fills missing keys from `:exec-args` or spec `:default`
+- `parse-opts` no longer leaks internal `:babashka.cli/implicit-true-keys` and `:babashka.cli/keys-order` into result meta
+- Stable coerce error order (parse order, not hash order) for maps with >8 keys
+- Coerce error data includes `:implicit-true true` when the failure was an implicit `--foo` with no value
 
 ## v0.8.67 (2025-11-21)
 
