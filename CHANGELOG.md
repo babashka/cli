@@ -6,6 +6,10 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
+- [#141](https://github.com/babashka/cli/issues/141): docs: briefly cover adding production polish to a cli
+([@lread](https://github.com/lread))
+- [#144](https://github.com/babashka/cli/issues/144): deployed pom now reflects min supported clojure version & doc supported platforms/versions
+([@lread](https://github.com/lread))
 - Expose `parse-opts*`: parses CLI args to a raw map (string values, no
   coercion, no defaults, no validation). Returns `:org.babashka/cli`
   metadata plus `:babashka.cli/implicit-true-keys` and
