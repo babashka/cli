@@ -281,13 +281,19 @@
          coerce-map (:coerce opts)
          implicit-true-keys (::implicit-true-keys opts)
          auto-coerce? (::auto-coerce opts)
+         keys-order (::keys-order opts)
          error-fn (->error-fn spec (:error-fn opts))]
      (if (or (seq coerce-map) auto-coerce?)
        (let [coerce-1 (fn [v cf implicit-true?]
-                         (if cf (coerce* v cf implicit-true?) (auto-coerce v)))]
+                         (if cf (coerce* v cf implicit-true?) (auto-coerce v)))
+             ordered-keys (if (seq keys-order)
+                            (concat keys-order
+                                    (remove (set keys-order) (keys m)))
+                            (keys m))]
          (with-meta
-           (reduce-kv
-            (fn [acc k v]
+           (reduce
+            (fn [acc k]
+              (let [v (get m k)]
               (if-let [coerce-k (get coerce-map k)]
                 (let [coll-coerce? (coll? coerce-k)
                       empty-coll (when coll-coerce? (or (empty coerce-k) []))
@@ -313,8 +319,8 @@
                       acc)))
                 (if auto-coerce?
                   (assoc acc k (auto-coerce v))
-                  (assoc acc k v))))
-            {} m)
+                  (assoc acc k v)))))
+            {} ordered-keys)
            (meta m)))
        m))))
 
@@ -403,6 +409,10 @@
         bool? (fn [k] (#{:boolean :bool} (coerce-coerce-fn (get coerce k))))
         track-itk (fn [itk current-opt added]
                     (cond-> itk (not= current-opt added) (conj current-opt)))
+        track-kpo (fn [kpo k]
+                    (if (and k (not (some #{k} kpo)))
+                      (conj kpo k)
+                      kpo))
         {:keys [cmds args]} (parse-cmds args)
         {new-args :args a->o :args->opts}
         (if-let [a->o (or (:args->opts opts) (:cmds-opts opts))]
@@ -411,24 +421,26 @@
         [cmds args] (if (not= new-args args)
                       [nil (concat new-args args)]
                       [cmds args])
-        [parsed last-opt added itk]
+        [parsed last-opt added itk kpo]
         (if (and (::dispatch-tree opts) (seq cmds))
-          [(vary-meta {} assoc-in [:org.babashka/cli :args] (into (vec cmds) args)) nil nil #{}]
+          [(vary-meta {} assoc-in [:org.babashka/cli :args] (into (vec cmds) args)) nil nil #{} []]
           (loop [acc {}
                  current-opt nil
                  added nil
                  mode (when no-keyword-opts :hyphens)
                  args (seq args)
                  a->o a->o
-                 itk #{}]
+                 itk #{}
+                 kpo []]
             (if-not args
-              [acc current-opt added itk]
+              [acc current-opt added itk kpo]
               (let [raw-arg (first args)
                     opt? (keyword? raw-arg)]
                 (if opt?
                   (recur (process-previous acc current-opt added nil)
                          raw-arg added mode (next args) a->o
-                         (track-itk itk current-opt added))
+                         (track-itk itk current-opt added)
+                         (track-kpo kpo raw-arg))
                   (let [implicit-true? (true? raw-arg)
                         arg (str raw-arg)
                         cf (collect-fn collect coerce current-opt)
@@ -442,7 +454,7 @@
                           (let [nargs (next args)]
                             [(cond-> acc
                                nargs (vary-meta assoc-in [:org.babashka/cli :args] (vec nargs)))
-                             current-opt added itk])
+                             current-opt added itk kpo])
                           (let [kname (if long-opt?
                                         (subs arg 2)
                                         (str/replace arg #"^(:|-|)" ""))
@@ -455,7 +467,8 @@
                             (if arg-val
                               (recur (process-previous acc current-opt added cf)
                                      k nil mode (cons arg-val (rest args)) a->o
-                                     (track-itk itk current-opt added))
+                                     (track-itk itk current-opt added)
+                                     (track-kpo kpo k))
                               (let [next-args (next args)
                                     next-arg (first next-args)
                                     m (parse-key next-arg mode current-opt boolean-opt? added known-keys alias-keys)
@@ -465,16 +478,18 @@
                                   ;; implicit true
                                   (if (and (not alias) composite-opt)
                                     (let [expanded (mapcat (fn [c] [(str "-" c) true]) (name k))]
-                                      (recur acc nil nil mode (concat expanded next-args) a->o itk))
+                                      (recur acc nil nil mode (concat expanded next-args) a->o itk kpo))
                                     (let [k (if negative?
                                               (keyword (str/replace (str k) ":no-" ""))
                                               k)]
                                       (recur (process-previous acc current-opt added cf)
                                              k added mode (cons (not negative?) next-args) a->o
-                                             (track-itk itk current-opt added))))
+                                             (track-itk itk current-opt added)
+                                             (track-kpo kpo k))))
                                   (recur (process-previous acc current-opt added cf)
                                          k nil mode next-args a->o
-                                         (track-itk itk current-opt added))))))))
+                                         (track-itk itk current-opt added)
+                                         (track-kpo kpo k))))))))
                       (let [the-end? (or
                                       (and boolean-opt?
                                            (not= "true" arg)
@@ -490,12 +505,13 @@
                                   {:args args})
                                 new-args? (not= args new-args)]
                             (if new-args?
-                              (recur acc current-opt added mode new-args a->o itk)
-                              [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt added itk]))
+                              (recur acc current-opt added mode new-args a->o itk kpo)
+                              [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt added itk kpo]))
                           (let [opt (when-not (and (= :keywords mode) fst-colon) current-opt)]
                             (recur (add-val acc current-opt cf arg)
                                    opt opt mode (next args) a->o
-                                   (cond-> itk implicit-true? (conj current-opt)))))))))))))
+                                   (cond-> itk implicit-true? (conj current-opt))
+                                   kpo)))))))))))
         ;; Finalize: process last opt, prepend cmds to args metadata
         itk (track-itk itk last-opt added)
         cf (collect-fn collect coerce last-opt)
@@ -504,7 +520,7 @@
                     (and (seq cmds) (not (::dispatch-tree opts)))
                      (vary-meta update-in [:org.babashka/cli :args]
                                 (fn [args] (into (vec cmds) args)))))]
-    (vary-meta parsed assoc ::implicit-true-keys itk)))
+    (vary-meta parsed assoc ::implicit-true-keys itk ::keys-order kpo)))
 
 (defn parse-opts
   "Parse the command line arguments `args`, a seq of strings.
@@ -522,7 +538,7 @@
   * `:restrict` - `true` or coll of keys. Throw on first parsed option not in set of keys or keys of `:spec` and `:coerce` combined.
   * `:require` - a coll of options that are required. See [require](https://github.com/babashka/cli#restrict).
   * `:validate` - a map of validator functions. See [validate](https://github.com/babashka/cli#validate).
-  * `:exec-args` - a map of default args. Will be overridden by args specified in `args`.
+  * `:exec-args` - a map of default args. Will be overridden by args specified in `args`. Values from `:exec-args` are NOT coerced or auto-coerced; provide them in their final form.
   * `:no-keyword-opts` - `true`. Support only `--foo`-style opts (i.e. `:foo` will not work).
   * `:repeated-opts` - `true`. Forces writing the option name for every value, e.g. `--foo a --foo b`, rather than `--foo a b`
   * `:args->opts` - consume unparsed commands and args as options
@@ -549,14 +565,16 @@
                                       :spec (:spec opts)
                                       :error-fn (:error-fn opts)
                                       ::implicit-true-keys (::implicit-true-keys (meta parsed))
+                                      ::keys-order (::keys-order (meta parsed))
                                       ::auto-coerce true
                                       ::resolved true})
          ;; Step 3: Apply defaults
          coerced (if-let [exec-args (:exec-args opts)]
                    (with-meta (merge exec-args coerced) (meta coerced))
-                   coerced)]
-     ;; Step 4: Validate
-     (validate-opts coerced opts))))
+                   coerced)
+         ;; Step 4: Validate
+         validated (validate-opts coerced opts)]
+     (vary-meta validated dissoc ::implicit-true-keys ::keys-order))))
 
 (defn parse-args
   "Same as `parse-opts` but separates parsed opts into `:opts` and adds

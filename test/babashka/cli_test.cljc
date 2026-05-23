@@ -747,3 +747,29 @@
            (-> {:foo "1"}
                (cli/coerce-opts {:coerce {:foo :long}})
                (cli/validate-opts {:validate {:foo pos?}}))))))
+
+(deftest internal-meta-not-leaked-test
+  (testing "::implicit-true-keys not in parse-opts result meta"
+    (is (nil? (:babashka.cli/implicit-true-keys (meta (cli/parse-opts ["--foo"]))))))
+  (testing "::keys-order not in parse-opts result meta"
+    (is (nil? (:babashka.cli/keys-order (meta (cli/parse-opts ["--foo" "--bar" "1"])))))))
+
+(deftest coerce-error-order-test
+  (testing "coerce errors fire in parse order, not hash order, for >8 keys"
+    (let [keys-list (mapv #(keyword (str "k" %)) (range 12))
+          args (vec (mapcat (fn [k] [(str "--" (name k)) "notanumber"]) keys-list))
+          coerce-spec (into {} (map (fn [k] [k :long]) keys-list))
+          errs (atom [])]
+      (cli/parse-opts args {:coerce coerce-spec
+                            :error-fn (fn [e] (swap! errs conj (:option e)))})
+      (is (= keys-list @errs)))))
+
+(deftest bool-coerce-parse-key-pinning-test
+  (testing "coll-wrapped :boolean: implicit-true wrapped in coll"
+    (is (= {:foo [true]} (cli/parse-opts ["--foo"] {:coerce {:foo [:boolean]}}))))
+  (testing "coll-wrapped :boolean: explicit value coerced and wrapped"
+    (is (= {:foo [true]} (cli/parse-opts ["--foo" "true"] {:coerce {:foo [:boolean]}}))))
+  (testing ":bool keyword treated like :boolean"
+    (is (= {:foo true} (cli/parse-opts ["--foo"] {:coerce {:foo :bool}}))))
+  (testing ":bool with explicit false"
+    (is (= {:foo false} (cli/parse-opts ["--foo" "false"] {:coerce {:foo :bool}})))))
