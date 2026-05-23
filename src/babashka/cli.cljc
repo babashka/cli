@@ -687,8 +687,8 @@
   ;;     "                           r3c3 l3"]
   )
 
-(defn opts->table [{:keys [spec order]}]
-  (let [columns (set (mapcat (fn [[_ s]] (keys s)) spec))]
+(defn opts->table [{:keys [spec order columns]}]
+  (let [columns (set (or columns (mapcat (fn [[_ s]] (keys s)) spec)))]
     (mapv (fn [[long-opt {:keys [alias default default-desc ref desc]}]]
             (keep identity
                   [(when (:alias columns)
