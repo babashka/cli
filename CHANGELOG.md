@@ -4,6 +4,30 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- Expose `parse-opts*`: parses CLI args to a raw map (string values, no
+  coercion, no defaults, no validation). Returns `:org.babashka/cli`
+  metadata plus `:babashka.cli/implicit-true-keys` and
+  `:babashka.cli/keys-order` for downstream `coerce-opts`.
+- Add `coerce-opts`: standalone coercion of a map using `:coerce`/`:spec`.
+- Add `validate-opts`: standalone `:restrict`/`:require`/`:validate` of a
+  map.
+- Add `apply-defaults`: fills missing keys in a map from `:exec-args` or
+  spec `:default` entries. Preserves metadata.
+- Pipeline: `parse-opts*` → external merge → `apply-defaults` →
+  `coerce-opts` → `validate-opts` lets callers interleave external
+  config (e.g. config files) between parse and coerce.
+- `parse-opts` strips internal `:babashka.cli/implicit-true-keys` and
+  `:babashka.cli/keys-order` from result metadata (was leaking).
+- Coerce errors fire in parse order (stable across runs), not hash order
+  for maps with >8 keys.
+- Coerce error data now includes `:implicit-true true` when the failure
+  originates from an implicit-true coercion (e.g. `--foo` with no
+  value). Lets callers distinguish "user supplied no value" from a real
+  coerce failure without pattern-matching on the parser-internal string
+  `"true"`.
+
 ## v0.8.67 (2025-11-21)
 
 - [#126](https://github.com/babashka/cli/issues/126): `-` value accidentally parsed as option, e.g. `--file -`
