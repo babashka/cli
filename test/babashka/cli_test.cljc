@@ -691,6 +691,22 @@
       (cli/coerce-opts {:foo "not-a-number"} {:coerce {:foo :long}
                                               :error-fn (fn [e] (swap! errors conj e))})
       (is (= :coerce (:cause (first @errors))))))
+  (testing "error data includes :implicit-true for implicit-true coerce failures"
+    ;; `--foo` with no value parses to (implicit) `true`. If `:foo` has a
+    ;; coerce that rejects boolean true (e.g. `:string`), error data
+    ;; should expose `:implicit-true true` so downstream error mappers
+    ;; can distinguish "user typed --foo alone" from a real coerce failure.
+    (let [errors (atom [])]
+      (cli/parse-opts ["--foo"] {:coerce {:foo :string}
+                                 :error-fn (fn [e] (swap! errors conj e))})
+      (is (= true (:implicit-true (first @errors))))
+      (is (= :coerce (:cause (first @errors))))))
+  (testing "error data does NOT include :implicit-true for explicit value failures"
+    (let [errors (atom [])]
+      (cli/parse-opts ["--foo" "abc"] {:coerce {:foo :long}
+                                       :error-fn (fn [e] (swap! errors conj e))})
+      (is (nil? (:implicit-true (first @errors))))
+      (is (= :coerce (:cause (first @errors))))))
   (testing "keys without coerce spec pass through unchanged"
     (is (= {:foo "1" :bar "hello"}
            (cli/coerce-opts {:foo "1" :bar "hello"} {:coerce {}})))))

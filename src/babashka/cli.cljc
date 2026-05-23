@@ -113,8 +113,9 @@
                        (if (keyword? f)
                          (name f)
                          f))
-                  {:input s
-                   :coerce-fn f}
+                  (cond-> {:input s
+                           :coerce-fn f}
+                    implicit-true? (assoc :implicit-true true))
                   e)))
 
 (defn- coerce*
@@ -313,12 +314,14 @@
                       :else
                       (assoc acc k (coerce-1 v cf it?)))
                     (catch #?(:clj ExceptionInfo :cljs :default) e
-                      (error-fn {:cause :coerce
-                                 :msg #?(:clj (.getMessage e)
-                                         :cljs (ex-message e))
-                                 :option k
-                                 :value v
-                                 :opts acc})
+                      (let [data (ex-data e)]
+                        (error-fn (cond-> {:cause :coerce
+                                           :msg #?(:clj (.getMessage e)
+                                                   :cljs (ex-message e))
+                                           :option k
+                                           :value v
+                                           :opts acc}
+                                    (:implicit-true data) (assoc :implicit-true true))))
                       acc)))
                 (if auto-coerce?
                   (assoc acc k (auto-coerce v))
