@@ -279,9 +279,12 @@
    (let [spec (:spec opts)
          opts (resolve-opts opts)
          coerce-map (:coerce opts)
-         implicit-true-keys (::implicit-true-keys opts)
+         m-meta (meta m)
+         implicit-true-keys (or (::implicit-true-keys opts)
+                                (::implicit-true-keys m-meta))
          auto-coerce? (::auto-coerce opts)
-         keys-order (::keys-order opts)
+         keys-order (or (::keys-order opts)
+                        (::keys-order m-meta))
          error-fn (->error-fn spec (:error-fn opts))]
      (if (or (seq coerce-map) auto-coerce?)
        (let [coerce-1 (fn [v cf implicit-true?]
@@ -392,14 +395,38 @@
                             :opts m})))))))
      m)))
 
+(defn apply-defaults
+  "Fills missing keys in `m` from defaults. Existing keys in `m` win.
+  Preserves metadata of `m`.
+
+  Supported options:
+  * `:exec-args` - map of defaults.
+  * `:spec` - spec; `:default` entries become defaults via `spec->opts`."
+  ([m] (apply-defaults m {}))
+  ([m opts]
+   (let [opts (resolve-opts opts)
+         exec-args (:exec-args opts)]
+     (if exec-args
+       (with-meta (merge exec-args m) (meta m))
+       m))))
+
 ;;
 ;; Parsing
 ;;
 
-(defn- parse-opts*
-  "Parses CLI args into a raw opts map (string values, no coercion).
-  Returns the raw map with :org.babashka/cli metadata.
-  ::implicit-true-keys in metadata tracks which keys got implicit true."
+(defn parse-opts*
+  "Parses CLI `args` into a raw opts map. Returns string values unchanged
+  (no coercion), does not apply `:exec-args` defaults, does not run
+  `:restrict`/`:require`/`:validate`. Result map includes
+  `:org.babashka/cli` metadata and internal `::implicit-true-keys` /
+  `::keys-order` metadata used by `coerce-opts`.
+
+  Use this when you want to merge other sources (e.g. config files)
+  before coerce/validate. Pipeline: `parse-opts*` -> merge -> `apply-defaults`
+  -> `coerce-opts` -> `validate-opts`.
+
+  Supported options (subset of `parse-opts`): `:alias`/`:aliases`, `:coerce`,
+  `:collect`, `:no-keyword-opts`, `:repeated-opts`, `:args->opts`, `:spec`."
   [args {:keys [coerce collect no-keyword-opts repeated-opts] :as opts}]
   (let [aliases (or (:alias opts) (:aliases opts))
         spec (:spec opts)
@@ -564,14 +591,10 @@
          coerced (coerce-opts parsed {:coerce (:coerce opts)
                                       :spec (:spec opts)
                                       :error-fn (:error-fn opts)
-                                      ::implicit-true-keys (::implicit-true-keys (meta parsed))
-                                      ::keys-order (::keys-order (meta parsed))
                                       ::auto-coerce true
                                       ::resolved true})
          ;; Step 3: Apply defaults
-         coerced (if-let [exec-args (:exec-args opts)]
-                   (with-meta (merge exec-args coerced) (meta coerced))
-                   coerced)
+         coerced (apply-defaults coerced opts)
          ;; Step 4: Validate
          validated (validate-opts coerced opts)]
      (vary-meta validated dissoc ::implicit-true-keys ::keys-order))))

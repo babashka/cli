@@ -764,6 +764,46 @@
                             :error-fn (fn [e] (swap! errs conj (:option e)))})
       (is (= keys-list @errs)))))
 
+(deftest parse-opts-star-test
+  (testing "parse-opts* returns raw strings (no coercion)"
+    (is (= {:foo "1"} (cli/parse-opts* ["--foo" "1"] {}))))
+  (testing "parse-opts* exposes ::implicit-true-keys + ::keys-order in meta"
+    (let [r (cli/parse-opts* ["--foo" "--bar" "1"] {})]
+      (is (= #{:foo} (:babashka.cli/implicit-true-keys (meta r))))
+      (is (= [:foo :bar] (:babashka.cli/keys-order (meta r))))))
+  (testing "parse-opts* skips :restrict / :require / :validate"
+    (is (= {:bar "1"} (cli/parse-opts* ["--bar" "1"]
+                                       {:restrict #{:foo} :require [:foo]})))))
+
+(deftest apply-defaults-test
+  (testing "spec :default fills missing keys"
+    (is (= {:foo 1 :bar 2}
+           (cli/apply-defaults {:bar 2} {:spec {:foo {:default 1}}}))))
+  (testing "existing keys win over defaults"
+    (is (= {:foo 9}
+           (cli/apply-defaults {:foo 9} {:spec {:foo {:default 1}}}))))
+  (testing ":exec-args directly"
+    (is (= {:foo 1 :bar 2}
+           (cli/apply-defaults {:bar 2} {:exec-args {:foo 1}}))))
+  (testing "preserves meta"
+    (let [m (with-meta {:bar 2} {:keep :this})]
+      (is (= {:keep :this} (meta (cli/apply-defaults m {:exec-args {:foo 1}})))))))
+
+(deftest squint-style-pipeline-test
+  (testing "parse* -> external merge -> apply-defaults -> coerce -> validate"
+    (let [spec {:paths {:coerce [:string] :default ["." "src"]}
+                :output-dir {:coerce :string :default "."}
+                :verbose {:coerce :boolean}}
+          ext-config {:output-dir "/tmp/custom"}
+          parsed (cli/parse-opts* ["--paths" "lib" "--verbose"] {:spec spec})
+          ;; cli wins over external config
+          merged (with-meta (merge ext-config parsed) (meta parsed))
+          with-defaults (cli/apply-defaults merged {:spec spec})
+          coerced (cli/coerce-opts with-defaults {:spec spec
+                                                  :babashka.cli/auto-coerce true})
+          validated (cli/validate-opts coerced {:spec spec :restrict true})]
+      (is (= {:paths ["lib"] :output-dir "/tmp/custom" :verbose true} validated)))))
+
 (deftest bool-coerce-parse-key-pinning-test
   (testing "coll-wrapped :boolean: implicit-true wrapped in coll"
     (is (= {:foo [true]} (cli/parse-opts ["--foo"] {:coerce {:foo [:boolean]}}))))
