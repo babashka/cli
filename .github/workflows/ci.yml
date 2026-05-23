@@ -31,7 +31,8 @@ jobs:
     - name: Setup Clojure
       uses: DeLaGuardo/setup-clojure@13.5
       with:
-        bb: latest
+        bb: 1.12.218
+        github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Run tests
       run: |
@@ -60,7 +61,8 @@ jobs:
     - name: Setup Clojure
       uses: DeLaGuardo/setup-clojure@13.5
       with:
-        bb: latest
+        bb: 1.12.218
+        github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Run tests
       run: |
