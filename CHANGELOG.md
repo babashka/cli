@@ -10,6 +10,11 @@ For breaking changes, check [here](#breaking-changes).
 ([@lread](https://github.com/lread))
 - [#144](https://github.com/babashka/cli/issues/144): deployed pom now reflects min supported clojure version & doc supported platforms/versions
 ([@lread](https://github.com/lread))
+- Expose `parse-opts*`: parses args to raw map, no coercion / defaults / validation
+- Expose `coerce-opts`: standalone coerce step
+- Expose `validate-opts`: standalone `:restrict` / `:require` / `:validate` step
+- Add `apply-defaults`: fills missing keys from `:exec-args` or spec `:default`
+- Coerce error data includes `:implicit-true true` when the failure was an implicit `--foo` with no value
 
 ## v0.8.67 (2025-11-21)
 

@@ -2,9 +2,9 @@
   (:require
    [babashka.cli :as cli]
    [babashka.cli.test-report]
+   [borkdude.deflet :as d]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
-   [borkdude.deflet :as d]
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])))
 
@@ -468,7 +468,7 @@
   (testing "auto-coerce multiple keywords in keywords mode"
     (is (submap? {:foo [:bar :baz]} (cli/parse-opts [":foo" ":bar" ":foo" ":baz"] {:coerce {:foo []}}))))
   (is (= 1 (cli/auto-coerce 1)))
-  (testing (str "We want to catch most normal keywords, staying close to the Clojure reader.")
+  (testing "We want to catch most normal keywords, staying close to the Clojure reader."
     (is (= "1. This is a title." (cli/auto-coerce "1. This is a title.")))
     (is (= ":1. This is a title." (cli/auto-coerce ":1. This is a title.")))
     (is (= :abc (cli/auto-coerce ":abc")))
@@ -477,7 +477,7 @@
     (is (= (keyword "a/b/c") (cli/auto-coerce ":a/b/c")))
     (is (= ":a.b c.d" (cli/auto-coerce ":a.b c.d")))
     (is (= ":a.b\tc.d" (cli/auto-coerce ":a.b\tc.d"))))
-  (is (= nil (cli/auto-coerce "nil")))
+  (is (nil? (cli/auto-coerce "nil")))
   (is (= -10 (cli/auto-coerce "-10")))
   (is (submap? {:foo -10} (cli/parse-opts ["--foo" "-10"])))
   (is (submap? {:foo -10} (cli/parse-opts ["--foo" "-10"] {:coerce {:foo :number}})))
@@ -659,3 +659,174 @@
 (deftest issue-126-test
   (is (= {:file "-"} (cli/parse-opts ["--file" "-"])))
   (is (= {:file "-"} (cli/parse-opts ["-"] {:args->opts [:file]}))))
+
+(deftest coerce-opts-test
+  (testing "simple coercion"
+    (is (= {:foo 1 :bar "hello"}
+           (cli/coerce-opts {:foo "1" :bar "hello"} {:coerce {:foo :long}}))))
+  (testing "multiple coercions"
+    (is (= {:foo 1 :bar :baz}
+           (cli/coerce-opts {:foo "1" :bar "baz"} {:coerce {:foo :long :bar :keyword}}))))
+  (testing "non-string values pass through"
+    (is (= {:foo 1} (cli/coerce-opts {:foo 1} {:coerce {:foo :long}}))))
+  (testing "collection coerce on sequential value"
+    (is (= {:foo [1 2 3]}
+           (cli/coerce-opts {:foo ["1" "2" "3"]} {:coerce {:foo [:long]}}))))
+  (testing "collection coerce on single value"
+    (is (= {:foo [1]}
+           (cli/coerce-opts {:foo "1"} {:coerce {:foo [:long]}}))))
+  (testing "collection coerce with set"
+    (is (= {:foo #{1 2 3}}
+           (cli/coerce-opts {:foo ["1" "2" "3"]} {:coerce {:foo #{:long}}}))))
+  (testing "non-string collection elements pass through"
+    (is (= {:foo [1 2 3]}
+           (cli/coerce-opts {:foo [1 2 3]} {:coerce {:foo [:long]}}))))
+  (testing "auto-coerce without coerce fn"
+    (is (= {:foo [1 :bar true]}
+           (cli/coerce-opts {:foo ["1" ":bar" "true"]} {:coerce {:foo []}}))))
+  (testing "using spec"
+    (is (= {:foo :bar}
+           (cli/coerce-opts {:foo "bar"} {:spec {:foo {:coerce :keyword}}}))))
+  (testing "error-fn on coercion failure"
+    (let [errors (atom [])]
+      (cli/coerce-opts {:foo "not-a-number"} {:coerce {:foo :long}
+                                              :error-fn (fn [e] (swap! errors conj e))})
+      (is (= :coerce (:cause (first @errors))))))
+  (testing "error data includes :implicit-true for implicit-true coerce failures"
+    ;; `--foo` with no value parses to (implicit) `true`. If `:foo` has a
+    ;; coerce that rejects boolean true (e.g. `:string`), error data
+    ;; should expose `:implicit-true true` so downstream error mappers
+    ;; can distinguish "user typed --foo alone" from a real coerce failure.
+    (let [errors (atom [])]
+      (cli/parse-opts ["--foo"] {:coerce {:foo :string}
+                                 :error-fn (fn [e] (swap! errors conj e))})
+      (is (= true (:implicit-true (first @errors))))
+      (is (= :coerce (:cause (first @errors))))))
+  (testing "error data does NOT include :implicit-true for explicit value failures"
+    (let [errors (atom [])]
+      (cli/parse-opts ["--foo" "abc"] {:coerce {:foo :long}
+                                       :error-fn (fn [e] (swap! errors conj e))})
+      (is (nil? (:implicit-true (first @errors))))
+      (is (= :coerce (:cause (first @errors))))))
+  (testing "keys without coerce spec pass through unchanged"
+    (is (= {:foo "1" :bar "hello"}
+           (cli/coerce-opts {:foo "1" :bar "hello"} {:coerce {}})))))
+
+(deftest validate-opts-test
+  (testing "restrict"
+    (is (thrown-with-msg?
+         Exception #"Unknown option: :bar"
+         (cli/validate-opts {:foo 1 :bar 2} {:restrict #{:foo}}))))
+  (testing "restrict with true and spec"
+    (is (thrown-with-msg?
+         Exception #"Unknown option: :bar"
+         (cli/validate-opts {:foo 1 :bar 2} {:spec {:foo {:coerce :long}} :restrict true}))))
+  (testing "restrict passes for known keys"
+    (is (= {:foo 1}
+           (cli/validate-opts {:foo 1} {:restrict #{:foo}}))))
+  (testing "require"
+    (is (thrown-with-msg?
+         Exception #"Required option: :bar"
+         (cli/validate-opts {:foo 1} {:require [:bar]}))))
+  (testing "require passes when present"
+    (is (= {:foo 1 :bar 2}
+           (cli/validate-opts {:foo 1 :bar 2} {:require [:bar]}))))
+  (testing "validate"
+    (is (thrown-with-msg?
+         Exception #"Invalid value for option :foo"
+         (cli/validate-opts {:foo 0} {:validate {:foo pos?}}))))
+  (testing "validate passes"
+    (is (= {:foo 1}
+           (cli/validate-opts {:foo 1} {:validate {:foo pos?}}))))
+  (testing "validate with pred and ex-msg"
+    (is (thrown-with-msg?
+         Exception #"Expected positive"
+         (cli/validate-opts {:foo 0} {:validate {:foo {:pred pos?
+                                                       :ex-msg (fn [{:keys [option value]}]
+                                                                 (str "Expected positive for " option ": " value))}}}))))
+  (testing "using spec"
+    (is (thrown-with-msg?
+         Exception #"Required option: :foo"
+         (cli/validate-opts {} {:spec {:foo {:require true}}}))))
+  (testing "error-fn"
+    (let [errors (atom [])]
+      (cli/validate-opts {:foo 0}
+                         {:require [:bar]
+                          :validate {:foo pos?}
+                          :error-fn (fn [e] (swap! errors conj e))})
+      (is (= 2 (count @errors)))
+      (is (= :require (:cause (first @errors))))
+      (is (= :validate (:cause (second @errors))))))
+  (testing "returns the input map"
+    (is (= {:foo 1} (cli/validate-opts {:foo 1} {}))))
+  (testing "composing coerce-opts and validate-opts"
+    (is (= {:foo 1}
+           (-> {:foo "1"}
+               (cli/coerce-opts {:coerce {:foo :long}})
+               (cli/validate-opts {:validate {:foo pos?}}))))))
+
+(deftest internal-meta-not-leaked-test
+  (testing "::implicit-true-keys not in parse-opts result meta"
+    (is (nil? (:babashka.cli/implicit-true-keys (meta (cli/parse-opts ["--foo"]))))))
+  (testing "::keys-order not in parse-opts result meta"
+    (is (nil? (:babashka.cli/keys-order (meta (cli/parse-opts ["--foo" "--bar" "1"])))))))
+
+(deftest coerce-error-order-test
+  (testing "coerce errors fire in parse order, not hash order, for >8 keys"
+    (let [keys-list (mapv #(keyword (str "k" %)) (range 12))
+          args (vec (mapcat (fn [k] [(str "--" (name k)) "notanumber"]) keys-list))
+          coerce-spec (into {} (map (fn [k] [k :long]) keys-list))
+          errs (atom [])]
+      (cli/parse-opts args {:coerce coerce-spec
+                            :error-fn (fn [e] (swap! errs conj (:option e)))})
+      (is (= keys-list @errs)))))
+
+(deftest parse-opts-star-test
+  (testing "parse-opts* returns raw strings (no coercion)"
+    (is (= {:foo "1"} (cli/parse-opts* ["--foo" "1"] {}))))
+  (testing "parse-opts* exposes ::implicit-true-keys + ::keys-order in meta"
+    (let [r (cli/parse-opts* ["--foo" "--bar" "1"] {})]
+      (is (= #{:foo} (:babashka.cli/implicit-true-keys (meta r))))
+      (is (= [:foo :bar] (:babashka.cli/keys-order (meta r))))))
+  (testing "parse-opts* skips :restrict / :require / :validate"
+    (is (= {:bar "1"} (cli/parse-opts* ["--bar" "1"]
+                                       {:restrict #{:foo} :require [:foo]})))))
+
+(deftest apply-defaults-test
+  (testing "spec :default fills missing keys"
+    (is (= {:foo 1 :bar 2}
+           (cli/apply-defaults {:bar 2} {:spec {:foo {:default 1}}}))))
+  (testing "existing keys win over defaults"
+    (is (= {:foo 9}
+           (cli/apply-defaults {:foo 9} {:spec {:foo {:default 1}}}))))
+  (testing ":exec-args directly"
+    (is (= {:foo 1 :bar 2}
+           (cli/apply-defaults {:bar 2} {:exec-args {:foo 1}}))))
+  (testing "preserves meta"
+    (let [m (with-meta {:bar 2} {:keep :this})]
+      (is (= {:keep :this} (meta (cli/apply-defaults m {:exec-args {:foo 1}})))))))
+
+(deftest squint-style-pipeline-test
+  (testing "parse* -> external merge -> apply-defaults -> coerce -> validate"
+    (let [spec {:paths {:coerce [:string] :default ["." "src"]}
+                :output-dir {:coerce :string :default "."}
+                :verbose {:coerce :boolean}}
+          ext-config {:output-dir "/tmp/custom"}
+          parsed (cli/parse-opts* ["--paths" "lib" "--verbose"] {:spec spec})
+          ;; cli wins over external config
+          merged (with-meta (merge ext-config parsed) (meta parsed))
+          with-defaults (cli/apply-defaults merged {:spec spec})
+          coerced (cli/coerce-opts with-defaults {:spec spec
+                                                  :babashka.cli/auto-coerce true})
+          validated (cli/validate-opts coerced {:spec spec :restrict true})]
+      (is (= {:paths ["lib"] :output-dir "/tmp/custom" :verbose true} validated)))))
+
+(deftest bool-coerce-parse-key-pinning-test
+  (testing "coll-wrapped :boolean: implicit-true wrapped in coll"
+    (is (= {:foo [true]} (cli/parse-opts ["--foo"] {:coerce {:foo [:boolean]}}))))
+  (testing "coll-wrapped :boolean: explicit value coerced and wrapped"
+    (is (= {:foo [true]} (cli/parse-opts ["--foo" "true"] {:coerce {:foo [:boolean]}}))))
+  (testing ":bool keyword treated like :boolean"
+    (is (= {:foo true} (cli/parse-opts ["--foo"] {:coerce {:foo :bool}}))))
+  (testing ":bool with explicit false"
+    (is (= {:foo false} (cli/parse-opts ["--foo" "false"] {:coerce {:foo :bool}})))))
