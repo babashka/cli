@@ -8,6 +8,7 @@ For breaking changes, check [here](#breaking-changes).
 
 - Expose `table->tree`: converts a `dispatch` table into the nested tree used internally, handy for generating help or completions
 - `dispatch` now includes the `:dispatch` (matched subcommand path) in flag-level error data (`:restrict` / `:require` / `:validate` / `:coerce`), so an `:error-fn` can show help for the right subcommand
+- Fix `:restrict` rejecting shared/parent options in `dispatch`: options parsed at a parent subcommand level (passed down via `:exec-args`) are no longer flagged as unknown at child levels
 
 ## v0.9.68 (2026-05-23)
 
