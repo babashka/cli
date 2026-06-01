@@ -676,6 +676,27 @@
           (is (= :require (:cause e)))
           (is (= ["foo"] (:dispatch e))))))))
 
+(deftest restrict-with-shared-options-test
+  (testing ":restrict does not reject options parsed at a parent dispatch level"
+    (let [table [{:cmds ["deps"]            :spec {:registry {}}}
+                 {:cmds ["deps" "outdated"] :fn identity :spec {:format {}}}]]
+      (is (= {:dispatch ["deps" "outdated"]
+              :opts {:registry "X" :format "edn"}
+              :args nil}
+             (cli/dispatch table
+                           ["deps" "--registry" "X" "outdated" "--format" "edn"]
+                           {:restrict true})))
+      (testing "genuinely unknown options are still rejected"
+        (is (thrown-with-msg?
+             Exception #"Unknown option: :bogus"
+             (cli/dispatch table ["deps" "outdated" "--bogus"] {:restrict true}))))))
+  (testing "fix is scoped to dispatch: plain :exec-args still subject to :restrict"
+    (is (thrown-with-msg?
+         Exception #"Unknown option: :bar"
+         (cli/parse-opts ["--foo"] {:spec {:foo {:coerce :boolean}}
+                                    :exec-args {:bar 1}
+                                    :restrict true})))))
+
 (deftest issue-106-test
   (d/deflet
     (def global-spec {:config  {:desc "Config edn file to use"

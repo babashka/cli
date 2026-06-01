@@ -359,10 +359,15 @@
                     (some-> restrict set))
          require (:require opts)
          validate (:validate opts)
+         ;; options parsed at a parent `dispatch` level (shared options) are
+         ;; passed down via ::dispatch-inherited and must not be flagged as
+         ;; unknown at child levels. Internal, not a public option.
+         inherited (::dispatch-inherited opts)
          error-fn (->error-fn spec (:error-fn opts))]
      (when restrict
        (doseq [k (keys m)]
          (when (and (not (contains? restrict k))
+                    (not (contains? inherited k))
                     (not= "babashka.cli" (namespace k)))
            (error-fn {:cause :restrict
                       :msg (str "Unknown option: " k)
@@ -408,9 +413,12 @@
   ([m] (apply-defaults m {}))
   ([m opts]
    (let [opts (resolve-opts opts)
-         exec-args (:exec-args opts)]
-     (if exec-args
-       (with-meta (merge exec-args m) (meta m))
+         exec-args (:exec-args opts)
+         ;; values inherited from parent `dispatch` levels (shared options);
+         ;; override spec/`:exec-args` defaults but are overridden by `m`
+         inherited (::dispatch-inherited opts)]
+     (if (or exec-args inherited)
+       (with-meta (merge exec-args inherited m) (meta m))
        m))))
 
 ;;
@@ -774,8 +782,11 @@
                                    (user-error-fn data)
                                    (throw (ex-info (:msg data) data))))))
            {:keys [args opts]} (if should-parse-args?
-                                 (parse-args args (assoc (update parse-opts :exec-args merge all-opts)
+                                 (parse-args args (assoc parse-opts
                                                          ::dispatch-tree true
+                                                         ;; shared options parsed at parent levels: seeded as
+                                                         ;; values and exempt from this level's :restrict
+                                                         ::dispatch-inherited all-opts
                                                          ::dispatch-tree-ignored-args (set (keys (:cmd cmd-info)))))
                                  {:args args
                                   :opts {}})
