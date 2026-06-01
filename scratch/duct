@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Run the help spike as a real CLI under bb.
+# bb ships a builtin babashka.cli that shadows the local src, so we :reload
+# babashka.cli from the classpath before dispatching.
+set -euo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec bb --classpath "$DIR/src:$DIR/scratch" \
+  -e "(require '[babashka.cli] :reload)(require 'help-spike)(apply (resolve 'help-spike/-main) *command-line-args*)" \
+  -- "$@"
