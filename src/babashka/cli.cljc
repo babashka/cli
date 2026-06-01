@@ -762,15 +762,38 @@
        (or (str/starts-with? s "-")
            (str/starts-with? s ":"))))
 
+(defn- ->spec-map [spec]
+  (cond (nil? spec) {}
+        (map? spec) spec
+        :else (into {} spec)))
+
+(defn- inherited-entries
+  "Spec entries of `spec` that propagate to descendant levels: those marked
+  `:inherit`, plus those selected by a dispatch-level `:inherit` opt
+  (`true` = all of `spec`, or a coll of keys)."
+  [spec inherit-opt]
+  (let [m (->spec-map spec)]
+    (if (true? inherit-opt)
+      m
+      (merge (into {} (filter (fn [[_ v]] (and (map? v) (:inherit v))) m))
+             (when (coll? inherit-opt) (select-keys m (set inherit-opt)))))))
+
 (defn- dispatch-tree'
   ([tree args]
    (dispatch-tree' tree args nil))
   ([tree args opts]
-   (loop [cmds [] all-opts {} args args cmd-info tree]
+   (loop [cmds [] all-opts {} args args cmd-info tree inherited {}]
      (let [kwm cmd-info
+           ;; capture before the parse-args destructure below shadows `opts`
+           inherit-opt (:inherit opts)
            should-parse-args? (or (has-parse-opts? kwm)
+                                  (seq inherited)
                                   (is-option? (first args)))
            parse-opts (deep-merge opts kwm)
+           ;; options marked `:inherit` at an ancestor level are accepted here
+           ;; too (e.g. `prog group --opt val sub` and `prog group sub --opt val`)
+           parse-opts (cond-> parse-opts
+                        (seq inherited) (update :spec #(merge inherited (->spec-map %))))
            ;; thread the current dispatch path into flag-level errors
            ;; (restrict/require/validate/coerce) so an :error-fn can render
            ;; help for the right subcommand
@@ -795,7 +818,8 @@
                         (update ::opts-by-cmds (fnil conj []) {:cmds cmds
                                                                :opts opts}))]
        (if-let [subcmd-info (get (:cmd cmd-info) arg)]
-         (recur (conj cmds arg) all-opts rest subcmd-info)
+         (recur (conj cmds arg) all-opts rest subcmd-info
+                (merge inherited (inherited-entries (:spec kwm) inherit-opt)))
          (if (:fn cmd-info)
            {:cmd-info cmd-info
             :dispatch cmds

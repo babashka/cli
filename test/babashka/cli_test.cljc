@@ -697,6 +697,50 @@
                                     :exec-args {:bar 1}
                                     :restrict true})))))
 
+(deftest inherit-flags-test
+  (testing ":inherit options propagate to descendant levels"
+    (let [table [{:cmds ["deps"]            :spec {:registry {:alias :r :inherit true}}}
+                 {:cmds ["deps" "outdated"] :fn identity :spec {:format {}}}]]
+      (testing "accepted after the subcommand"
+        (is (= {:dispatch ["deps" "outdated"] :opts {:registry "X" :format "edn"} :args nil}
+               (cli/dispatch table ["deps" "outdated" "--registry" "X" "--format" "edn"] {:restrict true}))))
+      (testing "still accepted before the subcommand"
+        (is (= {:dispatch ["deps" "outdated"] :opts {:registry "X"} :args nil}
+               (cli/dispatch table ["deps" "--registry" "X" "outdated"] {:restrict true}))))
+      (testing "alias propagates too"
+        (is (= {:dispatch ["deps" "outdated"] :opts {:registry "X"} :args nil}
+               (cli/dispatch table ["deps" "outdated" "-r" "X"] {:restrict true}))))))
+  (testing "coercion propagates across levels"
+    (let [table [{:cmds ["a"]     :spec {:n {:coerce :int :inherit true}}}
+                 {:cmds ["a" "b"] :fn identity}]]
+      (is (= {:n 7} (:opts (cli/dispatch table ["a" "b" "--n" "7"] {:restrict true}))))))
+  (testing "a child spec may override an inherited option"
+    (let [table [{:cmds ["a"]     :spec {:x {:coerce :int :inherit true}}}
+                 {:cmds ["a" "b"] :fn identity :spec {:x {:coerce :keyword}}}]]
+      (is (= {:x :hi} (:opts (cli/dispatch table ["a" "b" "--x" "hi"] {:restrict true}))))))
+  (testing "options without :inherit do NOT propagate (rejected after subcommand)"
+    (let [table [{:cmds ["deps"]            :spec {:registry {}}}
+                 {:cmds ["deps" "outdated"] :fn identity :spec {:format {}}}]]
+      (is (thrown-with-msg?
+           Exception #"Unknown option: :registry"
+           (cli/dispatch table ["deps" "outdated" "--registry" "X"] {:restrict true})))))
+  (testing "dispatch-level :inherit makes options inherit without per-option marking"
+    (let [table [{:cmds ["deps"]            :spec {:registry {} :token {}}}
+                 {:cmds ["deps" "outdated"] :fn identity :spec {:format {}}}]]
+      (testing ":inherit true -> all ancestor options inherit"
+        (is (= {:registry "X" :token "T" :format "edn"}
+               (:opts (cli/dispatch table
+                                    ["deps" "outdated" "--registry" "X" "--token" "T" "--format" "edn"]
+                                    {:inherit true :restrict true})))))
+      (testing ":inherit #{ks} -> only listed options inherit"
+        (is (= {:registry "X"}
+               (:opts (cli/dispatch table ["deps" "outdated" "--registry" "X"]
+                                    {:inherit #{:registry} :restrict true}))))
+        (is (thrown-with-msg?
+             Exception #"Unknown option: :token"
+             (cli/dispatch table ["deps" "outdated" "--token" "T"]
+                           {:inherit #{:registry} :restrict true})))))))
+
 (deftest issue-106-test
   (d/deflet
     (def global-spec {:config  {:desc "Config edn file to use"
