@@ -717,7 +717,16 @@
     (when (= prefix a)
       suffix)))
 
-(defn- table->tree [table]
+(defn table->tree
+  "Converts a `dispatch` table into a tree. Each `:cmds` becomes a path of
+  nested `:cmd` maps; other entry keys are kept on the node. Empty `:cmds`
+  merges onto the root.
+
+  ```clojure
+  (table->tree [{:cmds [\"add\"] :fn add} {:cmds [] :fn help}])
+  ;; => {:fn help, :cmd {\"add\" {:fn add}}}
+  ```"
+  [table]
   (reduce (fn [tree {:as cfg :keys [cmds]}]
             (let [ks (interleave (repeat :cmd) cmds)]
               (if (seq ks)
@@ -754,6 +763,16 @@
            should-parse-args? (or (has-parse-opts? kwm)
                                   (is-option? (first args)))
            parse-opts (deep-merge opts kwm)
+           ;; thread the current dispatch path into flag-level errors
+           ;; (restrict/require/validate/coerce) so an :error-fn can render
+           ;; help for the right subcommand
+           user-error-fn (:error-fn parse-opts)
+           parse-opts (assoc parse-opts :error-fn
+                             (fn [data]
+                               (let [data (assoc data :dispatch cmds)]
+                                 (if user-error-fn
+                                   (user-error-fn data)
+                                   (throw (ex-info (:msg data) data))))))
            {:keys [args opts]} (if should-parse-args?
                                  (parse-args args (assoc (update parse-opts :exec-args merge all-opts)
                                                          ::dispatch-tree true

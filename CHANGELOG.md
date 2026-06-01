@@ -4,6 +4,11 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- Expose `table->tree`: converts a `dispatch` table into the nested tree used internally, handy for generating help or completions
+- `dispatch` now includes the `:dispatch` (matched subcommand path) in flag-level error data (`:restrict` / `:require` / `:validate` / `:coerce`), so an `:error-fn` can show help for the right subcommand
+
 ## v0.9.68 (2026-05-23)
 
 - [#141](https://github.com/babashka/cli/issues/141): docs: briefly cover adding production polish to a cli
