@@ -443,12 +443,17 @@
                 {"baz"
                  {:spec {:quux {:coerce :keyword}},
                   :fn identity}}}}}}}
-           (#'cli/table->tree [{:cmds ["foo" "bar"]
-                                :spec {:baz {:coerce :boolean}}
-                                :fn identity}
-                               {:cmds ["foo" "bar" "baz"]
-                                :spec {:quux {:coerce :keyword}}
-                                :fn identity}])))))
+           (cli/table->tree [{:cmds ["foo" "bar"]
+                              :spec {:baz {:coerce :boolean}}
+                              :fn identity}
+                             {:cmds ["foo" "bar" "baz"]
+                              :spec {:quux {:coerce :keyword}}
+                              :fn identity}]))))
+  (testing "extra entry keys (e.g. :doc) survive on the node, for help rendering"
+    (is (= {:doc "root"
+            :cmd {"foo" {:doc "a foo" :fn identity}}}
+           (cli/table->tree [{:cmds [] :doc "root"}
+                             {:cmds ["foo"] :doc "a foo" :fn identity}])))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
@@ -639,6 +644,37 @@
                          :spec {:x {:coerce :boolean}}}]
                        ["foo"]
                        {:restrict true}))))
+
+(deftest dispatch-flag-error-includes-dispatch-path-test
+  (testing "flag-level errors during dispatch carry the :dispatch path so an
+            :error-fn can render help for the right subcommand"
+    ;; capture the first error and halt (mirrors a real error-fn that exits)
+    (let [capture (fn [table args opts]
+                    (let [err (atom nil)]
+                      (try
+                        (cli/dispatch table args
+                                      (assoc opts :error-fn
+                                             (fn [e] (reset! err e)
+                                               (throw (ex-info "stop" {})))))
+                        (catch #?(:clj Exception :cljs :default) _ nil))
+                      @err))
+          table [{:cmds [] :spec {:g {:coerce :boolean}}}
+                 {:cmds ["foo"] :fn identity :spec {:x {:coerce :boolean}}}
+                 {:cmds ["foo" "bar"] :fn identity :spec {:y {:coerce :boolean}}}]]
+      (testing ":restrict at top level -> empty :dispatch"
+        (let [e (capture table ["--bogus"] {:restrict true})]
+          (is (= :restrict (:cause e)))
+          (is (= [] (:dispatch e)))))
+      (testing ":restrict at nested subcommand -> full :dispatch path"
+        (let [e (capture table ["foo" "bar" "--bogus"] {:restrict true})]
+          (is (= :restrict (:cause e)))
+          (is (= ["foo" "bar"] (:dispatch e)))))
+      (testing ":require error also carries :dispatch path"
+        (let [e (capture [{:cmds ["foo"] :fn identity
+                           :spec {:req {:require true}}}]
+                         ["foo"] {})]
+          (is (= :require (:cause e)))
+          (is (= ["foo"] (:dispatch e))))))))
 
 (deftest issue-106-test
   (d/deflet
