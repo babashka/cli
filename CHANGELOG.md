@@ -9,6 +9,7 @@ For breaking changes, check [here](#breaking-changes).
 - Expose `table->tree`: converts a `dispatch` table into the nested tree used internally, handy for generating help or completions
 - `dispatch` now includes the `:dispatch` (matched subcommand path) in flag-level error data (`:restrict` / `:require` / `:validate` / `:coerce`), so an `:error-fn` can show help for the right subcommand
 - Fix `:restrict` rejecting shared/parent options in `dispatch`: options parsed at a parent subcommand level (passed down via `:exec-args`) are no longer flagged as unknown at child levels
+- Support `:inherit true` on a spec option in `dispatch`: the option is inherited by descendant subcommand levels, so it is accepted (and coerced / restrict-checked) both before and after the subcommand (e.g. `prog group --opt v sub` and `prog group sub --opt v`). `:inherit` may also be passed at the `dispatch` level as `true` (all options inherit) or a collection of keys
 
 ## v0.9.68 (2026-05-23)
 

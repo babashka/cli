@@ -652,6 +652,48 @@ Note that it is possible to use `:args->opts` but subcommands are always priorit
 (cli/dispatch table ["sub1" "sub2"]) ;;=> {:dispatch ["sub1" "sub2"], :opts {}}
 ```
 
+### Inherited options
+
+By default an option is only parsed at the level whose spec defines it, so it
+must be supplied before its subcommand:
+
+``` clojure
+(def table
+  [{:cmds ["group"]       :spec {:registry {}}}
+   {:cmds ["group" "sub"] :fn identity :spec {:format {}}}])
+
+(cli/dispatch table ["group" "--registry" "X" "sub"] {:restrict true})
+;;=> {:dispatch ["group" "sub"], :opts {:registry "X"}}
+
+(cli/dispatch table ["group" "sub" "--registry" "X"] {:restrict true})
+;; throws: Unknown option: :registry
+```
+
+Mark an option `:inherit true` to also accept it at any descendant level (after
+the subcommand). It is coerced and restrict-checked at whichever level it
+appears:
+
+``` clojure
+(def table
+  [{:cmds ["group"]       :spec {:registry {:inherit true}}}
+   {:cmds ["group" "sub"] :fn identity :spec {:format {}}}])
+
+(cli/dispatch table ["group" "sub" "--registry" "X"] {:restrict true})
+;;=> {:dispatch ["group" "sub"], :opts {:registry "X"}}
+```
+
+It's called `:inherit` because the option is inherited down the command tree by
+the descendants of the level that declares it. A descendant may redefine it in
+its own spec, in which case the descendant's definition wins.
+
+Instead of marking individual options, you can pass `:inherit` to `dispatch`.
+Use `true` to inherit all options, or a set of keys to inherit only those:
+
+``` clojure
+(cli/dispatch table ["group" "sub" "--registry" "X"] {:inherit true})
+(cli/dispatch table ["group" "sub" "--registry" "X"] {:inherit #{:registry}})
+```
+
 ## Babashka tasks
 
 For documentation on babashka tasks, go
