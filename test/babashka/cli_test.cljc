@@ -632,6 +632,63 @@
         (is (= :missing-subcommand (:cause (first @calls))))
         (is (= 1 (:exit (first @calls))))))))
 
+(deftest help-option-test
+  ;; `:help` on dispatch: help without :restrict, native --help interception
+  (let [table [{:cmds [] :doc "tool"
+                :spec {:verbose {:alias :v :inherit true :desc "Verbose"}}}
+               {:cmds ["dev"] :fn identity :doc "Start dev."
+                :spec {:sync {:coerce :boolean :desc "Sync"}}}
+               {:cmds ["deps"] :doc "Dep tools"}
+               {:cmds ["deps" "outdated"] :fn identity :doc "Show outdated"}]
+        run (fn [args]
+              (let [exit (atom nil)
+                    ran (atom nil)
+                    table (mapv (fn [e] (cond-> e (:fn e) (assoc :fn (fn [m] (reset! ran m))))) table)
+                    out (with-out-str
+                          (binding [cli/*exit-fn*
+                                    (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))]
+                            (try
+                              ;; NOTE: no :restrict
+                              (cli/dispatch table args {:help {:prog "tool"}})
+                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                                (when-not (::exit (ex-data e)) (throw e))))))]
+                {:out out :exit @exit :ran @ran}))]
+    (testing "--help at root, no :restrict needed"
+      (let [{:keys [out exit]} (run ["--help"])]
+        (is (str/includes? out "Usage: tool [options] <command>"))
+        (is (str/includes? out "Commands:"))
+        (is (submap? {:exit 0 :cause :help-requested :dispatch []} exit))))
+    (testing "--help after a subcommand renders that command's help"
+      (let [{:keys [out exit]} (run ["deps" "outdated" "--help"])]
+        (is (str/includes? out "Usage: tool deps outdated"))
+        (is (submap? {:exit 0 :cause :help-requested :dispatch ["deps" "outdated"]} exit))))
+    (testing "-h alias works"
+      (let [{:keys [out exit]} (run ["dev" "-h"])]
+        (is (str/includes? out "Usage: tool dev"))
+        (is (submap? {:exit 0 :cause :help-requested :dispatch ["dev"]} exit))))
+    (testing "a normal run is not intercepted"
+      (let [{:keys [ran exit]} (run ["dev" "--sync"])]
+        (is (nil? exit))
+        (is (= {:sync true} (:opts ran)))))
+    (testing "bad subcommand renders help via the installed error-fn, exit 1"
+      (let [{:keys [out exit]} (run ["nope"])]
+        (is (str/includes? out "Unknown command: nope"))
+        (is (submap? {:exit 1 :cause :unknown-subcommand} exit))))
+    (testing "bare group is a usage error, exit 1"
+      (let [{:keys [out exit]} (run ["deps"])]
+        (is (str/includes? out "Commands:"))
+        (is (submap? {:exit 1 :cause :missing-subcommand :dispatch ["deps"]} exit))))
+    (testing ":help true works (no :prog; usage line omits it)"
+      (let [exit (atom nil)
+            out (with-out-str
+                  (binding [cli/*exit-fn* (fn [m] (reset! exit m) (throw (ex-info "x" {::exit true})))]
+                    (try (cli/dispatch [{:cmds [] :doc "t"} {:cmds ["go"] :fn identity :doc "Go"}]
+                                       ["--help"] {:help true})
+                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                           (when-not (::exit (ex-data e)) (throw e))))))]
+        (is (str/includes? out "Commands:"))
+        (is (= 0 (:exit @exit)))))))
+
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]
                                 (let [rows (str/split-lines table)]
