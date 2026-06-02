@@ -1156,11 +1156,9 @@
   Provide an `:error-fn` to deal with non-matches.
 
   Provide `:help true` (or `:help {:prog \"mytool\"}`) to wire up help without
-  `:restrict`: `--help`/`-h` are intercepted natively (printing help for the
-  command they follow), and [[help-error-fn]] is installed to render help on a
-  bad/missing subcommand or a flag error. `:help` takes the same keys as
-  [[help-error-fn]] (`:prog`, `:inherit`); `:inherit` defaults to the
-  dispatch-level `:inherit`. `--help`/`-h` are reserved when `:help` is on.
+  `:restrict`: `--help`/`-h` print help for the command they follow, and
+  [[help-error-fn]] renders it on a bad/missing subcommand. Takes the same keys
+  as [[help-error-fn]] (`:prog`, `:inherit`).
 
   Each entry in the table may have additional [[parse-args]] options.
 
