@@ -102,17 +102,22 @@
                 :cljs :default) _ s))
     s))
 
+(defn- coerce-failure-reason
+  "The reason part of a coerce failure, e.g. `cannot transform input \"x\" to long`."
+  [s implicit-true? f]
+  (str "cannot transform "
+       (if implicit-true?
+         "(implicit) true"
+         (str "input " (pr-str s)))
+       (if (keyword? f)
+         " to "
+         " with ")
+       (if (keyword? f)
+         (name f)
+         f)))
+
 (defn- throw-coerce [s implicit-true? f e]
-  (throw (ex-info (str "Coerce failure: cannot transform "
-                       (if implicit-true?
-                         "(implicit) true"
-                         (str "input " (pr-str s)))
-                       (if (keyword? f)
-                         " to "
-                         " with ")
-                       (if (keyword? f)
-                         (name f)
-                         f))
+  (throw (ex-info (str "Coerce failure: " (coerce-failure-reason s implicit-true? f))
                   (cond-> {:input s
                            :coerce-fn f}
                     implicit-true? (assoc :implicit-true true))
@@ -266,6 +271,17 @@
       (assoc (if spec (merge-opts opts (spec->opts spec opts)) opts)
              ::resolved true))))
 
+(defn- kw->str [kw]
+  (subs (str kw) 1))
+
+(defn- option-label
+  "User-facing name for option `k` in an error message: the literal flag the
+  user typed (from `key->flag`, e.g. `\"-f\"` or `\":foo\"`), else the canonical
+  `--name` (a required or standalone-checked option was never typed). Uses
+  `kw->str` so a namespaced key like `:foo/bar` renders as `--foo/bar`."
+  [key->flag k]
+  (or (get key->flag k) (str "--" (kw->str k))))
+
 (defn coerce-opts
   "Coerces values in the map `m` using the provided configuration.
   Does not coerce values that are not strings.
@@ -320,10 +336,12 @@
                       (assoc acc k (coerce-1 v cf it?)))
                     (catch #?(:clj ExceptionInfo :cljs :default) e
                       (let [data (ex-data e)
-                            flag (get (::key->flag m-meta) k)]
+                            km (::key->flag m-meta)
+                            flag (get km k)]
                         (error-fn (cond-> {:cause :coerce
-                                           :msg #?(:clj (.getMessage e)
-                                                   :cljs (ex-message e))
+                                           ;; same shape as validate: name the option, then the reason
+                                           :msg (str "Invalid value for option " (option-label km k) ": "
+                                                     (coerce-failure-reason (:input data) (:implicit-true data) (:coerce-fn data)))
                                            :option k
                                            :value v
                                            :opts acc}
@@ -378,10 +396,7 @@
          inherited (::dispatch-inherited opts)
          ;; literal flag tokens the user typed, by key (see parse-opts*)
          key->flag (::key->flag (meta m))
-         ;; how to name an option in a message: the literal token the user typed
-         ;; if known, else the keyword (a required or standalone-checked option
-         ;; was never typed, so has no token to echo - don't fabricate one)
-         flag-for (fn [k] (or (get key->flag k) k))
+         flag-for (fn [k] (option-label key->flag k))
          error-fn (->error-fn spec (:error-fn opts))]
      (when restrict
        (doseq [k (keys m)]
@@ -651,9 +666,6 @@
    (let [opts (parse-opts args opts)
          cli-opts (-> opts meta :org.babashka/cli)]
      (assoc cli-opts :opts (dissoc opts :org.babashka/cli)))))
-
-(defn- kw->str [kw]
-  (subs (str kw) 1))
 
 (defn- str-width
   "Width of `s` when printed, i.e. without ANSI escape codes."

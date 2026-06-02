@@ -61,7 +61,7 @@
                      :cljs :default) e
              (= {:type :org.babashka/cli
                  :cause :coerce
-                 :msg "Coerce failure: cannot transform input \"dude\" to long"
+                 :msg "Invalid value for option :b: cannot transform input \"dude\" to long"
                  :option :b
                  :flag ":b"
                  :value "dude"
@@ -620,8 +620,8 @@
                                         :error-fn (cli/help-error-fn {:table t :prog "tool"})})
                          (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                            (when-not (::exit (ex-data e)) (throw e))))))]
-        ;; required option was never typed -> keyword form, not a fabricated flag
-        (is (str/includes? out "Required option: :foo"))))
+        ;; required option was never typed -> canonical --foo (default in messages)
+        (is (str/includes? out "Required option: --foo"))))
     (testing "*exit-fn* codes can be remapped by :cause (e.g. group -> 0)"
       (let [calls (atom [])]
         (binding [cli/*exit-fn* (fn [m] (swap! calls conj m))]
@@ -663,7 +663,7 @@
 
 (deftest require-test
   (is (thrown-with-msg?
-       Exception #"Required option: :bar"
+       Exception #"Required option: --bar"
        (cli/parse-args ["-foo"] {:require [:bar]}))))
 
 (deftest validate-test
@@ -727,11 +727,11 @@
                      :restrict true
                      :spec spec})
     (is (= [{:spec spec, :type :org.babashka/cli, :cause :coerce,
-             :msg "Coerce failure: cannot transform input \"nope!\" to long", :option :c, :flag "--c",
+             :msg "Invalid value for option --c: cannot transform input \"nope!\" to long", :option :c, :flag "--c",
              :value "nope!", :opts {:b 0}}
             {:spec spec, :type :org.babashka/cli, :cause :restrict, :msg "Unknown option: --extra", :restrict #{:c :b :a}, :option :extra, :flag "--extra", :opts {:b 0, :extra "bad!"}}
-            ;; :require has no :flag and keeps the keyword: the option was never typed
-            {:spec spec, :type :org.babashka/cli, :cause :require, :msg "Required option: :a", :require #{:a}, :option :a, :opts {:b 0, :extra "bad!"}}
+            ;; :require has no :flag in data (never typed); the message uses the canonical --a
+            {:spec spec, :type :org.babashka/cli, :cause :require, :msg "Required option: --a", :require #{:a}, :option :a, :opts {:b 0, :extra "bad!"}}
             {:spec spec, :type :org.babashka/cli, :cause :validate, :msg "Invalid value for option --b: 0", :validate {:b pos?}, :option :b, :flag "--b", :value 0,
              :opts {:b 0, :extra "bad!"}}]
            @errors))))
@@ -815,7 +815,7 @@
              (cli/dispatch table ["deps" "outdated" "--bogus"] {:restrict true}))))))
   (testing "fix is scoped to dispatch: plain :exec-args still subject to :restrict"
     (is (thrown-with-msg?
-         Exception #"Unknown option: :bar"
+         Exception #"Unknown option: --bar"
          (cli/parse-opts ["--foo"] {:spec {:foo {:coerce :boolean}}
                                     :exec-args {:bar 1}
                                     :restrict true})))))
@@ -959,25 +959,25 @@
 (deftest validate-opts-test
   (testing "restrict"
     (is (thrown-with-msg?
-         Exception #"Unknown option: :bar"
+         Exception #"Unknown option: --bar"
          (cli/validate-opts {:foo 1 :bar 2} {:restrict #{:foo}}))))
   (testing "restrict with true and spec"
     (is (thrown-with-msg?
-         Exception #"Unknown option: :bar"
+         Exception #"Unknown option: --bar"
          (cli/validate-opts {:foo 1 :bar 2} {:spec {:foo {:coerce :long}} :restrict true}))))
   (testing "restrict passes for known keys"
     (is (= {:foo 1}
            (cli/validate-opts {:foo 1} {:restrict #{:foo}}))))
   (testing "require"
     (is (thrown-with-msg?
-         Exception #"Required option: :bar"
+         Exception #"Required option: --bar"
          (cli/validate-opts {:foo 1} {:require [:bar]}))))
   (testing "require passes when present"
     (is (= {:foo 1 :bar 2}
            (cli/validate-opts {:foo 1 :bar 2} {:require [:bar]}))))
   (testing "validate"
     (is (thrown-with-msg?
-         Exception #"Invalid value for option :foo"
+         Exception #"Invalid value for option --foo"
          (cli/validate-opts {:foo 0} {:validate {:foo pos?}}))))
   (testing "validate passes"
     (is (= {:foo 1}
@@ -990,7 +990,7 @@
                                                                  (str "Expected positive for " option ": " value))}}}))))
   (testing "using spec"
     (is (thrown-with-msg?
-         Exception #"Required option: :foo"
+         Exception #"Required option: --foo"
          (cli/validate-opts {} {:spec {:foo {:require true}}}))))
   (testing "error-fn"
     (let [errors (atom [])]
