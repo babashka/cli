@@ -63,6 +63,7 @@
                  :cause :coerce
                  :msg "Coerce failure: cannot transform input \"dude\" to long"
                  :option :b
+                 :flag ":b"
                  :value "dude"
                  :spec nil
                  :opts {}}
@@ -124,6 +125,7 @@
                    :cause :restrict
                    :msg "Unknown option: :b"
                    :option :b
+                   :flag "-b"
                    :restrict #{:foo}
                    :spec {:foo {}}
                    :opts {:foo "bar", :b true}}
@@ -144,6 +146,7 @@
                    :cause :restrict
                    :msg "Unknown option: :bar"
                    :option :bar
+                   :flag "--bar"
                    :restrict #{:foo}
                    :spec nil
                    :opts {:foo true, :bar true}}
@@ -674,12 +677,32 @@
                    :cause :validate
                    :msg "Expected positive number for option :foo but got: 0"
                    :option :foo
+                   :flag "--foo"
                    :spec nil
                    :value 0
                    :validate {:foo {:pred pos?
                                     :ex-msg ex-msg-fn}}
                    :opts {:foo 0}}
                   (ex-data e)))))))
+
+(deftest flag-token-test
+  (testing ":flag echoes the literal option token, not a guess from name length"
+    (let [flag (fn [args opts] (try (cli/parse-opts args opts)
+                                    (catch #?(:clj Exception :cljs :default) e
+                                      (:flag (ex-data e)))))]
+      ;; single-char long option: a name-length guess would say "-x"; exact now
+      (is (= "--x" (flag ["--x"] {:spec {:foo {}} :restrict true})))
+      (is (= "-x"  (flag ["-x"]  {:spec {:foo {}} :restrict true})))
+      (is (= "--bogus" (flag ["--bogus"] {:spec {:foo {}} :restrict true})))
+      ;; short alias: echo what was typed, though :option is the long key :format
+      (is (= "-f" (flag ["-f" "0"] {:spec {:format {:alias :f :validate pos?}}})))
+      ;; single-char long coerce failure: a guess would say "-n"
+      (is (= "--n" (flag ["--n" "x"] {:coerce {:n :long}})))
+      ;; keyword syntax echoes as typed
+      (is (= ":x" (flag [":x"] {:spec {:foo {}} :restrict true})))))
+  (testing ":require carries no :flag (option was never typed)"
+    (is (nil? (try (cli/parse-opts [] {:spec {:foo {}} :require [:foo]})
+                   (catch #?(:clj Exception :cljs :default) e (:flag (ex-data e))))))))
 
 (deftest error-fn-test
   (let [errors (atom [])
@@ -693,11 +716,12 @@
                      :restrict true
                      :spec spec})
     (is (= [{:spec spec, :type :org.babashka/cli, :cause :coerce,
-             :msg "Coerce failure: cannot transform input \"nope!\" to long", :option :c,
+             :msg "Coerce failure: cannot transform input \"nope!\" to long", :option :c, :flag "--c",
              :value "nope!", :opts {:b 0}}
-            {:spec spec, :type :org.babashka/cli, :cause :restrict, :msg "Unknown option: :extra", :restrict #{:c :b :a}, :option :extra, :opts {:b 0, :extra "bad!"}}
+            {:spec spec, :type :org.babashka/cli, :cause :restrict, :msg "Unknown option: :extra", :restrict #{:c :b :a}, :option :extra, :flag "--extra", :opts {:b 0, :extra "bad!"}}
+            ;; :require has no :flag: the option was never typed, so there is no literal token
             {:spec spec, :type :org.babashka/cli, :cause :require, :msg "Required option: :a", :require #{:a}, :option :a, :opts {:b 0, :extra "bad!"}}
-            {:spec spec, :type :org.babashka/cli, :cause :validate, :msg "Invalid value for option :b: 0", :validate {:b pos?}, :option :b, :value 0,
+            {:spec spec, :type :org.babashka/cli, :cause :validate, :msg "Invalid value for option :b: 0", :validate {:b pos?}, :option :b, :flag "--b", :value 0,
              :opts {:b 0, :extra "bad!"}}]
            @errors))))
 
@@ -978,7 +1002,9 @@
   (testing "::implicit-true-keys not in parse-opts result meta"
     (is (nil? (:babashka.cli/implicit-true-keys (meta (cli/parse-opts ["--foo"]))))))
   (testing "::keys-order not in parse-opts result meta"
-    (is (nil? (:babashka.cli/keys-order (meta (cli/parse-opts ["--foo" "--bar" "1"])))))))
+    (is (nil? (:babashka.cli/keys-order (meta (cli/parse-opts ["--foo" "--bar" "1"]))))))
+  (testing "::key->flag not in parse-opts result meta"
+    (is (nil? (:babashka.cli/key->flag (meta (cli/parse-opts ["--foo" "--bar" "1"])))))))
 
 (deftest coerce-error-order-test
   (testing "coerce errors fire in parse order, not hash order, for >8 keys"
@@ -993,10 +1019,11 @@
 (deftest parse-opts-star-test
   (testing "parse-opts* returns raw strings (no coercion)"
     (is (= {:foo "1"} (cli/parse-opts* ["--foo" "1"] {}))))
-  (testing "parse-opts* exposes ::implicit-true-keys + ::keys-order in meta"
+  (testing "parse-opts* exposes ::implicit-true-keys + ::keys-order + ::key->flag in meta"
     (let [r (cli/parse-opts* ["--foo" "--bar" "1"] {})]
       (is (= #{:foo} (:babashka.cli/implicit-true-keys (meta r))))
-      (is (= [:foo :bar] (:babashka.cli/keys-order (meta r))))))
+      (is (= [:foo :bar] (:babashka.cli/keys-order (meta r))))
+      (is (= {:foo "--foo" :bar "--bar"} (:babashka.cli/key->flag (meta r))))))
   (testing "parse-opts* skips :restrict / :require / :validate"
     (is (= {:bar "1"} (cli/parse-opts* ["--bar" "1"]
                                        {:restrict #{:foo} :require [:foo]})))))

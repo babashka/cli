@@ -274,7 +274,12 @@
   Supported options:
   * `:coerce` - a map of option (keyword) names to type keywords (optionally wrapped in a collection).
   * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
-  * `:error-fn` - error handler, called with a map containing `:cause` (`:coerce`), `:msg`, `:option`, `:value`, and `:opts`."
+  * `:error-fn` - error handler, called with a map containing `:cause` (`:coerce`), `:msg`, `:option`, `:value`, `:opts`, and `:flag`.
+
+  `:flag` is the literal option token as it appeared on the command line (e.g.
+  `\"--foo\"`, `\"-f\"`, or `\":foo\"`), as opposed to `:option`, the normalized
+  keyword (`:foo`). It lets a handler echo what the user actually typed rather
+  than reconstruct it. It is omitted when no originating token is known."
   ([m] (coerce-opts m {}))
   ([m opts]
    (let [spec (:spec opts)
@@ -314,13 +319,15 @@
                       :else
                       (assoc acc k (coerce-1 v cf it?)))
                     (catch #?(:clj ExceptionInfo :cljs :default) e
-                      (let [data (ex-data e)]
+                      (let [data (ex-data e)
+                            flag (get (::key->flag m-meta) k)]
                         (error-fn (cond-> {:cause :coerce
                                            :msg #?(:clj (.getMessage e)
                                                    :cljs (ex-message e))
                                            :option k
                                            :value v
                                            :opts acc}
+                                    flag (assoc :flag flag)
                                     (:implicit-true data) (assoc :implicit-true true))))
                       acc)))
                 (if auto-coerce?
@@ -339,7 +346,13 @@
   * `:validate` - a map of option keys to validator functions (or maps with `:pred` and `:ex-msg`).
   * `:spec` - a spec of options (restrict, require, validate extracted from it).
   * `:coerce` - used with `:restrict true` to derive the set of known keys.
-  * `:error-fn` - error handler, called with a map containing `:cause`, `:msg`, `:option`, and `:opts`."
+  * `:error-fn` - error handler, called with a map containing `:cause`, `:msg`, `:option`, `:opts`, and `:flag`.
+
+  `:flag` is the literal option token as it appeared on the command line (e.g.
+  `\"--foo\"`, `\"-f\"`, or `\":foo\"`), as opposed to `:option`, the normalized
+  keyword (`:foo`). It lets a handler echo what the user actually typed rather
+  than reconstruct it. It is present for `:restrict` and `:validate`, and absent
+  for `:require` (a missing required option was never typed, so it has no token)."
   ([m] (validate-opts m {}))
   ([m opts]
    (let [spec (:spec opts)
@@ -363,25 +376,31 @@
          ;; passed down via ::dispatch-inherited and must not be flagged as
          ;; unknown at child levels. Internal, not a public option.
          inherited (::dispatch-inherited opts)
+         ;; literal flag tokens the user typed, by key (see parse-opts*)
+         key->flag (::key->flag (meta m))
          error-fn (->error-fn spec (:error-fn opts))]
      (when restrict
        (doseq [k (keys m)]
          (when (and (not (contains? restrict k))
                     (not (contains? inherited k))
                     (not= "babashka.cli" (namespace k)))
-           (error-fn {:cause :restrict
-                      :msg (str "Unknown option: " k)
-                      :restrict restrict
-                      :option k
-                      :opts m}))))
+           (let [flag (get key->flag k)]
+             (error-fn (cond-> {:cause :restrict
+                                :msg (str "Unknown option: " k)
+                                :restrict restrict
+                                :option k
+                                :opts m}
+                         flag (assoc :flag flag)))))))
      (when require
        (doseq [k require]
          (when-not (find m k)
-           (error-fn {:cause :require
-                      :msg (str "Required option: " k)
-                      :require require
-                      :option k
-                      :opts m}))))
+           (let [flag (get key->flag k)]
+             (error-fn (cond-> {:cause :require
+                                :msg (str "Required option: " k)
+                                :require require
+                                :option k
+                                :opts m}
+                         flag (assoc :flag flag)))))))
      (when validate
        (doseq [[k vf] validate]
          (let [f (or (and
@@ -394,13 +413,15 @@
              (when-not (f v)
                (let [ex-msg-fn (or (:ex-msg vf)
                                    (fn [{:keys [option value]}]
-                                     (str "Invalid value for option " option ": " value)))]
-                 (error-fn {:cause :validate
-                            :msg (ex-msg-fn {:option k :value v})
-                            :validate validate
-                            :option k
-                            :value v
-                            :opts m})))))))
+                                     (str "Invalid value for option " option ": " value)))
+                     flag (get key->flag k)]
+                 (error-fn (cond-> {:cause :validate
+                                    :msg (ex-msg-fn {:option k :value v})
+                                    :validate validate
+                                    :option k
+                                    :value v
+                                    :opts m}
+                             flag (assoc :flag flag)))))))))
      m)))
 
 (defn apply-defaults
@@ -451,6 +472,11 @@
                     (if (and k (not (some #{k} kpo)))
                       (conj kpo k)
                       kpo))
+        ;; remember each key's `:flag`: the literal option token as typed (e.g.
+        ;; "--foo", "-f", ":foo"), in `::key->flag` metadata, so error messages
+        ;; can echo what the user typed instead of reconstructing it from the
+        ;; normalized keyword (`-x` and `--x` both parse to `:x`)
+        stamp (fn [m k lit] (if lit (vary-meta m assoc-in [::key->flag k] lit) m))
         {:keys [cmds args]} (parse-cmds args)
         {new-args :args a->o :args->opts}
         (if-let [a->o (or (:args->opts opts) (:cmds-opts opts))]
@@ -501,9 +527,11 @@
                                                   [kname])
                                 raw-k (keyword kname)
                                 alias (when-not long-opt? (get aliases raw-k))
-                                k (or alias raw-k)]
+                                k (or alias raw-k)
+                                ;; the literal flag the user typed (sans any =value)
+                                literal (if long-opt? (str "--" kname) arg)]
                             (if arg-val
-                              (recur (process-previous acc current-opt added cf)
+                              (recur (stamp (process-previous acc current-opt added cf) k literal)
                                      k nil mode (cons arg-val (rest args)) a->o
                                      (track-itk itk current-opt added)
                                      (track-kpo kpo k))
@@ -520,11 +548,11 @@
                                     (let [k (if negative?
                                               (keyword (str/replace (str k) ":no-" ""))
                                               k)]
-                                      (recur (process-previous acc current-opt added cf)
+                                      (recur (stamp (process-previous acc current-opt added cf) k literal)
                                              k added mode (cons (not negative?) next-args) a->o
                                              (track-itk itk current-opt added)
                                              (track-kpo kpo k))))
-                                  (recur (process-previous acc current-opt added cf)
+                                  (recur (stamp (process-previous acc current-opt added cf) k literal)
                                          k nil mode next-args a->o
                                          (track-itk itk current-opt added)
                                          (track-kpo kpo k))))))))
@@ -606,7 +634,7 @@
          coerced (apply-defaults coerced opts)
          ;; Step 4: Validate
          validated (validate-opts coerced opts)]
-     (vary-meta validated dissoc ::implicit-true-keys ::keys-order))))
+     (vary-meta validated dissoc ::implicit-true-keys ::keys-order ::key->flag))))
 
 (defn parse-args
   "Same as [[parse-opts]] with return data reshaped.
@@ -746,13 +774,6 @@
            (when-not (:no-doc subnode)
              [(str cmd) (or (help-first-line (:doc subnode)) "")]))
          (:cmd node))))
-
-(defn- opt->flag
-  "Render an option keyword as the flag a user types: `-x` for a single-char
-  option, `--long` otherwise."
-  [opt]
-  (let [n (name opt)]
-    (str (if (= 1 (count n)) "-" "--") n)))
 
 (defn- render-help
   "Render help text for one tree `node`, given a computed `:prog` (full command
@@ -1012,10 +1033,14 @@
               (*exit-fn* {:exit 1 :cause :missing-subcommand :dispatch path :data data}))
 
           ;; genuine flag error (require / validate / unknown flag): terse,
-          ;; rendering the option as the flag the user types. The babashka.cli
+          ;; rendering the option as the flag the user typed. The babashka.cli
           ;; cause (:restrict / :require / :validate / :coerce) passes through.
           :else
-          (let [msg (if option (str/replace msg (str option) (opt->flag option)) msg)]
+          (let [;; `:flag` is the literal option token as typed (see parse-opts*);
+                ;; for a missing required option no token was typed, so fall back
+                ;; to the canonical long form `--<option>`
+                flag (or (:flag data) (when option (str "--" (name option))))
+                msg  (if (and option flag) (str/replace msg (str option) flag) msg)]
             (println (str "Error: " msg "\n"))
             (println (usage path))
             (println)
