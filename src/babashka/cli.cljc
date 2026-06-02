@@ -926,30 +926,26 @@
     (render-help (:node ctx) ctx)))
 
 (defn ^:dynamic *exit-fn*
-  "Called to terminate the process once help or an error has been printed by
-  [[help-error-fn]]. Receives a map with:
+  "Terminates the process after [[help-error-fn]] prints help or an error.
+  Called with a map containing:
 
-  * `:exit`     - the exit code; `0` only when `--help`/`-h` was requested, `1`
-                  otherwise (unknown/missing subcommand, flag errors)
-  * `:cause`    - either `:help-requested`, `:missing-subcommand`,
-                  `:unknown-subcommand`, or the babashka.cli flag cause
-                  (`:restrict` / `:require` / `:validate` / `:coerce`)
+  * `:exit` - exit code; `0` for `--help`/`-h`, else `1`
+  * `:cause` - `:help-requested`, `:missing-subcommand`, `:unknown-subcommand`,
+    or the babashka.cli flag cause (`:restrict` / `:require` / `:validate` /
+    `:coerce`)
   * `:dispatch` - the command path
-  * `:message`  - a human-readable line (on the terse error paths)
-  * `:data`     - the original `dispatch` error data, carrying the raw parser
-                  `:cause` (`:no-match` / `:input-exhausted` / ...) and more
-                  (absent on the `--help` path)
+  * `:message` - error message (error paths only)
+  * `:data` - the original `dispatch` error data (raw `:cause` etc.); absent on `--help`
 
-  Rebind this var to use your own exit codes (switch on `:cause`), or to stop
-  the process from exiting at all (tests, REPL):
+  Rebind to use your own exit codes (switch on `:cause`), or to not exit at all
+  (tests, REPL):
 
   ```clojure
   (binding [babashka.cli/*exit-fn* (fn [m] (throw (ex-info \"exit\" m)))]
     ...)
   ```
 
-  The default dispatches on host: `System/exit` on the JVM, `js/process.exit`
-  on Node, and a `throw` in a browser (where there is no process to exit)."
+  Default: `System/exit` (JVM), `js/process.exit` (Node), `throw` (browser)."
   [{:keys [exit]}]
   #?(:clj (System/exit exit)
      :cljs (if (and (exists? js/process) (fn? (.-exit js/process)))
@@ -957,38 +953,29 @@
              (throw (ex-info "exit" {:exit exit})))))
 
 (defn help-error-fn
-  "Build an `:error-fn` for [[dispatch]] (used with `:restrict true`) that
-  renders conventional help and terminates via [[*exit-fn*]].
+  "An `:error-fn` for [[dispatch]] that prints help and exits via [[*exit-fn*]].
 
   Takes a single map (same keys as [[format-command-help]]):
 
-  * `:table`   - the dispatch table (or tree) passed to `dispatch` (required)
-  * `:prog`    - program name shown in usage / help (required)
-  * `:inherit` - the same dispatch-level `:inherit` value you pass to
-                 `dispatch`, if any, so `Inherited options:` matches what is
-                 accepted
+  * `:table` - the dispatch table (or tree) passed to `dispatch` (required)
+  * `:prog` - program name shown in usage / help (required)
+  * `:inherit` - the dispatch-level `:inherit`, if any, so `Inherited options:` matches
 
-  Use with `:restrict true`, so that `--help` / `-h` arrive as a `:restrict`
-  error this function intercepts:
+  Needs `:restrict true` so `--help`/`-h` arrive as errors it can intercept:
 
   ```clojure
   (cli/dispatch table args
     {:restrict true :error-fn (cli/help-error-fn {:table table :prog \"mytool\"})})
   ```
 
-  Behavior, and the `:cause` passed to [[*exit-fn*]]:
+  Behavior, with the `:cause` passed to [[*exit-fn*]]:
 
-  * `--help` / `-h` anywhere -> full help for that level, exit 0,
-    `:cause :help-requested`
-  * group with no subcommand -> full help for that group, but a usage error
-    (no subcommand chosen), exit 1, `:cause :missing-subcommand`
-  * unknown subcommand       -> message + available commands, exit 1,
-    `:cause :unknown-subcommand`
-  * flag error               -> message + usage line, exit 1, `:cause` is the
-    babashka.cli cause (`:restrict` / `:require` / `:validate` / `:coerce`)
+  * `--help` / `-h` -> full help, exit 0, `:cause :help-requested`
+  * group with no subcommand -> its help, but a usage error, exit 1, `:cause :missing-subcommand`
+  * unknown subcommand -> message + commands, exit 1, `:cause :unknown-subcommand`
+  * flag error -> message + usage, exit 1, `:cause` is the babashka.cli cause (`:restrict` / `:require` / `:validate` / `:coerce`)
 
-  Terse on misuse (no full options dump); options are rendered as the flag the
-  user types (`--foo`, `-x`), not the keyword `:foo`."
+  Terse on errors; options shown as typed (`--foo`/`-x`), not `:foo`."
   [{:keys [table prog inherit]}]
   (let [tree   (if (map? table) table (table->tree table))
         ctx-at (fn [path] (command-help-context tree (vec path) prog inherit))

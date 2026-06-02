@@ -749,22 +749,18 @@ Run "example <command> --help" for more information on a command.
 
 ### Help on error
 
-`help-error-fn` turns `format-command-help` into an `:error-fn` for `dispatch`:
-it prints help on `--help`/`-h`, lists commands on an unknown subcommand, shows
-group help when a group is called without a subcommand, and prints a terse
-message plus usage on a flag error. Use it with `:restrict true` (so `--help`
-arrives as an error it can intercept):
+`help-error-fn` turns `format-command-help` into an `:error-fn` for `dispatch`.
+It needs `:restrict true` so `--help`/`-h` arrive as errors it can intercept,
+and takes the same config map as `format-command-help` (`:table`, `:prog`,
+optional `:inherit`):
 
 ``` clojure
 (cli/dispatch table args
   {:restrict true :error-fn (cli/help-error-fn {:table table :prog "example"})})
 ```
 
-It takes the same single config map as `format-command-help` (`:table`,
-`:prog`, and optional `:inherit`).
-
-It terminates through the dynamic `*exit-fn*`, called with a map carrying
-`:exit`, a `:cause`, `:dispatch`, and (on errors) `:message` / `:data`:
+It exits via the dynamic `*exit-fn*`, called with `:exit`, `:cause`,
+`:dispatch`, and (on errors) `:message` / `:data`:
 
 | invocation | `:exit` | `:cause` |
 |---|---|---|
@@ -773,14 +769,13 @@ It terminates through the dynamic `*exit-fn*`, called with a map carrying
 | unknown subcommand | 1 | `:unknown-subcommand` |
 | flag error | 1 | `:restrict` / `:require` / `:validate` / `:coerce` |
 
-Only `--help`/`-h` exits 0; a group invoked without a subcommand is a usage
-error (exit 1), like `git bisect` with no subcommand. `:data` keeps the raw
-`dispatch` error data, including the parser's own `:cause` (`:no-match` /
-`:input-exhausted`).
+Only `--help`/`-h` exits 0; a bare group is a usage error (exit 1), like `git
+bisect` with no subcommand. `:data` holds the raw `dispatch` error data,
+including the parser's own `:cause` (`:no-match` / `:input-exhausted`).
 
-The default `*exit-fn*` exits the process (`System/exit` on the JVM,
-`js/process.exit` on Node). Rebind it to avoid exiting (tests, REPL), or to
-remap exit codes you disagree with by switching on `:cause`:
+The default `*exit-fn*` exits the process (`System/exit` on JVM,
+`js/process.exit` on Node). Rebind it to avoid exiting (tests, REPL), or to use
+your own exit codes by switching on `:cause`:
 
 ``` clojure
 ;; treat a bare group as success (print help, exit 0) instead of a usage error
