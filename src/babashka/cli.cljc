@@ -945,6 +945,8 @@
     ...)
   ```
 
+  Must exit or throw.
+
   Default: `System/exit` (JVM), `js/process.exit` (Node), `throw` (browser)."
   [{:keys [exit]}]
   #?(:clj (System/exit exit)
