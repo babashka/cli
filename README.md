@@ -764,8 +764,8 @@ It accepts the same `:prog` and `:inherit` second-arg keys as
 `format-command-help`.
 
 It terminates through the dynamic `*exit-fn*`, called with a map containing
-`:exit` (the exit code) and `:reason` (`:help`/`:unknown-command`/`:error`),
-plus `:message`/`:dispatch`/`:data` on errors. The
+`:exit` (0 when help was shown, 1 on error) plus, on errors, `:cause` /
+`:message` / `:dispatch` / `:data`. The
 default exits the process (`System/exit` on the JVM, `js/process.exit` on Node);
 rebind it in tests or a REPL to avoid exiting:
 

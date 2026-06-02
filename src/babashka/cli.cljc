@@ -906,8 +906,9 @@
 
 (defn ^:dynamic *exit-fn*
   "Called to terminate the process once help or an error has been printed by
-  [[help-error-fn]]. Receives a map with `:exit` (the exit code), and
-  contextual keys (`:reason`, and on errors `:message`, `:dispatch`, `:data`).
+  [[help-error-fn]]. Receives a map with `:exit` (the exit code; 0 when help was
+  shown, 1 on error) and, on errors, `:cause` / `:message` / `:dispatch` /
+  `:data`.
 
   Rebind this to prevent the process from exiting (tests, REPL):
 
@@ -971,7 +972,7 @@
           ;; --help / -h: under :restrict these arrive as an unknown option
           (and (= :restrict cause) (#{:help :h} option))
           (do (print-help path)
-              (*exit-fn* {:exit 0 :reason :help :dispatch path}))
+              (*exit-fn* {:exit 0 :dispatch path}))
 
           ;; mistyped subcommand: terse, but list the available commands
           (= :no-match cause)
@@ -982,13 +983,13 @@
               (println (str "Commands:\n"
                             (format-table {:rows cmds :indent 2}) "\n")))
             (println (hint path))
-            (*exit-fn* {:exit 1 :reason :unknown-command :message message
+            (*exit-fn* {:exit 1 :cause cause :message message
                         :dispatch path :data data}))
 
           ;; a group invoked with no subcommand -> full help (shows Commands)
           (= :input-exhausted cause)
           (do (print-help path)
-              (*exit-fn* {:exit 0 :reason :help :dispatch path}))
+              (*exit-fn* {:exit 0 :dispatch path}))
 
           ;; genuine flag error (require / validate / unknown flag): terse,
           ;; rendering the option as the flag the user types
@@ -998,7 +999,7 @@
             (println (usage path))
             (println)
             (println (hint path))
-            (*exit-fn* {:exit 1 :reason :error :message msg
+            (*exit-fn* {:exit 1 :cause cause :message msg
                         :dispatch path :data data})))))))
 
 (defn- dispatch-tree'

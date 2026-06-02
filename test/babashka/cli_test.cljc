@@ -583,27 +583,27 @@
       (let [{:keys [out exit]} (run ["--help"])]
         (is (str/includes? out "Usage: tool [options] <command>"))
         (is (str/includes? out "Commands:"))
-        (is (submap? {:exit 0 :reason :help} exit))))
+        (is (submap? {:exit 0} exit))))
     (testing "-h at a leaf prints that command's help"
       (let [{:keys [out exit]} (run ["dev" "-h"])]
         (is (str/includes? out "Usage: tool dev"))
         (is (str/includes? out "Inherited options:"))
-        (is (submap? {:exit 0 :reason :help :dispatch ["dev"]} exit))))
+        (is (submap? {:exit 0 :dispatch ["dev"]} exit))))
     (testing "unknown command: terse message + command list, exit 1"
       (let [{:keys [out exit]} (run ["nope"])]
         (is (str/includes? out "Unknown command: nope"))
         (is (str/includes? out "Commands:"))
-        (is (submap? {:exit 1 :reason :unknown-command :dispatch []} exit))))
+        (is (submap? {:exit 1 :cause :no-match :dispatch []} exit))))
     (testing "group with no subcommand prints group help, exit 0"
       (let [{:keys [out exit]} (run ["deps"])]
         (is (str/includes? out "Usage: tool deps [options] <command>"))
         (is (str/includes? out "outdated"))
-        (is (submap? {:exit 0 :reason :help :dispatch ["deps"]} exit))))
+        (is (submap? {:exit 0 :dispatch ["deps"]} exit))))
     (testing "flag error: terse, option rendered as the typed flag, exit 1"
       (let [{:keys [out exit]} (run ["dev" "--bogus"])]
         (is (str/includes? out "Error: Unknown option: --bogus"))
         (is (str/includes? out "Usage: tool dev"))
-        (is (submap? {:exit 1 :reason :error :dispatch ["dev"]} exit))))
+        (is (submap? {:exit 1 :cause :restrict :dispatch ["dev"]} exit))))
     (testing "*exit-fn* is rebindable (no process exit)"
       (let [calls (atom [])]
         (binding [cli/*exit-fn* (fn [m] (swap! calls conj m))]
