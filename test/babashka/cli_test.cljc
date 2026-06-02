@@ -578,7 +578,7 @@
                             (try
                               (cli/dispatch table args
                                             {:restrict true
-                                             :error-fn (cli/help-error-fn table {:prog "tool"})})
+                                             :error-fn (cli/help-error-fn {:table table :prog "tool"})})
                               (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                                 (when-not (::exit (ex-data e)) (throw e))))))]
                 {:out out :exit @exit}))]
@@ -617,7 +617,7 @@
           (with-out-str
             (cli/dispatch table ["deps"]
                           {:restrict true
-                           :error-fn (cli/help-error-fn table {:prog "tool"})})))
+                           :error-fn (cli/help-error-fn {:table table :prog "tool"})})))
         (is (= :missing-subcommand (:cause (first @calls))))
         (is (= 1 (:exit (first @calls))))))))
 

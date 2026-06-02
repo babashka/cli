@@ -961,8 +961,9 @@
   "Build an `:error-fn` for [[dispatch]] (used with `:restrict true`) that
   renders conventional help and terminates via [[*exit-fn*]].
 
-  `table` is the same dispatch table (or tree) passed to `dispatch`. `opts`:
+  Takes a single map (same keys as [[format-command-help]]):
 
+  * `:table`   - the dispatch table (or tree) passed to `dispatch` (required)
   * `:prog`    - program name shown in usage / help (required)
   * `:inherit` - the same dispatch-level `:inherit` value you pass to
                  `dispatch`, if any, so `Inherited options:` matches what is
@@ -973,7 +974,7 @@
 
   ```clojure
   (cli/dispatch table args
-    {:restrict true :error-fn (cli/help-error-fn table {:prog \"mytool\"})})
+    {:restrict true :error-fn (cli/help-error-fn {:table table :prog \"mytool\"})})
   ```
 
   Behavior, and the `:cause` passed to [[*exit-fn*]]:
@@ -993,7 +994,7 @@
 
   Terse on misuse (no full options dump); options are rendered as the flag the
   user types (`--foo`, `-x`), not the keyword `:foo`."
-  [table {:keys [prog inherit]}]
+  [{:keys [table prog inherit]}]
   (let [tree   (if (map? table) table (table->tree table))
         ctx-at (fn [path] (command-help-context tree (vec path) prog inherit))
         print-help (fn [path]

@@ -757,11 +757,11 @@ arrives as an error it can intercept):
 
 ``` clojure
 (cli/dispatch table args
-  {:restrict true :error-fn (cli/help-error-fn table {:prog "example"})})
+  {:restrict true :error-fn (cli/help-error-fn {:table table :prog "example"})})
 ```
 
-It accepts the same `:prog` and `:inherit` second-arg keys as
-`format-command-help`.
+It takes the same single config map as `format-command-help` (`:table`,
+`:prog`, and optional `:inherit`).
 
 It terminates through the dynamic `*exit-fn*`, called with a map carrying
 `:exit`, a curated `:cause`, `:dispatch`, and (on errors) `:message` / `:data`:
@@ -787,7 +787,7 @@ remap exit codes you disagree with by switching on `:cause`:
 (binding [cli/*exit-fn* (fn [{:keys [exit cause]}]
                           (System/exit (if (= :missing-subcommand cause) 0 exit)))]
   (cli/dispatch table args
-    {:restrict true :error-fn (cli/help-error-fn table {:prog "example"})}))
+    {:restrict true :error-fn (cli/help-error-fn {:table table :prog "example"})}))
 ```
 
 ## Babashka tasks
