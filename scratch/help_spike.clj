@@ -1,11 +1,9 @@
 (ns help-spike
-  "Demo: auto-generated help for babashka.cli dispatch tables, now built on the
-  library API that grew out of this spike:
-
-    - cli/format-command-help - render conventional --help text for a command
-    - cli/help-error-fn        - an :error-fn that prints help on --help / errors
-    - cli/*exit-fn*            - dynamic exit hook (rebound here so the REPL demo
-                                 doesn't kill the process)
+  "Demo: auto-generated help for babashka.cli dispatch tables. Everything this
+  spike once prototyped now lives in the library, so all that's left here is an
+  example table plus `(cli/dispatch table args {:help {:prog ...}})`. The `:help`
+  option handles --help/-h and renders help on bad/missing subcommands and flag
+  errors; there is no help code in this file anymore.
 
   Run as a real CLI via the scratch/duct wrapper, or call `run`/`-main` from a
   REPL with src on the classpath."
@@ -40,22 +38,21 @@
            :registry {:desc "Outdated-specific registry override"}}}
    {:cmds ["deps" "vulnerable"] :fn (act "deps vulnerable") :doc "Show vulnerable dependencies"}])
 
-;; plain cli/dispatch + the library's help error-fn. The REPL demo rebinds
-;; cli/*exit-fn* (so it doesn't kill the process); a real CLI uses the default.
+;; just the :help option (+ :restrict to also reject unknown flags). The REPL
+;; demo rebinds cli/*exit-fn* so it doesn't kill the process; a real CLI uses the
+;; default.
 (defn run [args]
   (println (str "$ bb " (str/join " " args)))
   (println "----------------------------------------")
   (binding [cli/*exit-fn* (fn [_] (throw (ex-info "exit" {::exit true})))]
-    (try (cli/dispatch table args {:restrict true
-                                   :error-fn (cli/help-error-fn {:table table :prog "bb"})})
+    (try (cli/dispatch table args {:help {:prog "bb"} :restrict true})
          (catch clojure.lang.ExceptionInfo e
            (when-not (::exit (ex-data e)) (println "ERR:" (ex-message e))))))
   (println))
 
 ;; real CLI entrypoint: drive with actual argv (see scratch/duct wrapper)
 (defn -main [& args]
-  (cli/dispatch table (vec args)
-                {:restrict true :error-fn (cli/help-error-fn {:table table :prog "duct"})}))
+  (cli/dispatch table (vec args) {:help {:prog "duct"} :restrict true}))
 
 ;; auto-run when loaded as a script
 (when (= *file* (System/getProperty "babashka.file"))
