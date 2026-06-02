@@ -611,6 +611,16 @@
         (is (str/includes? out "Usage: tool dev"))
         (is (submap? {:exit 1 :cause :restrict :dispatch ["dev"]
                       :data {:cause :restrict}} exit))))
+    (testing "missing required option: message built from the canonical flag"
+      (let [t [{:cmds ["x"] :fn identity :spec {:foo {:require true}}}]
+            out (with-out-str
+                  (binding [cli/*exit-fn* (fn [_] (throw (ex-info "exit" {::exit true})))]
+                    (try (cli/dispatch t ["x"]
+                                       {:restrict true
+                                        :error-fn (cli/help-error-fn {:table t :prog "tool"})})
+                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                           (when-not (::exit (ex-data e)) (throw e))))))]
+        (is (str/includes? out "Required option: --foo"))))
     (testing "*exit-fn* codes can be remapped by :cause (e.g. group -> 0)"
       (let [calls (atom [])]
         (binding [cli/*exit-fn* (fn [m] (swap! calls conj m))]

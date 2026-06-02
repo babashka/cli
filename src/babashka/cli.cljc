@@ -1017,15 +1017,16 @@
           (do (print-help path)
               (*exit-fn* {:exit 1 :cause :missing-subcommand :dispatch path :data data}))
 
-          ;; genuine flag error (require / validate / unknown flag): terse,
-          ;; rendering the option as the flag the user typed. The babashka.cli
-          ;; cause (:restrict / :require / :validate / :coerce) passes through.
+          ;; genuine flag error: terse. For unknown/required options we build the
+          ;; line from the flag the user typed (`:flag`, or the canonical
+          ;; `--<option>` for a never-typed required one); for validate/coerce we
+          ;; keep the lib's (or user's `:ex-msg`) message. `:cause` passes through.
           :else
-          (let [;; `:flag` is the literal option token as typed (see parse-opts*);
-                ;; for a missing required option no token was typed, so fall back
-                ;; to the canonical long form `--<option>`
-                flag (or (:flag data) (when option (str "--" (name option))))
-                msg  (if (and option flag) (str/replace msg (str option) flag) msg)]
+          (let [flag (or (:flag data) (when option (str "--" (name option))))
+                msg  (case cause
+                       :restrict (str "Unknown option: " flag)
+                       :require  (str "Required option: " flag)
+                       msg)]
             (println (str "Error: " msg "\n"))
             (println (usage path))
             (println)
