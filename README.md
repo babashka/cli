@@ -747,6 +747,33 @@ Options:
 Run "example <command> --help" for more information on a command.
 ```
 
+### Help on error
+
+`help-error-fn` turns `format-command-help` into an `:error-fn` for `dispatch`:
+it prints help on `--help`/`-h`, lists commands on an unknown subcommand, shows
+group help when a group is called without a subcommand, and prints a terse
+message plus usage on a flag error. Use it with `:restrict true` (so `--help`
+arrives as an error it can intercept):
+
+``` clojure
+(cli/dispatch table args
+  {:restrict true :error-fn (cli/help-error-fn table {:prog "example"})})
+```
+
+Pass the same dispatch-level `:inherit` (if any) as a second-arg key so the
+`Inherited options:` section matches what is accepted.
+
+It terminates through the dynamic `*exit-fn*`, called with a map containing
+`:exit` (the exit code) plus `:reason`/`:message`/`:cause`/`:dispatch`. The
+default exits the process (`System/exit` on the JVM, `js/process.exit` on Node);
+rebind it in tests or a REPL to avoid exiting:
+
+``` clojure
+(binding [cli/*exit-fn* (fn [m] (throw (ex-info "exit" m)))]
+  (cli/dispatch table args
+    {:restrict true :error-fn (cli/help-error-fn table {:prog "example"})}))
+```
+
 ## Babashka tasks
 
 For documentation on babashka tasks, go
