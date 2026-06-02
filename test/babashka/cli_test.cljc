@@ -593,7 +593,7 @@
       (let [{:keys [out exit]} (run ["nope"])]
         (is (str/includes? out "Unknown command: nope"))
         (is (str/includes? out "Commands:"))
-        (is (submap? {:exit 1 :cause :no-match :dispatch []} exit))))
+        (is (submap? {:exit 1 :dispatch [] :data {:cause :no-match}} exit))))
     (testing "group with no subcommand prints group help, exit 0"
       (let [{:keys [out exit]} (run ["deps"])]
         (is (str/includes? out "Usage: tool deps [options] <command>"))
@@ -603,7 +603,7 @@
       (let [{:keys [out exit]} (run ["dev" "--bogus"])]
         (is (str/includes? out "Error: Unknown option: --bogus"))
         (is (str/includes? out "Usage: tool dev"))
-        (is (submap? {:exit 1 :cause :restrict :dispatch ["dev"]} exit))))
+        (is (submap? {:exit 1 :dispatch ["dev"] :data {:cause :restrict}} exit))))
     (testing "*exit-fn* is rebindable (no process exit)"
       (let [calls (atom [])]
         (binding [cli/*exit-fn* (fn [m] (swap! calls conj m))]
