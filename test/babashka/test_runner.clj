@@ -14,15 +14,15 @@
 (def fail-meth (get-method test/report :fail))
 (def err-meth (get-method test/report :error))
 
-(def test-var (atom {}))
-
 (def cmd (atom nil))
 
 (defn print-only []
-  (println)
-  (println (str @cmd) ":only" (let [v (:var @test-var)
-                                    v (meta v)]
-                                (symbol (str (ns-name (:ns v))) (str (:name v))))))
+  ;; current test var comes from clojure.test's own stack; don't add a competing
+  ;; :begin-test-var reporter (babashka.cli.test-report already defines one)
+  (when-let [v (first test/*testing-vars*)]
+    (let [m (meta v)]
+      (println)
+      (println (str @cmd) ":only" (symbol (str (ns-name (:ns m))) (str (:name m)))))))
 
 (defmethod test/report :fail [m]
   (print-only)
@@ -31,9 +31,6 @@
 (defmethod test/report :error [m]
   (print-only)
   (err-meth m))
-
-(defmethod test/report :begin-test-var [m]
-  (reset! test-var m))
 
 (defn test [opts]
   (let [_ (reset! cmd (:cmd opts))

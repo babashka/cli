@@ -102,17 +102,22 @@
                 :cljs :default) _ s))
     s))
 
+(defn- coerce-failure-reason
+  "The reason part of a coerce failure, e.g. `cannot transform input \"x\" to long`."
+  [s implicit-true? f]
+  (str "cannot transform "
+       (if implicit-true?
+         "(implicit) true"
+         (str "input " (pr-str s)))
+       (if (keyword? f)
+         " to "
+         " with ")
+       (if (keyword? f)
+         (name f)
+         f)))
+
 (defn- throw-coerce [s implicit-true? f e]
-  (throw (ex-info (str "Coerce failure: cannot transform "
-                       (if implicit-true?
-                         "(implicit) true"
-                         (str "input " (pr-str s)))
-                       (if (keyword? f)
-                         " to "
-                         " with ")
-                       (if (keyword? f)
-                         (name f)
-                         f))
+  (throw (ex-info (str "Coerce failure: " (coerce-failure-reason s implicit-true? f))
                   (cond-> {:input s
                            :coerce-fn f}
                     implicit-true? (assoc :implicit-true true))
@@ -266,6 +271,17 @@
       (assoc (if spec (merge-opts opts (spec->opts spec opts)) opts)
              ::resolved true))))
 
+(defn- kw->str [kw]
+  (subs (str kw) 1))
+
+(defn- option-label
+  "User-facing name for option `k` in an error message: the literal flag the
+  user typed (from `key->flag`, e.g. `\"-f\"` or `\":foo\"`), else the canonical
+  `--name` (a required or standalone-checked option was never typed). Uses
+  `kw->str` so a namespaced key like `:foo/bar` renders as `--foo/bar`."
+  [key->flag k]
+  (or (get key->flag k) (str "--" (kw->str k))))
+
 (defn coerce-opts
   "Coerces values in the map `m` using the provided configuration.
   Does not coerce values that are not strings.
@@ -320,10 +336,12 @@
                       (assoc acc k (coerce-1 v cf it?)))
                     (catch #?(:clj ExceptionInfo :cljs :default) e
                       (let [data (ex-data e)
-                            flag (get (::key->flag m-meta) k)]
+                            km (::key->flag m-meta)
+                            flag (get km k)]
                         (error-fn (cond-> {:cause :coerce
-                                           :msg #?(:clj (.getMessage e)
-                                                   :cljs (ex-message e))
+                                           ;; same shape as validate: name the option, then the reason
+                                           :msg (str "Invalid value for option " (option-label km k) ": "
+                                                     (coerce-failure-reason (:input data) (:implicit-true data) (:coerce-fn data)))
                                            :option k
                                            :value v
                                            :opts acc}
@@ -378,6 +396,7 @@
          inherited (::dispatch-inherited opts)
          ;; literal flag tokens the user typed, by key (see parse-opts*)
          key->flag (::key->flag (meta m))
+         flag-for (fn [k] (option-label key->flag k))
          error-fn (->error-fn spec (:error-fn opts))]
      (when restrict
        (doseq [k (keys m)]
@@ -386,7 +405,7 @@
                     (not= "babashka.cli" (namespace k)))
            (let [flag (get key->flag k)]
              (error-fn (cond-> {:cause :restrict
-                                :msg (str "Unknown option: " k)
+                                :msg (str "Unknown option: " (flag-for k))
                                 :restrict restrict
                                 :option k
                                 :opts m}
@@ -396,7 +415,7 @@
          (when-not (find m k)
            (let [flag (get key->flag k)]
              (error-fn (cond-> {:cause :require
-                                :msg (str "Required option: " k)
+                                :msg (str "Required option: " (flag-for k))
                                 :require require
                                 :option k
                                 :opts m}
@@ -412,11 +431,11 @@
            (when-let [[_ v] (find m k)]
              (when-not (f v)
                (let [ex-msg-fn (or (:ex-msg vf)
-                                   (fn [{:keys [option value]}]
-                                     (str "Invalid value for option " option ": " value)))
+                                   (fn [{:keys [flag value]}]
+                                     (str "Invalid value for option " flag ": " value)))
                      flag (get key->flag k)]
                  (error-fn (cond-> {:cause :validate
-                                    :msg (ex-msg-fn {:option k :value v})
+                                    :msg (ex-msg-fn {:option k :value v :flag (flag-for k)})
                                     :validate validate
                                     :option k
                                     :value v
@@ -647,9 +666,6 @@
    (let [opts (parse-opts args opts)
          cli-opts (-> opts meta :org.babashka/cli)]
      (assoc cli-opts :opts (dissoc opts :org.babashka/cli)))))
-
-(defn- kw->str [kw]
-  (subs (str kw) 1))
 
 (defn- str-width
   "Width of `s` when printed, i.e. without ANSI escape codes."
@@ -926,31 +942,28 @@
     (render-help (:node ctx) ctx)))
 
 (defn ^:dynamic *exit-fn*
-  "Called to terminate the process once help or an error has been printed by
-  [[help-error-fn]]. Receives a map with:
+  "Terminates the process after [[help-error-fn]] prints help or an error.
+  Called with a map containing:
 
-  * `:exit`     - the exit code; `0` only when `--help`/`-h` was requested, `1`
-                  otherwise (unknown/missing subcommand, flag errors)
-  * `:cause`    - a curated outcome keyword: `:help-requested`,
-                  `:missing-subcommand`, `:unknown-subcommand`, or the
-                  babashka.cli flag cause (`:restrict` / `:require` /
-                  `:validate` / `:coerce`)
+  * `:exit` - exit code; `0` for `--help`/`-h`, else `1`
+  * `:cause` - `:help-requested`, `:missing-subcommand`, `:unknown-subcommand`,
+    or the babashka.cli flag cause (`:restrict` / `:require` / `:validate` /
+    `:coerce`)
   * `:dispatch` - the command path
-  * `:message`  - a human-readable line (on the terse error paths)
-  * `:data`     - the original `dispatch` error data, carrying the raw parser
-                  `:cause` (`:no-match` / `:input-exhausted` / ...) and more
-                  (absent on the `--help` path)
+  * `:msg` - error message (error paths only)
+  * `:data` - the original `dispatch` error data (raw `:cause` etc.); absent on `--help`
 
-  Rebind `:exit` codes you disagree with by switching on `:cause`. Rebind this
-  var entirely to prevent the process from exiting (tests, REPL):
+  Rebind to use your own exit codes (switch on `:cause`), or to not exit at all
+  (tests, REPL):
 
   ```clojure
   (binding [babashka.cli/*exit-fn* (fn [m] (throw (ex-info \"exit\" m)))]
     ...)
   ```
 
-  The default dispatches on host: `System/exit` on the JVM, `js/process.exit`
-  on Node, and a `throw` in a browser (where there is no process to exit)."
+  Must exit or throw.
+
+  Default: `System/exit` (JVM), `js/process.exit` (Node), `throw` (browser)."
   [{:keys [exit]}]
   #?(:clj (System/exit exit)
      :cljs (if (and (exists? js/process) (fn? (.-exit js/process)))
@@ -958,42 +971,29 @@
              (throw (ex-info "exit" {:exit exit})))))
 
 (defn help-error-fn
-  "Build an `:error-fn` for [[dispatch]] (used with `:restrict true`) that
-  renders conventional help and terminates via [[*exit-fn*]].
+  "An `:error-fn` for [[dispatch]] that prints help and exits via [[*exit-fn*]].
 
   Takes a single map (same keys as [[format-command-help]]):
 
-  * `:table`   - the dispatch table (or tree) passed to `dispatch` (required)
-  * `:prog`    - program name shown in usage / help (required)
-  * `:inherit` - the same dispatch-level `:inherit` value you pass to
-                 `dispatch`, if any, so `Inherited options:` matches what is
-                 accepted
+  * `:table` - the dispatch table (or tree) passed to `dispatch` (required)
+  * `:prog` - program name shown in usage / help (required)
+  * `:inherit` - the dispatch-level `:inherit`, if any, so `Inherited options:` matches
 
-  Use with `:restrict true`, so that `--help` / `-h` arrive as a `:restrict`
-  error this function intercepts:
+  Needs `:restrict true` so `--help`/`-h` arrive as errors it can intercept:
 
   ```clojure
   (cli/dispatch table args
     {:restrict true :error-fn (cli/help-error-fn {:table table :prog \"mytool\"})})
   ```
 
-  Behavior, and the `:cause` passed to [[*exit-fn*]]:
+  Behavior, with the `:cause` passed to [[*exit-fn*]]:
 
-  * `--help` / `-h` anywhere -> full help for that level, exit 0,
-    `:cause :help-requested`
-  * group with no subcommand -> full help for that group, but a usage error
-    (no subcommand chosen), exit 1, `:cause :missing-subcommand`
-  * unknown subcommand       -> message + available commands, exit 1,
-    `:cause :unknown-subcommand`
-  * flag error               -> message + usage line, exit 1, `:cause` is the
-    babashka.cli cause (`:restrict` / `:require` / `:validate` / `:coerce`)
+  * `--help` / `-h` -> full help, exit with 0, `:cause :help-requested`
+  * group with no subcommand -> its help, but a usage error, exit with 1, `:cause :missing-subcommand`
+  * unknown subcommand -> message + commands, exit with 1, `:cause :unknown-subcommand`
+  * flag error -> message + usage, exit with 1, `:cause` is the babashka.cli cause (`:restrict` / `:require` / `:validate` / `:coerce`)
 
-  Only `--help`/`-h` exits 0; everything else is exit 1 (git/cli-matic treat a
-  group without a subcommand as a usage error). A caller who disagrees can
-  rebind [[*exit-fn*]] and remap codes by `:cause`.
-
-  Terse on misuse (no full options dump); options are rendered as the flag the
-  user types (`--foo`, `-x`), not the keyword `:foo`."
+  Terse on errors. Messages name the flag as typed (`--foo`/`-x`), not `:foo`."
   [{:keys [table prog inherit]}]
   (let [tree   (if (map? table) table (table->tree table))
         ctx-at (fn [path] (command-help-context tree (vec path) prog inherit))
@@ -1024,29 +1024,24 @@
               (println (str "Commands:\n"
                             (format-table {:rows cmds :indent 2}) "\n")))
             (println (hint path))
-            (*exit-fn* {:exit 1 :cause :unknown-subcommand :message message
+            (*exit-fn* {:exit 1 :cause :unknown-subcommand :msg message
                         :dispatch path :data data}))
 
           ;; a group invoked with no subcommand: show its help, but this is a
-          ;; usage error (no subcommand chosen), so exit non-zero like git
+          ;; usage error (no subcommand chosen), so exit with non-zero like git
           (= :input-exhausted cause)
           (do (print-help path)
               (*exit-fn* {:exit 1 :cause :missing-subcommand :dispatch path :data data}))
 
-          ;; genuine flag error (require / validate / unknown flag): terse,
-          ;; rendering the option as the flag the user typed. The babashka.cli
-          ;; cause (:restrict / :require / :validate / :coerce) passes through.
+          ;; genuine flag error (restrict / require / validate / coerce): terse.
+          ;; The lib message already names the flag the user typed; `:cause`
+          ;; passes through.
           :else
-          (let [;; `:flag` is the literal option token as typed (see parse-opts*);
-                ;; for a missing required option no token was typed, so fall back
-                ;; to the canonical long form `--<option>`
-                flag (or (:flag data) (when option (str "--" (name option))))
-                msg  (if (and option flag) (str/replace msg (str option) flag) msg)]
-            (println (str "Error: " msg "\n"))
-            (println (usage path))
-            (println)
-            (println (hint path))
-            (*exit-fn* {:exit 1 :cause cause :message msg :dispatch path :data data})))))))
+          (do (println (str "Error: " msg "\n"))
+              (println (usage path))
+              (println)
+              (println (hint path))
+              (*exit-fn* {:exit 1 :cause cause :msg msg :dispatch path :data data})))))))
 
 (defn- dispatch-tree'
   ([tree args]
