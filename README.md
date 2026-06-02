@@ -763,14 +763,29 @@ arrives as an error it can intercept):
 It accepts the same `:prog` and `:inherit` second-arg keys as
 `format-command-help`.
 
-It terminates through the dynamic `*exit-fn*`, called with a map containing
-`:exit` (0 when help was shown, 1 on error) plus, on errors, `:message` /
-`:dispatch` / `:data` (the original error data, which carries `:cause`). The
-default exits the process (`System/exit` on the JVM, `js/process.exit` on Node);
-rebind it in tests or a REPL to avoid exiting:
+It terminates through the dynamic `*exit-fn*`, called with a map carrying
+`:exit`, a curated `:cause`, `:dispatch`, and (on errors) `:message` / `:data`:
+
+| invocation | `:exit` | `:cause` |
+|---|---|---|
+| `--help` / `-h` | 0 | `:help-requested` |
+| group, no subcommand | 1 | `:missing-subcommand` |
+| unknown subcommand | 1 | `:unknown-subcommand` |
+| flag error | 1 | `:restrict` / `:require` / `:validate` / `:coerce` |
+
+Only `--help`/`-h` exits 0; a group invoked without a subcommand is a usage
+error (exit 1), like `git bisect` with no subcommand. `:data` keeps the raw
+`dispatch` error data, including the parser's own `:cause` (`:no-match` /
+`:input-exhausted`).
+
+The default `*exit-fn*` exits the process (`System/exit` on the JVM,
+`js/process.exit` on Node). Rebind it to avoid exiting (tests, REPL), or to
+remap exit codes you disagree with by switching on `:cause`:
 
 ``` clojure
-(binding [cli/*exit-fn* (fn [m] (throw (ex-info "exit" m)))]
+;; treat a bare group as success (print help, exit 0) instead of a usage error
+(binding [cli/*exit-fn* (fn [{:keys [exit cause]}]
+                          (System/exit (if (= :missing-subcommand cause) 0 exit)))]
   (cli/dispatch table args
     {:restrict true :error-fn (cli/help-error-fn table {:prog "example"})}))
 ```

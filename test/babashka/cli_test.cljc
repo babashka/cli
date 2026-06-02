@@ -579,40 +579,44 @@
                               (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                                 (when-not (::exit (ex-data e)) (throw e))))))]
                 {:out out :exit @exit}))]
-    (testing "--help prints full help, exits 0"
+    (testing "--help: full help, exit 0, :cause :help-requested"
       (let [{:keys [out exit]} (run ["--help"])]
         (is (str/includes? out "Usage: tool [options] <command>"))
         (is (str/includes? out "Commands:"))
-        (is (submap? {:exit 0} exit))))
+        (is (submap? {:exit 0 :cause :help-requested} exit))))
     (testing "-h at a leaf prints that command's help"
       (let [{:keys [out exit]} (run ["dev" "-h"])]
         (is (str/includes? out "Usage: tool dev"))
         (is (str/includes? out "Inherited options:"))
-        (is (submap? {:exit 0 :dispatch ["dev"]} exit))))
+        (is (submap? {:exit 0 :cause :help-requested :dispatch ["dev"]} exit))))
     (testing "unknown command: terse message + command list, exit 1"
       (let [{:keys [out exit]} (run ["nope"])]
         (is (str/includes? out "Unknown command: nope"))
         (is (str/includes? out "Commands:"))
-        (is (submap? {:exit 1 :dispatch [] :data {:cause :no-match}} exit))))
-    (testing "group with no subcommand prints group help, exit 0"
+        ;; curated :cause at top level; raw parser cause in :data
+        (is (submap? {:exit 1 :cause :unknown-subcommand :dispatch []
+                      :data {:cause :no-match}} exit))))
+    (testing "group with no subcommand: shows help but is a usage error, exit 1"
       (let [{:keys [out exit]} (run ["deps"])]
         (is (str/includes? out "Usage: tool deps [options] <command>"))
         (is (str/includes? out "outdated"))
-        (is (submap? {:exit 0 :dispatch ["deps"]} exit))))
-    (testing "flag error: terse, option rendered as the typed flag, exit 1"
+        (is (submap? {:exit 1 :cause :missing-subcommand :dispatch ["deps"]
+                      :data {:cause :input-exhausted}} exit))))
+    (testing "flag error: terse, typed flag, exit 1, babashka.cli cause passes through"
       (let [{:keys [out exit]} (run ["dev" "--bogus"])]
         (is (str/includes? out "Error: Unknown option: --bogus"))
         (is (str/includes? out "Usage: tool dev"))
-        (is (submap? {:exit 1 :dispatch ["dev"] :data {:cause :restrict}} exit))))
-    (testing "*exit-fn* is rebindable (no process exit)"
+        (is (submap? {:exit 1 :cause :restrict :dispatch ["dev"]
+                      :data {:cause :restrict}} exit))))
+    (testing "*exit-fn* codes can be remapped by :cause (e.g. group -> 0)"
       (let [calls (atom [])]
         (binding [cli/*exit-fn* (fn [m] (swap! calls conj m))]
           (with-out-str
-            (cli/dispatch table ["--help"]
+            (cli/dispatch table ["deps"]
                           {:restrict true
                            :error-fn (cli/help-error-fn table {:prog "tool"})})))
-        (is (seq @calls))
-        (is (= 0 (:exit (first @calls))))))))
+        (is (= :missing-subcommand (:cause (first @calls))))
+        (is (= 1 (:exit (first @calls))))))))
 
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]

@@ -906,11 +906,22 @@
 
 (defn ^:dynamic *exit-fn*
   "Called to terminate the process once help or an error has been printed by
-  [[help-error-fn]]. Receives a map with `:exit` (the exit code; 0 when help was
-  shown, 1 on error) and, on errors, `:message` / `:dispatch` / `:data` (the
-  original error data, which carries `:cause` etc.).
+  [[help-error-fn]]. Receives a map with:
 
-  Rebind this to prevent the process from exiting (tests, REPL):
+  * `:exit`     - the exit code; `0` only when `--help`/`-h` was requested, `1`
+                  otherwise (unknown/missing subcommand, flag errors)
+  * `:cause`    - a curated outcome keyword: `:help-requested`,
+                  `:missing-subcommand`, `:unknown-subcommand`, or the
+                  babashka.cli flag cause (`:restrict` / `:require` /
+                  `:validate` / `:coerce`)
+  * `:dispatch` - the command path
+  * `:message`  - a human-readable line (on the terse error paths)
+  * `:data`     - the original `dispatch` error data, carrying the raw parser
+                  `:cause` (`:no-match` / `:input-exhausted` / ...) and more
+                  (absent on the `--help` path)
+
+  Rebind `:exit` codes you disagree with by switching on `:cause`. Rebind this
+  var entirely to prevent the process from exiting (tests, REPL):
 
   ```clojure
   (binding [babashka.cli/*exit-fn* (fn [m] (throw (ex-info \"exit\" m)))]
@@ -944,12 +955,20 @@
     {:restrict true :error-fn (cli/help-error-fn table {:prog \"mytool\"})})
   ```
 
-  Behavior, by error `:cause`:
+  Behavior, and the `:cause` passed to [[*exit-fn*]]:
 
-  * `--help` / `-h` anywhere   -> full help for that level, exit 0
-  * unknown subcommand         -> message + available commands, exit 1
-  * group with no subcommand   -> full help for that group, exit 0
-  * flag error (require / ...) -> message + usage line, exit 1
+  * `--help` / `-h` anywhere -> full help for that level, exit 0,
+    `:cause :help-requested`
+  * group with no subcommand -> full help for that group, but a usage error
+    (no subcommand chosen), exit 1, `:cause :missing-subcommand`
+  * unknown subcommand       -> message + available commands, exit 1,
+    `:cause :unknown-subcommand`
+  * flag error               -> message + usage line, exit 1, `:cause` is the
+    babashka.cli cause (`:restrict` / `:require` / `:validate` / `:coerce`)
+
+  Only `--help`/`-h` exits 0; everything else is exit 1 (git/cli-matic treat a
+  group without a subcommand as a usage error). A caller who disagrees can
+  rebind [[*exit-fn*]] and remap codes by `:cause`.
 
   Terse on misuse (no full options dump); options are rendered as the flag the
   user types (`--foo`, `-x`), not the keyword `:foo`."
@@ -972,7 +991,7 @@
           ;; --help / -h: under :restrict these arrive as an unknown option
           (and (= :restrict cause) (#{:help :h} option))
           (do (print-help path)
-              (*exit-fn* {:exit 0 :dispatch path}))
+              (*exit-fn* {:exit 0 :cause :help-requested :dispatch path}))
 
           ;; mistyped subcommand: terse, but list the available commands
           (= :no-match cause)
@@ -983,22 +1002,25 @@
               (println (str "Commands:\n"
                             (format-table {:rows cmds :indent 2}) "\n")))
             (println (hint path))
-            (*exit-fn* {:exit 1 :message message :dispatch path :data data}))
+            (*exit-fn* {:exit 1 :cause :unknown-subcommand :message message
+                        :dispatch path :data data}))
 
-          ;; a group invoked with no subcommand -> full help (shows Commands)
+          ;; a group invoked with no subcommand: show its help, but this is a
+          ;; usage error (no subcommand chosen), so exit non-zero like git
           (= :input-exhausted cause)
           (do (print-help path)
-              (*exit-fn* {:exit 0 :dispatch path}))
+              (*exit-fn* {:exit 1 :cause :missing-subcommand :dispatch path :data data}))
 
           ;; genuine flag error (require / validate / unknown flag): terse,
-          ;; rendering the option as the flag the user types
+          ;; rendering the option as the flag the user types. The babashka.cli
+          ;; cause (:restrict / :require / :validate / :coerce) passes through.
           :else
           (let [msg (if option (str/replace msg (str option) (opt->flag option)) msg)]
             (println (str "Error: " msg "\n"))
             (println (usage path))
             (println)
             (println (hint path))
-            (*exit-fn* {:exit 1 :message msg :dispatch path :data data})))))))
+            (*exit-fn* {:exit 1 :cause cause :message msg :dispatch path :data data})))))))
 
 (defn- dispatch-tree'
   ([tree args]
