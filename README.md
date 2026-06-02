@@ -747,6 +747,44 @@ Options:
 Run "example <command> --help" for more information on a command.
 ```
 
+### Help on error
+
+`help-error-fn` turns `format-command-help` into an `:error-fn` for `dispatch`.
+It needs `:restrict true` so `--help`/`-h` arrive as errors it can intercept,
+and takes the same config map as `format-command-help` (`:table`, `:prog`,
+optional `:inherit`):
+
+``` clojure
+(cli/dispatch table args
+  {:restrict true :error-fn (cli/help-error-fn {:table table :prog "example"})})
+```
+
+It exits via the dynamic `*exit-fn*`, called with `:exit`, `:cause`,
+`:dispatch`, and (on errors) `:msg` / `:data`:
+
+| invocation | `:exit` | `:cause` |
+|---|---|---|
+| `--help` / `-h` | 0 | `:help-requested` |
+| group, no subcommand | 1 | `:missing-subcommand` |
+| unknown subcommand | 1 | `:unknown-subcommand` |
+| flag error | 1 | `:restrict` / `:require` / `:validate` / `:coerce` |
+
+Only `--help`/`-h` exits with 0; a bare group is a usage error (exit with 1),
+like `git bisect` with no subcommand. `:data` holds the raw `dispatch` error data,
+including the parser's own `:cause` (`:no-match` / `:input-exhausted`).
+
+The default `*exit-fn*` exits the process (`System/exit` on JVM,
+`js/process.exit` on Node). Rebind it to avoid exiting (tests, REPL), or to use
+your own exit codes by switching on `:cause`:
+
+``` clojure
+;; treat a bare group as success (print help, exit with 0) instead of a usage error
+(binding [cli/*exit-fn* (fn [{:keys [exit cause]}]
+                          (System/exit (if (= :missing-subcommand cause) 0 exit)))]
+  (cli/dispatch table args
+    {:restrict true :error-fn (cli/help-error-fn {:table table :prog "example"})}))
+```
+
 ## Babashka tasks
 
 For documentation on babashka tasks, go

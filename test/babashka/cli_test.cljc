@@ -61,8 +61,9 @@
                      :cljs :default) e
              (= {:type :org.babashka/cli
                  :cause :coerce
-                 :msg "Coerce failure: cannot transform input \"dude\" to long"
+                 :msg "Invalid value for option :b: cannot transform input \"dude\" to long"
                  :option :b
+                 :flag ":b"
                  :value "dude"
                  :spec nil
                  :opts {}}
@@ -122,8 +123,9 @@
                        :cljs :default) e
                (= {:type :org.babashka/cli
                    :cause :restrict
-                   :msg "Unknown option: :b"
+                   :msg "Unknown option: -b"
                    :option :b
+                   :flag "-b"
                    :restrict #{:foo}
                    :spec {:foo {}}
                    :opts {:foo "bar", :b true}}
@@ -142,8 +144,9 @@
                        :cljs :default) e
                (= {:type :org.babashka/cli
                    :cause :restrict
-                   :msg "Unknown option: :bar"
+                   :msg "Unknown option: --bar"
                    :option :bar
+                   :flag "--bar"
                    :restrict #{:foo}
                    :spec nil
                    :opts {:foo true, :bar true}}
@@ -558,6 +561,77 @@
                     "Options:\n  --x local x")
                (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))))
 
+(deftest help-error-fn-test
+  (let [table [{:cmds [] :doc "tool"
+                :spec {:verbose {:alias :v :inherit true :desc "Verbose output"}}}
+               {:cmds ["dev"] :fn identity :doc "Start dev."
+                :spec {:sync {:alias :s :coerce :boolean :desc "Sync first"}}}
+               {:cmds ["deps"] :doc "Dep tools"}
+               {:cmds ["deps" "outdated"] :fn identity :doc "Show outdated"}]
+        run (fn [args]
+              (let [exit (atom nil)
+                    out (with-out-str
+                          (binding [cli/*exit-fn*
+                                    (fn [m]
+                                      (reset! exit m)
+                                      (throw (ex-info "exit" {::exit true})))]
+                            (try
+                              (cli/dispatch table args
+                                            {:restrict true
+                                             :error-fn (cli/help-error-fn {:table table :prog "tool"})})
+                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                                (when-not (::exit (ex-data e)) (throw e))))))]
+                {:out out :exit @exit}))]
+    (testing "--help: full help, exit 0, :cause :help-requested"
+      (let [{:keys [out exit]} (run ["--help"])]
+        (is (str/includes? out "Usage: tool [options] <command>"))
+        (is (str/includes? out "Commands:"))
+        (is (submap? {:exit 0 :cause :help-requested} exit))))
+    (testing "-h at a leaf prints that command's help"
+      (let [{:keys [out exit]} (run ["dev" "-h"])]
+        (is (str/includes? out "Usage: tool dev"))
+        (is (str/includes? out "Inherited options:"))
+        (is (submap? {:exit 0 :cause :help-requested :dispatch ["dev"]} exit))))
+    (testing "unknown command: terse message + command list, exit 1"
+      (let [{:keys [out exit]} (run ["nope"])]
+        (is (str/includes? out "Unknown command: nope"))
+        (is (str/includes? out "Commands:"))
+        ;; :cause at top level; raw parser cause in :data
+        (is (submap? {:exit 1 :cause :unknown-subcommand :dispatch []
+                      :data {:cause :no-match}} exit))))
+    (testing "group with no subcommand: shows help but is a usage error, exit 1"
+      (let [{:keys [out exit]} (run ["deps"])]
+        (is (str/includes? out "Usage: tool deps [options] <command>"))
+        (is (str/includes? out "outdated"))
+        (is (submap? {:exit 1 :cause :missing-subcommand :dispatch ["deps"]
+                      :data {:cause :input-exhausted}} exit))))
+    (testing "flag error: terse, typed flag, exit 1, babashka.cli cause passes through"
+      (let [{:keys [out exit]} (run ["dev" "--bogus"])]
+        (is (str/includes? out "Error: Unknown option: --bogus"))
+        (is (str/includes? out "Usage: tool dev"))
+        (is (submap? {:exit 1 :cause :restrict :dispatch ["dev"]
+                      :data {:cause :restrict}} exit))))
+    (testing "missing required option: message built from the canonical flag"
+      (let [t [{:cmds ["x"] :fn identity :spec {:foo {:require true}}}]
+            out (with-out-str
+                  (binding [cli/*exit-fn* (fn [_] (throw (ex-info "exit" {::exit true})))]
+                    (try (cli/dispatch t ["x"]
+                                       {:restrict true
+                                        :error-fn (cli/help-error-fn {:table t :prog "tool"})})
+                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                           (when-not (::exit (ex-data e)) (throw e))))))]
+        ;; required option was never typed -> canonical --foo (default in messages)
+        (is (str/includes? out "Required option: --foo"))))
+    (testing "*exit-fn* codes can be remapped by :cause (e.g. group -> 0)"
+      (let [calls (atom [])]
+        (binding [cli/*exit-fn* (fn [m] (swap! calls conj m))]
+          (with-out-str
+            (cli/dispatch table ["deps"]
+                          {:restrict true
+                           :error-fn (cli/help-error-fn {:table table :prog "tool"})})))
+        (is (= :missing-subcommand (:cause (first @calls))))
+        (is (= 1 (:exit (first @calls))))))))
+
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]
                                 (let [rows (str/split-lines table)]
@@ -589,15 +663,15 @@
 
 (deftest require-test
   (is (thrown-with-msg?
-       Exception #"Required option: :bar"
+       Exception #"Required option: --bar"
        (cli/parse-args ["-foo"] {:require [:bar]}))))
 
 (deftest validate-test
-  (is (thrown-with-msg? Exception #"Invalid value for option :foo:"
+  (is (thrown-with-msg? Exception #"Invalid value for option --foo:"
                         (cli/parse-args ["--foo" "0"] {:validate {:foo pos?}})))
-  (is (thrown-with-msg? Exception #"Invalid value for option :foo:"
+  (is (thrown-with-msg? Exception #"Invalid value for option --foo:"
                         (cli/parse-args ["--foo" ":bar"] {:validate {:foo #{:baz}}})))
-  (is (thrown-with-msg? Exception #"Invalid value for option :foo:"
+  (is (thrown-with-msg? Exception #"Invalid value for option --foo:"
                         (cli/parse-args ["--foo" ":bar"] {:spec {:foo {:validate #{:baz}}}})))
   (let [ex-msg-fn (fn
                     [{:keys [option value]}]
@@ -614,12 +688,32 @@
                    :cause :validate
                    :msg "Expected positive number for option :foo but got: 0"
                    :option :foo
+                   :flag "--foo"
                    :spec nil
                    :value 0
                    :validate {:foo {:pred pos?
                                     :ex-msg ex-msg-fn}}
                    :opts {:foo 0}}
                   (ex-data e)))))))
+
+(deftest flag-token-test
+  (testing ":flag echoes the literal option token, not a guess from name length"
+    (let [flag (fn [args opts] (try (cli/parse-opts args opts)
+                                    (catch #?(:clj Exception :cljs :default) e
+                                      (:flag (ex-data e)))))]
+      ;; single-char long option: a name-length guess would say "-x"; exact now
+      (is (= "--x" (flag ["--x"] {:spec {:foo {}} :restrict true})))
+      (is (= "-x"  (flag ["-x"]  {:spec {:foo {}} :restrict true})))
+      (is (= "--bogus" (flag ["--bogus"] {:spec {:foo {}} :restrict true})))
+      ;; short alias: echo what was typed, though :option is the long key :format
+      (is (= "-f" (flag ["-f" "0"] {:spec {:format {:alias :f :validate pos?}}})))
+      ;; single-char long coerce failure: a guess would say "-n"
+      (is (= "--n" (flag ["--n" "x"] {:coerce {:n :long}})))
+      ;; keyword syntax echoes as typed
+      (is (= ":x" (flag [":x"] {:spec {:foo {}} :restrict true})))))
+  (testing ":require carries no :flag (option was never typed)"
+    (is (nil? (try (cli/parse-opts [] {:spec {:foo {}} :require [:foo]})
+                   (catch #?(:clj Exception :cljs :default) e (:flag (ex-data e))))))))
 
 (deftest error-fn-test
   (let [errors (atom [])
@@ -633,11 +727,12 @@
                      :restrict true
                      :spec spec})
     (is (= [{:spec spec, :type :org.babashka/cli, :cause :coerce,
-             :msg "Coerce failure: cannot transform input \"nope!\" to long", :option :c,
+             :msg "Invalid value for option --c: cannot transform input \"nope!\" to long", :option :c, :flag "--c",
              :value "nope!", :opts {:b 0}}
-            {:spec spec, :type :org.babashka/cli, :cause :restrict, :msg "Unknown option: :extra", :restrict #{:c :b :a}, :option :extra, :opts {:b 0, :extra "bad!"}}
-            {:spec spec, :type :org.babashka/cli, :cause :require, :msg "Required option: :a", :require #{:a}, :option :a, :opts {:b 0, :extra "bad!"}}
-            {:spec spec, :type :org.babashka/cli, :cause :validate, :msg "Invalid value for option :b: 0", :validate {:b pos?}, :option :b, :value 0,
+            {:spec spec, :type :org.babashka/cli, :cause :restrict, :msg "Unknown option: --extra", :restrict #{:c :b :a}, :option :extra, :flag "--extra", :opts {:b 0, :extra "bad!"}}
+            ;; :require has no :flag in data (never typed); the message uses the canonical --a
+            {:spec spec, :type :org.babashka/cli, :cause :require, :msg "Required option: --a", :require #{:a}, :option :a, :opts {:b 0, :extra "bad!"}}
+            {:spec spec, :type :org.babashka/cli, :cause :validate, :msg "Invalid value for option --b: 0", :validate {:b pos?}, :option :b, :flag "--b", :value 0,
              :opts {:b 0, :extra "bad!"}}]
            @errors))))
 
@@ -716,11 +811,11 @@
                            {:restrict true})))
       (testing "genuinely unknown options are still rejected"
         (is (thrown-with-msg?
-             Exception #"Unknown option: :bogus"
+             Exception #"Unknown option: --bogus"
              (cli/dispatch table ["deps" "outdated" "--bogus"] {:restrict true}))))))
   (testing "fix is scoped to dispatch: plain :exec-args still subject to :restrict"
     (is (thrown-with-msg?
-         Exception #"Unknown option: :bar"
+         Exception #"Unknown option: --bar"
          (cli/parse-opts ["--foo"] {:spec {:foo {:coerce :boolean}}
                                     :exec-args {:bar 1}
                                     :restrict true})))))
@@ -750,7 +845,7 @@
     (let [table [{:cmds ["deps"]            :spec {:registry {}}}
                  {:cmds ["deps" "outdated"] :fn identity :spec {:format {}}}]]
       (is (thrown-with-msg?
-           Exception #"Unknown option: :registry"
+           Exception #"Unknown option: --registry"
            (cli/dispatch table ["deps" "outdated" "--registry" "X"] {:restrict true})))))
   (testing "dispatch-level :inherit makes options inherit without per-option marking"
     (let [table [{:cmds ["deps"]            :spec {:registry {} :token {}}}
@@ -765,7 +860,7 @@
                (:opts (cli/dispatch table ["deps" "outdated" "--registry" "X"]
                                     {:inherit #{:registry} :restrict true}))))
         (is (thrown-with-msg?
-             Exception #"Unknown option: :token"
+             Exception #"Unknown option: --token"
              (cli/dispatch table ["deps" "outdated" "--token" "T"]
                            {:inherit #{:registry} :restrict true})))))))
 
@@ -864,25 +959,25 @@
 (deftest validate-opts-test
   (testing "restrict"
     (is (thrown-with-msg?
-         Exception #"Unknown option: :bar"
+         Exception #"Unknown option: --bar"
          (cli/validate-opts {:foo 1 :bar 2} {:restrict #{:foo}}))))
   (testing "restrict with true and spec"
     (is (thrown-with-msg?
-         Exception #"Unknown option: :bar"
+         Exception #"Unknown option: --bar"
          (cli/validate-opts {:foo 1 :bar 2} {:spec {:foo {:coerce :long}} :restrict true}))))
   (testing "restrict passes for known keys"
     (is (= {:foo 1}
            (cli/validate-opts {:foo 1} {:restrict #{:foo}}))))
   (testing "require"
     (is (thrown-with-msg?
-         Exception #"Required option: :bar"
+         Exception #"Required option: --bar"
          (cli/validate-opts {:foo 1} {:require [:bar]}))))
   (testing "require passes when present"
     (is (= {:foo 1 :bar 2}
            (cli/validate-opts {:foo 1 :bar 2} {:require [:bar]}))))
   (testing "validate"
     (is (thrown-with-msg?
-         Exception #"Invalid value for option :foo"
+         Exception #"Invalid value for option --foo"
          (cli/validate-opts {:foo 0} {:validate {:foo pos?}}))))
   (testing "validate passes"
     (is (= {:foo 1}
@@ -895,7 +990,7 @@
                                                                  (str "Expected positive for " option ": " value))}}}))))
   (testing "using spec"
     (is (thrown-with-msg?
-         Exception #"Required option: :foo"
+         Exception #"Required option: --foo"
          (cli/validate-opts {} {:spec {:foo {:require true}}}))))
   (testing "error-fn"
     (let [errors (atom [])]
@@ -918,7 +1013,9 @@
   (testing "::implicit-true-keys not in parse-opts result meta"
     (is (nil? (:babashka.cli/implicit-true-keys (meta (cli/parse-opts ["--foo"]))))))
   (testing "::keys-order not in parse-opts result meta"
-    (is (nil? (:babashka.cli/keys-order (meta (cli/parse-opts ["--foo" "--bar" "1"])))))))
+    (is (nil? (:babashka.cli/keys-order (meta (cli/parse-opts ["--foo" "--bar" "1"]))))))
+  (testing "::key->flag not in parse-opts result meta"
+    (is (nil? (:babashka.cli/key->flag (meta (cli/parse-opts ["--foo" "--bar" "1"])))))))
 
 (deftest coerce-error-order-test
   (testing "coerce errors fire in parse order, not hash order, for >8 keys"
@@ -933,10 +1030,11 @@
 (deftest parse-opts-star-test
   (testing "parse-opts* returns raw strings (no coercion)"
     (is (= {:foo "1"} (cli/parse-opts* ["--foo" "1"] {}))))
-  (testing "parse-opts* exposes ::implicit-true-keys + ::keys-order in meta"
+  (testing "parse-opts* exposes ::implicit-true-keys + ::keys-order + ::key->flag in meta"
     (let [r (cli/parse-opts* ["--foo" "--bar" "1"] {})]
       (is (= #{:foo} (:babashka.cli/implicit-true-keys (meta r))))
-      (is (= [:foo :bar] (:babashka.cli/keys-order (meta r))))))
+      (is (= [:foo :bar] (:babashka.cli/keys-order (meta r))))
+      (is (= {:foo "--foo" :bar "--bar"} (:babashka.cli/key->flag (meta r))))))
   (testing "parse-opts* skips :restrict / :require / :validate"
     (is (= {:bar "1"} (cli/parse-opts* ["--bar" "1"]
                                        {:restrict #{:foo} :require [:foo]})))))
