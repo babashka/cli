@@ -202,22 +202,22 @@
             (*exit-fn* {:exit 1 :reason :error :message msg
                         :cause cause :dispatch path :data data})))))))
 
-;; --- example dispatch table (ductile-flavoured) ---
+;; --- example dispatch table ---
 
 (defn- act [label]
   (fn [{:keys [opts]}] (println (str "[run] " label
                                      (when (seq (dissoc opts :help)) (str " " (pr-str (dissoc opts :help))))))))
 
 (def dev-spec
-  {:with-transactor {:alias :t :coerce :boolean :desc "Also start the Datomic transactor"}
-   :privileged      {:alias :p :coerce :boolean :desc "Run with secrets (unsandboxed)"}
-   :sync            {:alias :s :coerce :boolean :desc "Sync local db from production first"}})
+  {:with-worker {:alias :t :coerce :boolean :desc "Also start the background worker"}
+   :privileged  {:alias :p :coerce :boolean :desc "Run with elevated privileges"}
+   :sync        {:alias :s :coerce :boolean :desc "Sync state before starting"}})
 
 (def table
-  [{:cmds []     :doc "ductile dev tooling"
+  [{:cmds []     :doc "example command line tool"
     :spec {:verbose {:alias :v :inherit true :desc "Verbose output"}}}
    {:cmds ["dev"] :fn (act "dev") :spec dev-spec
-    :doc "Start the full dev system.\n\nWith good defaults bb dev is enough 90% of the time.\nFlags configure transactor, privilege and db sync."}
+    :doc "Start the full dev system.\n\nWith good defaults `dev` is enough 90% of the time.\nFlags configure the worker, privileges and state sync."}
    {:cmds ["maintenance"]           :doc "Manage maintenance mode"}
    {:cmds ["maintenance" "enable"]  :fn (act "maintenance enable")  :doc "Enable maintenance mode"}
    {:cmds ["maintenance" "disable"] :fn (act "maintenance disable") :doc "Disable maintenance mode"}
@@ -253,7 +253,7 @@
   (run ["maintenance"])                                       ; group, no sub -> help
   (run ["maintenance" "--help"])                              ; group help
   (run ["dev" "-tp"])                                         ; short flags, real run
-  (run ["dev" "--with-transactor" "--sync"])                 ; long flags, real run
+  (run ["dev" "--with-worker" "--sync"])                     ; long flags, real run
   (run ["maintenance" "enable"])                              ; subcommand run
   (run ["dev" "--bogus"])                                     ; restrict -> error
   (run ["nope"]))                                             ; unknown command -> help
