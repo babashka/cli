@@ -760,8 +760,8 @@ arrives as an error it can intercept):
   {:restrict true :error-fn (cli/help-error-fn table {:prog "example"})})
 ```
 
-Pass the same dispatch-level `:inherit` (if any) as a second-arg key so the
-`Inherited options:` section matches what is accepted.
+It accepts the same `:prog` and `:inherit` second-arg keys as
+`format-command-help`.
 
 It terminates through the dynamic `*exit-fn*`, called with a map containing
 `:exit` (the exit code) plus `:reason`/`:message`/`:cause`/`:dispatch`. The
