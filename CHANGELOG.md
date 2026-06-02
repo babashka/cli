@@ -6,6 +6,9 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
+- Add `help-error-fn`: build an `:error-fn` for `dispatch` (used with `:restrict true`) that renders help via `format-command-help` (`--help`/`-h`, unknown subcommand, group without subcommand, flag errors) and terminates through `*exit-fn*`
+- Add `*exit-fn*`: dynamic var used by `help-error-fn` to terminate (`System/exit` on JVM, `js/process.exit` on Node); rebind it in tests/REPL to avoid exiting
+- Add `format-command-help`: render conventional `--help` text (Usage / Commands / Options / Inherited options) for a command in a `dispatch` table, e.g. `(format-command-help {:table table :cmds ["copy"] :prog "example"})`
 - Expose `table->tree`: converts a `dispatch` table into the nested tree used internally, handy for generating help or completions
 - `dispatch` now includes the `:dispatch` (matched subcommand path) in flag-level error data (`:restrict` / `:require` / `:validate` / `:coerce`), so an `:error-fn` can show help for the right subcommand
 - Fix `:restrict` rejecting shared/parent options in `dispatch`: options parsed at a parent subcommand level (passed down via `:exec-args`) are no longer flagged as unknown at child levels

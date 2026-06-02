@@ -530,6 +530,90 @@
 
 
 
+(deftest format-command-help-test
+  (let [table [{:cmds [] :spec {:verbose {:alias :v :inherit true :desc "Verbose output"}}}
+               {:cmds ["copy"]   :fn identity :doc "Copy a file"
+                :spec {:dry-run {:desc "Do a dry run"}}}
+               {:cmds ["delete"] :fn identity :doc "Delete a file"
+                :spec {:recursive {:alias :r :desc "Delete recursively"}}}]]
+    (testing "top level: usage, commands, options, pointer"
+      (is (= (str "Usage: example [options] <command>\n\n"
+                  "Commands:\n  copy   Copy a file\n  delete Delete a file\n\n"
+                  "Options:\n  -v, --verbose Verbose output\n\n"
+                  "Run \"example <command> --help\" for more information on a command.")
+             (cli/format-command-help {:table table :prog "example"}))))
+    (testing "leaf: own options + option inherited from an ancestor"
+      (is (= (str "Usage: example copy [options] [<args>]\n\n"
+                  "Copy a file\n\n"
+                  "Options:\n  --dry-run Do a dry run\n\n"
+                  "Inherited options:\n  -v, --verbose Verbose output")
+             (cli/format-command-help {:table table :cmds ["copy"] :prog "example"}))))
+    (testing "a table or a prebuilt tree both work"
+      (is (= (cli/format-command-help {:table table :cmds ["copy"] :prog "example"})
+             (cli/format-command-help {:table (cli/table->tree table) :cmds ["copy"] :prog "example"}))))
+    (testing "a redefined inherited option shows only under Options (child wins)"
+      (let [t [{:cmds [] :spec {:x {:inherit true :desc "global x"}}}
+               {:cmds ["sub"] :fn identity :spec {:x {:desc "local x"}}}]]
+        (is (= (str "Usage: p sub [options] [<args>]\n\n"
+                    "Options:\n  --x local x")
+               (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))))
+
+(deftest help-error-fn-test
+  (let [table [{:cmds [] :doc "tool"
+                :spec {:verbose {:alias :v :inherit true :desc "Verbose output"}}}
+               {:cmds ["dev"] :fn identity :doc "Start dev."
+                :spec {:sync {:alias :s :coerce :boolean :desc "Sync first"}}}
+               {:cmds ["deps"] :doc "Dep tools"}
+               {:cmds ["deps" "outdated"] :fn identity :doc "Show outdated"}]
+        run (fn [args]
+              (let [exit (atom nil)
+                    out (with-out-str
+                          (binding [cli/*exit-fn*
+                                    (fn [m]
+                                      (reset! exit m)
+                                      (throw (ex-info "exit" {::exit true})))]
+                            (try
+                              (cli/dispatch table args
+                                            {:restrict true
+                                             :error-fn (cli/help-error-fn table {:prog "tool"})})
+                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                                (when-not (::exit (ex-data e)) (throw e))))))]
+                {:out out :exit @exit}))]
+    (testing "--help prints full help, exits 0"
+      (let [{:keys [out exit]} (run ["--help"])]
+        (is (str/includes? out "Usage: tool [options] <command>"))
+        (is (str/includes? out "Commands:"))
+        (is (submap? {:exit 0 :reason :help} exit))))
+    (testing "-h at a leaf prints that command's help"
+      (let [{:keys [out exit]} (run ["dev" "-h"])]
+        (is (str/includes? out "Usage: tool dev"))
+        (is (str/includes? out "Inherited options:"))
+        (is (submap? {:exit 0 :reason :help :dispatch ["dev"]} exit))))
+    (testing "unknown command: terse message + command list, exit 1"
+      (let [{:keys [out exit]} (run ["nope"])]
+        (is (str/includes? out "Unknown command: nope"))
+        (is (str/includes? out "Commands:"))
+        (is (submap? {:exit 1 :reason :unknown-command :dispatch []} exit))))
+    (testing "group with no subcommand prints group help, exit 0"
+      (let [{:keys [out exit]} (run ["deps"])]
+        (is (str/includes? out "Usage: tool deps [options] <command>"))
+        (is (str/includes? out "outdated"))
+        (is (submap? {:exit 0 :reason :help :dispatch ["deps"]} exit))))
+    (testing "flag error: terse, option rendered as the typed flag, exit 1"
+      (let [{:keys [out exit]} (run ["dev" "--bogus"])]
+        (is (str/includes? out "Error: Unknown option: --bogus"))
+        (is (str/includes? out "Usage: tool dev"))
+        (is (submap? {:exit 1 :reason :error :dispatch ["dev"]} exit))))
+    (testing "*exit-fn* is rebindable (no process exit)"
+      (let [calls (atom [])]
+        (binding [cli/*exit-fn* (fn [m] (swap! calls conj m))]
+          (with-out-str
+            (cli/dispatch table ["--help"]
+                          {:restrict true
+                           :error-fn (cli/help-error-fn table {:prog "tool"})})))
+        (is (seq @calls))
+        (is (= 0 (:exit (first @calls))))))))
+
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]
                                 (let [rows (str/split-lines table)]

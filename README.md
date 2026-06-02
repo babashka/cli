@@ -694,6 +694,86 @@ Use `true` to inherit all options, or a set of keys to inherit only those:
 (cli/dispatch table ["group" "sub" "--registry" "X"] {:inherit #{:registry}})
 ```
 
+### Help for subcommands
+
+`format-command-help` renders conventional `--help` text for a command in a dispatch
+table. Pass the table (or a tree from `table->tree`) and a command path. Using
+the `copy`/`delete` example from above, with a global `--verbose` and some docs:
+
+``` clojure
+(def table
+  [{:cmds [] :spec {:verbose {:alias :v :inherit true :desc "Verbose output"}}}
+   {:cmds ["copy"]   :fn copy   :doc "Copy a file"   :spec {:dry-run {:desc "Do a dry run"}}}
+   {:cmds ["delete"] :fn delete :doc "Delete a file" :spec {:recursive {:alias :r :desc "Delete recursively"}}}])
+
+(println (cli/format-command-help {:table table :cmds ["copy"] :prog "example"}))
+```
+
+```
+Usage: example copy [options] [<args>]
+
+Copy a file
+
+Options:
+  --dry-run Do a dry run
+
+Inherited options:
+  -v, --verbose Verbose output
+```
+
+It takes a single map: `:table` (the dispatch table, or a tree from
+`table->tree`), `:cmds` (the command path), `:prog`, and optionally `:inherit`.
+It uses each entry's `:doc` for the description and `Commands:` list, its `:spec`
+for `Options:`, and shows ancestor options under `Inherited options:`. Per-option
+`:inherit true` is detected automatically; only pass `:inherit` here if you also
+pass a dispatch-level `:inherit` to `dispatch`.
+
+Omit `:cmds` to render the program's top-level help:
+
+``` clojure
+(println (cli/format-command-help {:table table :prog "example"}))
+```
+
+```
+Usage: example [options] <command>
+
+Commands:
+  copy   Copy a file
+  delete Delete a file
+
+Options:
+  -v, --verbose Verbose output
+
+Run "example <command> --help" for more information on a command.
+```
+
+### Help on error
+
+`help-error-fn` turns `format-command-help` into an `:error-fn` for `dispatch`:
+it prints help on `--help`/`-h`, lists commands on an unknown subcommand, shows
+group help when a group is called without a subcommand, and prints a terse
+message plus usage on a flag error. Use it with `:restrict true` (so `--help`
+arrives as an error it can intercept):
+
+``` clojure
+(cli/dispatch table args
+  {:restrict true :error-fn (cli/help-error-fn table {:prog "example"})})
+```
+
+Pass the same dispatch-level `:inherit` (if any) as a second-arg key so the
+`Inherited options:` section matches what is accepted.
+
+It terminates through the dynamic `*exit-fn*`, called with a map containing
+`:exit` (the exit code) plus `:reason`/`:message`/`:cause`/`:dispatch`. The
+default exits the process (`System/exit` on the JVM, `js/process.exit` on Node);
+rebind it in tests or a REPL to avoid exiting:
+
+``` clojure
+(binding [cli/*exit-fn* (fn [m] (throw (ex-info "exit" m)))]
+  (cli/dispatch table args
+    {:restrict true :error-fn (cli/help-error-fn table {:prog "example"})}))
+```
+
 ## Babashka tasks
 
 For documentation on babashka tasks, go
