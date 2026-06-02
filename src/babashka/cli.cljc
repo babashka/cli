@@ -1010,8 +1010,10 @@
     (fn [{:keys [cause option dispatch wrong-input msg] :as data}]
       (let [path (or dispatch [])]
         (cond
-          ;; --help / -h: under :restrict these arrive as an unknown option
-          (and (= :restrict cause) (#{:help :h} option))
+          ;; --help / -h: natively (`:cause :help` from dispatch's `:help` option)
+          ;; or, under `:restrict`, as an unknown `:help`/`:h` option
+          (or (= :help cause)
+              (and (= :restrict cause) (#{:help :h} option)))
           (do (print-help path)
               (*exit-fn* {:exit 0 :cause :help-requested :dispatch path}))
 
@@ -1051,6 +1053,9 @@
      (let [kwm cmd-info
            ;; capture before the parse-args destructure below shadows `opts`
            inherit-opt (:inherit opts)
+           ;; `:help` option on `dispatch`: intercept --help/-h natively, no
+           ;; dependence on :restrict surfacing it as an error
+           help-on? (::help opts)
            should-parse-args? (or (has-parse-opts? kwm)
                                   (seq inherited)
                                   (is-option? (first args)))
@@ -1082,24 +1087,29 @@
            all-opts (-> (merge all-opts opts)
                         (update ::opts-by-cmds (fnil conj []) {:cmds cmds
                                                                :opts opts}))]
-       (if-let [subcmd-info (get (:cmd cmd-info) arg)]
-         (recur (conj cmds arg) all-opts rest subcmd-info
-                (merge inherited (inherited-entries (:spec kwm) inherit-opt)))
-         (if (:fn cmd-info)
-           {:cmd-info cmd-info
-            :dispatch cmds
-            :opts (dissoc all-opts ::opts-by-cmds)
-            :args args}
-           (if arg
-             {:error :no-match
-              :wrong-input arg
-              :available-commands (keys (:cmd cmd-info))
+       (if (and help-on? (or (:help opts) (:h opts)))
+         ;; --help / -h seen at this level: render help for the current path
+         {:error :help
+          :dispatch cmds
+          :opts (dissoc all-opts ::opts-by-cmds)}
+         (if-let [subcmd-info (get (:cmd cmd-info) arg)]
+           (recur (conj cmds arg) all-opts rest subcmd-info
+                  (merge inherited (inherited-entries (:spec kwm) inherit-opt)))
+           (if (:fn cmd-info)
+             {:cmd-info cmd-info
               :dispatch cmds
-              :opts (dissoc all-opts ::opts-by-cmds)}
-             {:error :input-exhausted
-              :available-commands (keys (:cmd cmd-info))
-              :dispatch cmds
-              :opts (dissoc all-opts ::opts-by-cmds)})))))))
+              :opts (dissoc all-opts ::opts-by-cmds)
+              :args args}
+             (if arg
+               {:error :no-match
+                :wrong-input arg
+                :available-commands (keys (:cmd cmd-info))
+                :dispatch cmds
+                :opts (dissoc all-opts ::opts-by-cmds)}
+               {:error :input-exhausted
+                :available-commands (keys (:cmd cmd-info))
+                :dispatch cmds
+                :opts (dissoc all-opts ::opts-by-cmds)}))))))))
 
 (defn- dispatch-tree
   ([tree args]
@@ -1111,6 +1121,9 @@
                        (fn [{:keys [msg] :as data}]
                          (throw (ex-info msg data))))]
      (case error
+       :help
+       (error-fn (merge {:type :org.babashka/cli :cause :help}
+                        (select-keys res [:opts :dispatch])))
        (:no-match :input-exhausted)
        (error-fn (merge
                   {:type :org.babashka/cli
@@ -1144,6 +1157,13 @@
 
   Provide an `:error-fn` to deal with non-matches.
 
+  Provide `:help true` (or `:help {:prog \"mytool\"}`) to wire up help without
+  `:restrict`: `--help`/`-h` are intercepted natively (printing help for the
+  command they follow), and [[help-error-fn]] is installed to render help on a
+  bad/missing subcommand or a flag error. `:help` takes the same keys as
+  [[help-error-fn]] (`:prog`, `:inherit`); `:inherit` defaults to the
+  dispatch-level `:inherit`. `--help`/`-h` are reserved when `:help` is on.
+
   Each entry in the table may have additional [[parse-args]] options.
 
   For more information and examples, see [README.md](README.md#subcommands)."
@@ -1151,4 +1171,10 @@
    (dispatch table args {}))
   ([table args opts]
    (let [tree (-> table table->tree)]
-     (dispatch-tree tree args opts))))
+     (if-let [help (:help opts)]
+       (let [help-opts (if (map? help) help {})
+             error-fn (help-error-fn {:table tree
+                                      :prog (:prog help-opts)
+                                      :inherit (or (:inherit help-opts) (:inherit opts))})]
+         (dispatch-tree tree args (assoc opts :error-fn error-fn ::help true)))
+       (dispatch-tree tree args opts)))))

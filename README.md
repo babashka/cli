@@ -785,6 +785,23 @@ your own exit codes by switching on `:cause`:
     {:restrict true :error-fn (cli/help-error-fn {:table table :prog "example"})}))
 ```
 
+### The `:help` option on `dispatch`
+
+For the common case, pass `:help` to `dispatch` instead of wiring up
+`help-error-fn` yourself. It intercepts `--help`/`-h` natively (so you don't
+need `:restrict`) and installs `help-error-fn` for bad/missing subcommands and
+flag errors, reusing dispatch's own table and `:inherit`:
+
+``` clojure
+(cli/dispatch table args {:help {:prog "example"}})
+```
+
+`--help`/`-h` print help for the command they follow (`example deps outdated
+--help` -> help for `deps outdated`) and exit with 0; a mistyped or missing
+subcommand exits with 1. `:help` takes the same keys as `help-error-fn`
+(`:prog`, `:inherit`); `:help true` enables it without a program name. `--help`
+and `-h` are reserved while `:help` is on.
+
 ## Babashka tasks
 
 For documentation on babashka tasks, go
