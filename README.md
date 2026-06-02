@@ -769,8 +769,8 @@ It exits via the dynamic `*exit-fn*`, called with `:exit`, `:cause`,
 | unknown subcommand | 1 | `:unknown-subcommand` |
 | flag error | 1 | `:restrict` / `:require` / `:validate` / `:coerce` |
 
-Only `--help`/`-h` exits 0; a bare group is a usage error (exit 1), like `git
-bisect` with no subcommand. `:data` holds the raw `dispatch` error data,
+Only `--help`/`-h` exits with 0; a bare group is a usage error (exit with 1),
+like `git bisect` with no subcommand. `:data` holds the raw `dispatch` error data,
 including the parser's own `:cause` (`:no-match` / `:input-exhausted`).
 
 The default `*exit-fn*` exits the process (`System/exit` on JVM,
@@ -778,7 +778,7 @@ The default `*exit-fn*` exits the process (`System/exit` on JVM,
 your own exit codes by switching on `:cause`:
 
 ``` clojure
-;; treat a bare group as success (print help, exit 0) instead of a usage error
+;; treat a bare group as success (print help, exit with 0) instead of a usage error
 (binding [cli/*exit-fn* (fn [{:keys [exit cause]}]
                           (System/exit (if (= :missing-subcommand cause) 0 exit)))]
   (cli/dispatch table args

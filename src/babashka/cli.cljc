@@ -970,10 +970,10 @@
 
   Behavior, with the `:cause` passed to [[*exit-fn*]]:
 
-  * `--help` / `-h` -> full help, exit 0, `:cause :help-requested`
-  * group with no subcommand -> its help, but a usage error, exit 1, `:cause :missing-subcommand`
-  * unknown subcommand -> message + commands, exit 1, `:cause :unknown-subcommand`
-  * flag error -> message + usage, exit 1, `:cause` is the babashka.cli cause (`:restrict` / `:require` / `:validate` / `:coerce`)
+  * `--help` / `-h` -> full help, exit with 0, `:cause :help-requested`
+  * group with no subcommand -> its help, but a usage error, exit with 1, `:cause :missing-subcommand`
+  * unknown subcommand -> message + commands, exit with 1, `:cause :unknown-subcommand`
+  * flag error -> message + usage, exit with 1, `:cause` is the babashka.cli cause (`:restrict` / `:require` / `:validate` / `:coerce`)
 
   Terse on errors; options shown as typed (`--foo`/`-x`), not `:foo`."
   [{:keys [table prog inherit]}]
@@ -1010,7 +1010,7 @@
                         :dispatch path :data data}))
 
           ;; a group invoked with no subcommand: show its help, but this is a
-          ;; usage error (no subcommand chosen), so exit non-zero like git
+          ;; usage error (no subcommand chosen), so exit with non-zero like git
           (= :input-exhausted cause)
           (do (print-help path)
               (*exit-fn* {:exit 1 :cause :missing-subcommand :dispatch path :data data}))
