@@ -530,6 +530,34 @@
 
 
 
+(deftest format-command-help-test
+  (let [table [{:cmds [] :spec {:verbose {:alias :v :inherit true :desc "Verbose output"}}}
+               {:cmds ["copy"]   :fn identity :doc "Copy a file"
+                :spec {:dry-run {:desc "Do a dry run"}}}
+               {:cmds ["delete"] :fn identity :doc "Delete a file"
+                :spec {:recursive {:alias :r :desc "Delete recursively"}}}]]
+    (testing "top level: usage, commands, options, pointer"
+      (is (= (str "Usage: example [options] <command>\n\n"
+                  "Commands:\n  copy   Copy a file\n  delete Delete a file\n\n"
+                  "Options:\n  -v, --verbose Verbose output\n\n"
+                  "Run \"example <command> --help\" for more information on a command.")
+             (cli/format-command-help {:table table :prog "example"}))))
+    (testing "leaf: own options + option inherited from an ancestor"
+      (is (= (str "Usage: example copy [options] [<args>]\n\n"
+                  "Copy a file\n\n"
+                  "Options:\n  --dry-run Do a dry run\n\n"
+                  "Inherited options:\n  -v, --verbose Verbose output")
+             (cli/format-command-help {:table table :cmds ["copy"] :prog "example"}))))
+    (testing "a table or a prebuilt tree both work"
+      (is (= (cli/format-command-help {:table table :cmds ["copy"] :prog "example"})
+             (cli/format-command-help {:table (cli/table->tree table) :cmds ["copy"] :prog "example"}))))
+    (testing "a redefined inherited option shows only under Options (child wins)"
+      (let [t [{:cmds [] :spec {:x {:inherit true :desc "global x"}}}
+               {:cmds ["sub"] :fn identity :spec {:x {:desc "local x"}}}]]
+        (is (= (str "Usage: p sub [options] [<args>]\n\n"
+                    "Options:\n  --x local x")
+               (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))))
+
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]
                                 (let [rows (str/split-lines table)]

@@ -720,6 +720,64 @@
   (format-table {:rows (opts->table cfg)
                  :indent indent}))
 
+(defn- help-first-line [s]
+  (when s (first (str/split-lines s))))
+
+(defn- help-description
+  "Full doc string, each line left-trimmed, leading/trailing blank lines dropped."
+  [s]
+  (when s
+    (let [ls (->> (str/split-lines s)
+                  (map str/triml)
+                  (drop-while str/blank?)
+                  reverse (drop-while str/blank?) reverse)]
+      (when (seq ls) (str/join "\n" ls)))))
+
+(defn- help-usage-line [prog node any-options?]
+  (str "Usage: " prog
+       (when any-options? " [options]")
+       (cond (seq (:cmd node)) " <command>"
+             (:fn node)        " [<args>]"
+             :else             "")))
+
+(defn- help-commands-table [node]
+  (vec
+   (keep (fn [[cmd subnode]]
+           (when-not (:no-doc subnode)
+             [(str cmd) (or (help-first-line (:doc subnode)) "")]))
+         (:cmd node))))
+
+(defn- render-help
+  "Render help text for one tree `node`, given a computed `:prog` (full command
+  path), `:inherited` spec and `:parents` pointers. See [[format-command-help]]."
+  [node {:keys [prog inherited parents]}]
+  (let [spec (:spec node)
+        inherited (apply dissoc inherited (keys spec))
+        desc (help-description (:doc node))
+        cmds (help-commands-table node)
+        sections
+        (cond-> [(help-usage-line prog node (or (seq spec) (seq inherited)))]
+          desc
+          (conj desc)
+
+          (seq cmds)
+          (conj (str "Commands:\n" (format-table {:rows cmds :indent 2})))
+
+          (seq spec)
+          (conj (str "Options:\n" (format-opts {:spec spec})))
+
+          (seq inherited)
+          (conj (str "Inherited options:\n" (format-opts {:spec inherited})))
+
+          (seq cmds)
+          (conj (str "Run \"" prog " <command> --help\" for more information on a command."))
+
+          (seq parents)
+          (conj (str/join "\n"
+                          (for [{p :prog n :name} parents]
+                            (str "Run \"" p " --help\" for " n " options.")))))]
+    (str/join "\n\n" sections)))
+
 (defn- split [a b]
   (let [[prefix suffix] (split-at (count a) b)]
     (when (= prefix a)
@@ -777,6 +835,58 @@
       m
       (merge (into {} (filter (fn [[_ v]] (and (map? v) (:inherit v))) m))
              (when (coll? inherit-opt) (select-keys m (set inherit-opt)))))))
+
+(defn format-command-help
+  "Render conventional `--help` text (a string) for the command at path `cmds`
+  in a `dispatch` table (or the tree from [[table->tree]]):
+
+  ```
+  Usage: <prog> [options] <command>
+
+  <description>            ; the entry's :doc (first line, then the rest)
+
+  Commands:                ; child commands with their one-line :doc
+    ...
+  Options:                 ; the command's own :spec, via format-opts
+    ...
+  Inherited options:       ; ancestor options usable here (:inherit), deduped
+    ...
+  Run \"<prog> sub --help\" ...        ; pointer to child commands
+  Run \"<prog> --help\" for <x> options ; pointer to non-inherited ancestor opts
+  ```
+
+  Takes a single map:
+  * `:table`   - a `dispatch` table, or a tree from [[table->tree]] (required)
+  * `:cmds`    - the command path, e.g. `[\"deps\" \"outdated\"]` (default `[]`,
+                 the top level)
+  * `:prog`    - program name shown in the usage line (required)
+  * `:inherit` - only needed when you pass a dispatch-level `:inherit` (`true` /
+                 coll of keys) to `dispatch`; pass the same value here so the
+                 `Inherited options:` section matches what is actually accepted.
+                 Per-option `:inherit true` is detected automatically.
+
+  An entry may carry `:no-doc true` to be omitted from `Commands:`."
+  [{:keys [table cmds prog inherit] :or {cmds []}}]
+  (let [tree (if (map? table) table (table->tree table))
+        cmds (vec cmds)
+         node-at (fn [path] (get-in tree (interleave (repeat :cmd) path)))
+         prog-at (fn [path] (str/join " " (cons prog path)))
+         ;; for each strict ancestor prefix: what it contributes downward
+         ;; (:inh) and its own non-inherited options (:own)
+         ancestors (for [i (range (count cmds))
+                         :let [pre  (subvec cmds 0 i)
+                               spec (:spec (node-at pre))
+                               inh  (inherited-entries spec inherit)]]
+                     {:pre pre :inh inh :own (apply dissoc spec (keys inh))})
+         inherited (reduce merge {} (map :inh ancestors))
+         ;; ancestors with non-inherited options (must precede the subcommand)
+         parents (for [{:keys [pre own]} ancestors :when (seq own)]
+                   {:prog (prog-at pre)
+                    :name (if (seq pre) (peek pre) "global")})]
+    (render-help (node-at cmds)
+                 {:prog (prog-at cmds)
+                  :inherited inherited
+                  :parents (vec parents)})))
 
 (defn- dispatch-tree'
   ([tree args]
