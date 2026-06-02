@@ -596,7 +596,7 @@
       (let [{:keys [out exit]} (run ["nope"])]
         (is (str/includes? out "Unknown command: nope"))
         (is (str/includes? out "Commands:"))
-        ;; curated :cause at top level; raw parser cause in :data
+        ;; :cause at top level; raw parser cause in :data
         (is (submap? {:exit 1 :cause :unknown-subcommand :dispatch []
                       :data {:cause :no-match}} exit))))
     (testing "group with no subcommand: shows help but is a usage error, exit 1"

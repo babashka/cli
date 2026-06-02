@@ -931,10 +931,9 @@
 
   * `:exit`     - the exit code; `0` only when `--help`/`-h` was requested, `1`
                   otherwise (unknown/missing subcommand, flag errors)
-  * `:cause`    - a curated outcome keyword: `:help-requested`,
-                  `:missing-subcommand`, `:unknown-subcommand`, or the
-                  babashka.cli flag cause (`:restrict` / `:require` /
-                  `:validate` / `:coerce`)
+  * `:cause`    - either `:help-requested`, `:missing-subcommand`,
+                  `:unknown-subcommand`, or the babashka.cli flag cause
+                  (`:restrict` / `:require` / `:validate` / `:coerce`)
   * `:dispatch` - the command path
   * `:message`  - a human-readable line (on the terse error paths)
   * `:data`     - the original `dispatch` error data, carrying the raw parser

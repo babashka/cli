@@ -764,7 +764,7 @@ It takes the same single config map as `format-command-help` (`:table`,
 `:prog`, and optional `:inherit`).
 
 It terminates through the dynamic `*exit-fn*`, called with a map carrying
-`:exit`, a curated `:cause`, `:dispatch`, and (on errors) `:message` / `:data`:
+`:exit`, a `:cause`, `:dispatch`, and (on errors) `:message` / `:data`:
 
 | invocation | `:exit` | `:cause` |
 |---|---|---|
