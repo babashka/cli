@@ -47,7 +47,7 @@
   (println "----------------------------------------")
   (binding [cli/*exit-fn* (fn [_] (throw (ex-info "exit" {::exit true})))]
     (try (cli/dispatch table args {:restrict true
-                                   :error-fn (cli/help-error-fn table {:prog "bb"})})
+                                   :error-fn (cli/help-error-fn {:table table :prog "bb"})})
          (catch clojure.lang.ExceptionInfo e
            (when-not (::exit (ex-data e)) (println "ERR:" (ex-message e))))))
   (println))
@@ -55,7 +55,7 @@
 ;; real CLI entrypoint: drive with actual argv (see scratch/duct wrapper)
 (defn -main [& args]
   (cli/dispatch table (vec args)
-                {:restrict true :error-fn (cli/help-error-fn table {:prog "duct"})}))
+                {:restrict true :error-fn (cli/help-error-fn {:table table :prog "duct"})}))
 
 ;; auto-run when loaded as a script
 (when (= *file* (System/getProperty "babashka.file"))
