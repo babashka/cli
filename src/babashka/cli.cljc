@@ -290,7 +290,7 @@
   Supported options:
   * `:coerce` - a map of option (keyword) names to type keywords (optionally wrapped in a collection).
   * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
-  * `:error-fn` - error handler, called with a map containing `:cause` (`:coerce`), `:msg`, `:option`, `:value`, `:opts`, and `:flag`.
+  * `:error-fn` - error handler, called with a map containing `:cause` (`:coerce`), `:msg`, `:option`, `:value`, `:opts`, and `:flag` (when the option was typed).
 
   `:flag` is the literal option token as it appeared on the command line (e.g.
   `\"--foo\"`, `\"-f\"`, or `\":foo\"`), as opposed to `:option`, the normalized
