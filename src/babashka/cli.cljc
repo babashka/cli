@@ -1053,9 +1053,7 @@
      (let [kwm cmd-info
            ;; capture before the parse-args destructure below shadows `opts`
            inherit-opt (:inherit opts)
-           ;; `:help` option on `dispatch`: intercept --help/-h natively, no
-           ;; dependence on :restrict surfacing it as an error
-           help-on? (::help opts)
+           help? (::help opts)
            should-parse-args? (or (has-parse-opts? kwm)
                                   (seq inherited)
                                   (is-option? (first args)))
@@ -1087,7 +1085,7 @@
            all-opts (-> (merge all-opts opts)
                         (update ::opts-by-cmds (fnil conj []) {:cmds cmds
                                                                :opts opts}))]
-       (if (and help-on? (or (:help opts) (:h opts)))
+       (if (and help? (or (:help opts) (:h opts)))
          ;; --help / -h seen at this level: render help for the current path
          {:error :help
           :dispatch cmds
