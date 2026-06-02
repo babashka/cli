@@ -6,8 +6,8 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
-- Add `help-error-fn`: build an `:error-fn` for `dispatch` (used with `:restrict true`) that renders help via `format-command-help` (`--help`/`-h`, unknown subcommand, group without subcommand, flag errors) and terminates through `*exit-fn*`
-- Add `*exit-fn*`: dynamic var used by `help-error-fn` to terminate (`System/exit` on JVM, `js/process.exit` on Node); rebind it in tests/REPL to avoid exiting
+- Add `help-error-fn`: build an `:error-fn` for `dispatch` (used with `:restrict true`) that renders help via `format-command-help` and terminates through `*exit-fn*`. `--help`/`-h` exits 0; unknown subcommand, group without subcommand, and flag errors exit 1 (a bare group is a usage error, like `git bisect` with no subcommand)
+- Add `*exit-fn*`: dynamic var used by `help-error-fn` to terminate (`System/exit` on JVM, `js/process.exit` on Node). It receives `{:exit :cause :dispatch :message :data}`, where `:cause` is a curated outcome (`:help-requested` / `:missing-subcommand` / `:unknown-subcommand` / the babashka.cli flag cause). Rebind it to avoid exiting (tests/REPL) or to remap exit codes by `:cause`
 - Add `format-command-help`: render conventional `--help` text (Usage / Commands / Options / Inherited options) for a command in a `dispatch` table, e.g. `(format-command-help {:table table :cmds ["copy"] :prog "example"})`
 - Expose `table->tree`: converts a `dispatch` table into the nested tree used internally, handy for generating help or completions
 - `dispatch` now includes the `:dispatch` (matched subcommand path) in flag-level error data (`:restrict` / `:require` / `:validate` / `:coerce`), so an `:error-fn` can show help for the right subcommand
