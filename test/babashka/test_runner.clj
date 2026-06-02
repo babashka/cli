@@ -17,8 +17,10 @@
 (def cmd (atom nil))
 
 (defn print-only []
-  ;; current test var comes from clojure.test's own stack; don't add a competing
-  ;; :begin-test-var reporter (babashka.cli.test-report already defines one)
+  ;; the test namespaces load babashka.cli.test-report, which defines a
+  ;; :begin-test-var reporter; don't add a second one here (a duplicate defmethod
+  ;; clobbers it). Read the current var from clojure.test's own stack instead -
+  ;; *testing-vars* is conj'd onto, so `first` is the innermost (current) var.
   (when-let [v (first test/*testing-vars*)]
     (let [m (meta v)]
       (println)
