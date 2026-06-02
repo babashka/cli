@@ -38,21 +38,20 @@
            :registry {:desc "Outdated-specific registry override"}}}
    {:cmds ["deps" "vulnerable"] :fn (act "deps vulnerable") :doc "Show vulnerable dependencies"}])
 
-;; just the :help option (+ :restrict to also reject unknown flags). The REPL
-;; demo rebinds cli/*exit-fn* so it doesn't kill the process; a real CLI uses the
-;; default.
+;; just the :help option - no :restrict needed. The REPL demo rebinds
+;; cli/*exit-fn* so it doesn't kill the process; a real CLI uses the default.
 (defn run [args]
   (println (str "$ bb " (str/join " " args)))
   (println "----------------------------------------")
   (binding [cli/*exit-fn* (fn [_] (throw (ex-info "exit" {::exit true})))]
-    (try (cli/dispatch table args {:help {:prog "bb"} :restrict true})
+    (try (cli/dispatch table args {:help {:prog "bb"}})
          (catch clojure.lang.ExceptionInfo e
            (when-not (::exit (ex-data e)) (println "ERR:" (ex-message e))))))
   (println))
 
 ;; real CLI entrypoint: drive with actual argv (see scratch/duct wrapper)
 (defn -main [& args]
-  (cli/dispatch table (vec args) {:help {:prog "duct"} :restrict true}))
+  (cli/dispatch table (vec args) {:help {:prog "duct"}}))
 
 ;; auto-run when loaded as a script
 (when (= *file* (System/getProperty "babashka.file"))
@@ -64,5 +63,5 @@
   (run ["dev" "-tp"])                                         ; short flags, real run
   (run ["dev" "--with-worker" "--sync"])                      ; long flags, real run
   (run ["maintenance" "enable"])                              ; subcommand run
-  (run ["dev" "--bogus"])                                     ; restrict -> error
+  (run ["dev" "--bogus"])                                     ; unknown flag accepted (open world, no :restrict)
   (run ["nope"]))                                             ; unknown command -> help
