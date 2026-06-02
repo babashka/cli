@@ -378,6 +378,10 @@
          inherited (::dispatch-inherited opts)
          ;; literal flag tokens the user typed, by key (see parse-opts*)
          key->flag (::key->flag (meta m))
+         ;; how to name an option in a message: the literal token the user typed
+         ;; if known, else the keyword (a required or standalone-checked option
+         ;; was never typed, so has no token to echo - don't fabricate one)
+         flag-for (fn [k] (or (get key->flag k) k))
          error-fn (->error-fn spec (:error-fn opts))]
      (when restrict
        (doseq [k (keys m)]
@@ -386,7 +390,7 @@
                     (not= "babashka.cli" (namespace k)))
            (let [flag (get key->flag k)]
              (error-fn (cond-> {:cause :restrict
-                                :msg (str "Unknown option: " k)
+                                :msg (str "Unknown option: " (flag-for k))
                                 :restrict restrict
                                 :option k
                                 :opts m}
@@ -396,7 +400,7 @@
          (when-not (find m k)
            (let [flag (get key->flag k)]
              (error-fn (cond-> {:cause :require
-                                :msg (str "Required option: " k)
+                                :msg (str "Required option: " (flag-for k))
                                 :require require
                                 :option k
                                 :opts m}
@@ -412,11 +416,11 @@
            (when-let [[_ v] (find m k)]
              (when-not (f v)
                (let [ex-msg-fn (or (:ex-msg vf)
-                                   (fn [{:keys [option value]}]
-                                     (str "Invalid value for option " option ": " value)))
+                                   (fn [{:keys [flag value]}]
+                                     (str "Invalid value for option " flag ": " value)))
                      flag (get key->flag k)]
                  (error-fn (cond-> {:cause :validate
-                                    :msg (ex-msg-fn {:option k :value v})
+                                    :msg (ex-msg-fn {:option k :value v :flag (flag-for k)})
                                     :validate validate
                                     :option k
                                     :value v
@@ -977,7 +981,7 @@
   * unknown subcommand -> message + commands, exit with 1, `:cause :unknown-subcommand`
   * flag error -> message + usage, exit with 1, `:cause` is the babashka.cli cause (`:restrict` / `:require` / `:validate` / `:coerce`)
 
-  Terse on errors; options shown as typed (`--foo`/`-x`), not `:foo`."
+  Terse on errors. Messages name the flag as typed (`--foo`/`-x`), not `:foo`."
   [{:keys [table prog inherit]}]
   (let [tree   (if (map? table) table (table->tree table))
         ctx-at (fn [path] (command-help-context tree (vec path) prog inherit))
@@ -1017,21 +1021,15 @@
           (do (print-help path)
               (*exit-fn* {:exit 1 :cause :missing-subcommand :dispatch path :data data}))
 
-          ;; genuine flag error: terse. For unknown/required options we build the
-          ;; line from the flag the user typed (`:flag`, or the canonical
-          ;; `--<option>` for a never-typed required one); for validate/coerce we
-          ;; keep the lib's (or user's `:ex-msg`) message. `:cause` passes through.
+          ;; genuine flag error (restrict / require / validate / coerce): terse.
+          ;; The lib message already names the flag the user typed; `:cause`
+          ;; passes through.
           :else
-          (let [flag (or (:flag data) (when option (str "--" (name option))))
-                msg  (case cause
-                       :restrict (str "Unknown option: " flag)
-                       :require  (str "Required option: " flag)
-                       msg)]
-            (println (str "Error: " msg "\n"))
-            (println (usage path))
-            (println)
-            (println (hint path))
-            (*exit-fn* {:exit 1 :cause cause :msg msg :dispatch path :data data})))))))
+          (do (println (str "Error: " msg "\n"))
+              (println (usage path))
+              (println)
+              (println (hint path))
+              (*exit-fn* {:exit 1 :cause cause :msg msg :dispatch path :data data})))))))
 
 (defn- dispatch-tree'
   ([tree args]

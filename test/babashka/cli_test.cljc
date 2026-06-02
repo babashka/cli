@@ -123,7 +123,7 @@
                        :cljs :default) e
                (= {:type :org.babashka/cli
                    :cause :restrict
-                   :msg "Unknown option: :b"
+                   :msg "Unknown option: -b"
                    :option :b
                    :flag "-b"
                    :restrict #{:foo}
@@ -144,7 +144,7 @@
                        :cljs :default) e
                (= {:type :org.babashka/cli
                    :cause :restrict
-                   :msg "Unknown option: :bar"
+                   :msg "Unknown option: --bar"
                    :option :bar
                    :flag "--bar"
                    :restrict #{:foo}
@@ -620,7 +620,8 @@
                                         :error-fn (cli/help-error-fn {:table t :prog "tool"})})
                          (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                            (when-not (::exit (ex-data e)) (throw e))))))]
-        (is (str/includes? out "Required option: --foo"))))
+        ;; required option was never typed -> keyword form, not a fabricated flag
+        (is (str/includes? out "Required option: :foo"))))
     (testing "*exit-fn* codes can be remapped by :cause (e.g. group -> 0)"
       (let [calls (atom [])]
         (binding [cli/*exit-fn* (fn [m] (swap! calls conj m))]
@@ -666,11 +667,11 @@
        (cli/parse-args ["-foo"] {:require [:bar]}))))
 
 (deftest validate-test
-  (is (thrown-with-msg? Exception #"Invalid value for option :foo:"
+  (is (thrown-with-msg? Exception #"Invalid value for option --foo:"
                         (cli/parse-args ["--foo" "0"] {:validate {:foo pos?}})))
-  (is (thrown-with-msg? Exception #"Invalid value for option :foo:"
+  (is (thrown-with-msg? Exception #"Invalid value for option --foo:"
                         (cli/parse-args ["--foo" ":bar"] {:validate {:foo #{:baz}}})))
-  (is (thrown-with-msg? Exception #"Invalid value for option :foo:"
+  (is (thrown-with-msg? Exception #"Invalid value for option --foo:"
                         (cli/parse-args ["--foo" ":bar"] {:spec {:foo {:validate #{:baz}}}})))
   (let [ex-msg-fn (fn
                     [{:keys [option value]}]
@@ -728,10 +729,10 @@
     (is (= [{:spec spec, :type :org.babashka/cli, :cause :coerce,
              :msg "Coerce failure: cannot transform input \"nope!\" to long", :option :c, :flag "--c",
              :value "nope!", :opts {:b 0}}
-            {:spec spec, :type :org.babashka/cli, :cause :restrict, :msg "Unknown option: :extra", :restrict #{:c :b :a}, :option :extra, :flag "--extra", :opts {:b 0, :extra "bad!"}}
-            ;; :require has no :flag: the option was never typed, so there is no literal token
+            {:spec spec, :type :org.babashka/cli, :cause :restrict, :msg "Unknown option: --extra", :restrict #{:c :b :a}, :option :extra, :flag "--extra", :opts {:b 0, :extra "bad!"}}
+            ;; :require has no :flag and keeps the keyword: the option was never typed
             {:spec spec, :type :org.babashka/cli, :cause :require, :msg "Required option: :a", :require #{:a}, :option :a, :opts {:b 0, :extra "bad!"}}
-            {:spec spec, :type :org.babashka/cli, :cause :validate, :msg "Invalid value for option :b: 0", :validate {:b pos?}, :option :b, :flag "--b", :value 0,
+            {:spec spec, :type :org.babashka/cli, :cause :validate, :msg "Invalid value for option --b: 0", :validate {:b pos?}, :option :b, :flag "--b", :value 0,
              :opts {:b 0, :extra "bad!"}}]
            @errors))))
 
@@ -810,7 +811,7 @@
                            {:restrict true})))
       (testing "genuinely unknown options are still rejected"
         (is (thrown-with-msg?
-             Exception #"Unknown option: :bogus"
+             Exception #"Unknown option: --bogus"
              (cli/dispatch table ["deps" "outdated" "--bogus"] {:restrict true}))))))
   (testing "fix is scoped to dispatch: plain :exec-args still subject to :restrict"
     (is (thrown-with-msg?
@@ -844,7 +845,7 @@
     (let [table [{:cmds ["deps"]            :spec {:registry {}}}
                  {:cmds ["deps" "outdated"] :fn identity :spec {:format {}}}]]
       (is (thrown-with-msg?
-           Exception #"Unknown option: :registry"
+           Exception #"Unknown option: --registry"
            (cli/dispatch table ["deps" "outdated" "--registry" "X"] {:restrict true})))))
   (testing "dispatch-level :inherit makes options inherit without per-option marking"
     (let [table [{:cmds ["deps"]            :spec {:registry {} :token {}}}
@@ -859,7 +860,7 @@
                (:opts (cli/dispatch table ["deps" "outdated" "--registry" "X"]
                                     {:inherit #{:registry} :restrict true}))))
         (is (thrown-with-msg?
-             Exception #"Unknown option: :token"
+             Exception #"Unknown option: --token"
              (cli/dispatch table ["deps" "outdated" "--token" "T"]
                            {:inherit #{:registry} :restrict true})))))))
 
