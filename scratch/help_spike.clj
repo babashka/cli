@@ -123,11 +123,21 @@
 ;;   - group with no subcommand   -> that group's help, exit 0
 ;;   - flag error (require/...)   -> message + scoped help, exit 1
 
+(defn ^:dynamic *exit-fn*
+  "Called to terminate once help/errors are printed. Receives a map with
+  `:exit` (code), `:message`, `:reason`, `:cause`. Rebind to prevent exiting
+  (tests, REPL, browser) - cf. borkdude/deps.clj and cli-tools. In a real cljc
+  library the default dispatches on host: System/exit (JVM), js/process.exit
+  (node), throw (browser)."
+  [{:keys [exit]}]
+  (System/exit exit))
+
 (defn help-error-fn
   "Build an `:error-fn` (for `cli/dispatch` with `:restrict true`) that renders
   conventional help. `opts`: :prog (program name), :inherit (same value passed
-  to dispatch, for the Inherited options section), :exit-fn (default `System/exit`)."
-  [table {:keys [prog inherit exit-fn] :or {exit-fn #(System/exit %)}}]
+  to dispatch, for the Inherited options section). Termination goes through
+  the dynamic [[*exit-fn*]]; rebind that to avoid exiting."
+  [table {:keys [prog inherit]}]
   (let [tree    (cli/table->tree table)
         node-at (fn [path] (get-in tree (interleave (repeat :cmd) (vec path))))
         prog-at (fn [path] (str/join " " (cons prog path)))
@@ -162,23 +172,25 @@
                 (let [node (node-at path)
                       spec (dissoc (:spec node) :help :h)]
                   (usage-line (prog-at path) node (or (seq spec) (seq (inherited-at path))))))]
-    (fn [{:keys [cause option dispatch wrong-input msg]}]
+    (fn [{:keys [cause option dispatch wrong-input msg] :as data}]
       (let [path (or dispatch [])]
         (cond
           ;; --help / -h: under :restrict these arrive as an unknown option
           (and (= :restrict cause) (#{:help :h} option))
-          (do (print-help path) (exit-fn 0))
+          (do (print-help path) (*exit-fn* {:exit 0 :reason :help :dispatch path}))
           ;; mistyped subcommand: terse, but list the available commands
           (= :no-match cause)
-          (let [cmds (commands-table (node-at path))]
-            (println (str "Unknown command: " wrong-input "\n"))
+          (let [cmds (commands-table (node-at path))
+                message (str "Unknown command: " wrong-input)]
+            (println (str message "\n"))
             (when (seq cmds)
               (println (str "Commands:\n" (cli/format-table {:rows cmds :indent 2}) "\n")))
             (println (hint path))
-            (exit-fn 1))
+            (*exit-fn* {:exit 1 :reason :unknown-command :message message
+                        :cause cause :dispatch path :data data}))
           ;; a group invoked with no subcommand -> full help (shows Commands)
           (= :input-exhausted cause)
-          (do (print-help path) (exit-fn 0))
+          (do (print-help path) (*exit-fn* {:exit 0 :reason :help :dispatch path}))
           ;; genuine flag error (require / validate / unknown flag): terse.
           ;; render the option as the flag the user types (--foo), not :foo
           :else
@@ -187,7 +199,8 @@
             (println (usage path))
             (println)
             (println (hint path))
-            (exit-fn 1)))))))
+            (*exit-fn* {:exit 1 :reason :error :message msg
+                        :cause cause :dispatch path :data data})))))))
 
 ;; --- example dispatch table (ductile-flavoured) ---
 
@@ -215,14 +228,14 @@
            :registry {:desc "Outdated-specific registry override"}}}
    {:cmds ["deps" "vulnerable"] :fn (act "deps vulnerable") :doc "Show vulnerable dependencies"}])
 
-;; just plain cli/dispatch + the help error-fn. The REPL demo uses a throwing
-;; :exit-fn (so it doesn't kill the process); a real CLI uses the default System/exit.
+;; just plain cli/dispatch + the help error-fn. The REPL demo rebinds *exit-fn*
+;; (so it doesn't kill the process); a real CLI uses the default System/exit.
 (defn run [args]
   (println (str "$ bb " (str/join " " args)))
   (println "----------------------------------------")
-  (let [stop (fn [_] (throw (ex-info "exit" {::exit true})))]
+  (binding [*exit-fn* (fn [_] (throw (ex-info "exit" {::exit true})))]
     (try (cli/dispatch table args {:restrict true
-                                   :error-fn (help-error-fn table {:prog "bb" :exit-fn stop})})
+                                   :error-fn (help-error-fn table {:prog "bb"})})
          (catch clojure.lang.ExceptionInfo e
            (when-not (::exit (ex-data e)) (println "ERR:" (ex-message e))))))
   (println))
