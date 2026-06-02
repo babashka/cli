@@ -934,7 +934,7 @@
     or the babashka.cli flag cause (`:restrict` / `:require` / `:validate` /
     `:coerce`)
   * `:dispatch` - the command path
-  * `:message` - error message (error paths only)
+  * `:msg` - error message (error paths only)
   * `:data` - the original `dispatch` error data (raw `:cause` etc.); absent on `--help`
 
   Rebind to use your own exit codes (switch on `:cause`), or to not exit at all
@@ -1008,7 +1008,7 @@
               (println (str "Commands:\n"
                             (format-table {:rows cmds :indent 2}) "\n")))
             (println (hint path))
-            (*exit-fn* {:exit 1 :cause :unknown-subcommand :message message
+            (*exit-fn* {:exit 1 :cause :unknown-subcommand :msg message
                         :dispatch path :data data}))
 
           ;; a group invoked with no subcommand: show its help, but this is a
@@ -1031,7 +1031,7 @@
             (println (usage path))
             (println)
             (println (hint path))
-            (*exit-fn* {:exit 1 :cause cause :message msg :dispatch path :data data})))))))
+            (*exit-fn* {:exit 1 :cause cause :msg msg :dispatch path :data data})))))))
 
 (defn- dispatch-tree'
   ([tree args]

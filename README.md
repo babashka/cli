@@ -760,7 +760,7 @@ optional `:inherit`):
 ```
 
 It exits via the dynamic `*exit-fn*`, called with `:exit`, `:cause`,
-`:dispatch`, and (on errors) `:message` / `:data`:
+`:dispatch`, and (on errors) `:msg` / `:data`:
 
 | invocation | `:exit` | `:cause` |
 |---|---|---|
