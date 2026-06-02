@@ -907,7 +907,7 @@
 (defn ^:dynamic *exit-fn*
   "Called to terminate the process once help or an error has been printed by
   [[help-error-fn]]. Receives a map with `:exit` (the exit code), and
-  contextual keys (`:reason`, `:message`, `:cause`, `:dispatch`, `:data`).
+  contextual keys (`:reason`, and on errors `:message`, `:dispatch`, `:data`).
 
   Rebind this to prevent the process from exiting (tests, REPL):
 
@@ -983,7 +983,7 @@
                             (format-table {:rows cmds :indent 2}) "\n")))
             (println (hint path))
             (*exit-fn* {:exit 1 :reason :unknown-command :message message
-                        :cause cause :dispatch path :data data}))
+                        :dispatch path :data data}))
 
           ;; a group invoked with no subcommand -> full help (shows Commands)
           (= :input-exhausted cause)
@@ -999,7 +999,7 @@
             (println)
             (println (hint path))
             (*exit-fn* {:exit 1 :reason :error :message msg
-                        :cause cause :dispatch path :data data})))))))
+                        :dispatch path :data data})))))))
 
 (defn- dispatch-tree'
   ([tree args]
