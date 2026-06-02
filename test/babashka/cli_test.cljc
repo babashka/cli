@@ -429,10 +429,11 @@
                     table
                     ["foo" "bar" "--version" "2000" "some-arg"])))))
       (testing "dispatch errors return :dispatch key"
-        (is (= {:type :org.babashka/cli, :dispatch ["foo" "bar"], :all-commands '("baz"), :cause :input-exhausted, :opts {}}
-               (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar"] {:error-fn identity})))
-        (is (= {:type :org.babashka/cli, :dispatch ["foo" "bar"], :wrong-input "wrong", :all-commands '("baz"), :cause :no-match, :opts {}}
-               (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar" "wrong"] {:error-fn identity})))))))
+        ;; submap?: dispatch also enriches error data with :tree (and :prog/:inherit when set)
+        (is (submap? {:type :org.babashka/cli, :dispatch ["foo" "bar"], :all-commands '("baz"), :cause :input-exhausted, :opts {}}
+                     (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar"] {:error-fn identity})))
+        (is (submap? {:type :org.babashka/cli, :dispatch ["foo" "bar"], :wrong-input "wrong", :all-commands '("baz"), :cause :no-match, :opts {}}
+                     (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar" "wrong"] {:error-fn identity})))))))
 
 (deftest table->tree-test
   (testing "internal represenation"
@@ -577,8 +578,8 @@
                                       (throw (ex-info "exit" {::exit true})))]
                             (try
                               (cli/dispatch table args
-                                            {:restrict true
-                                             :error-fn (cli/help-error-fn {:table table :prog "tool"})})
+                                            {:prog "tool" :restrict true
+                                             :error-fn cli/help-error-fn})
                               (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                                 (when-not (::exit (ex-data e)) (throw e))))))]
                 {:out out :exit @exit}))]
@@ -616,8 +617,8 @@
             out (with-out-str
                   (binding [cli/*exit-fn* (fn [_] (throw (ex-info "exit" {::exit true})))]
                     (try (cli/dispatch t ["x"]
-                                       {:restrict true
-                                        :error-fn (cli/help-error-fn {:table t :prog "tool"})})
+                                       {:prog "tool" :restrict true
+                                        :error-fn cli/help-error-fn})
                          (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                            (when-not (::exit (ex-data e)) (throw e))))))]
         ;; required option was never typed -> canonical --foo (default in messages)
@@ -627,8 +628,8 @@
         (binding [cli/*exit-fn* (fn [m] (swap! calls conj m))]
           (with-out-str
             (cli/dispatch table ["deps"]
-                          {:restrict true
-                           :error-fn (cli/help-error-fn {:table table :prog "tool"})})))
+                          {:prog "tool" :restrict true
+                           :error-fn cli/help-error-fn})))
         (is (= :missing-subcommand (:cause (first @calls))))
         (is (= 1 (:exit (first @calls))))))))
 
@@ -649,7 +650,7 @@
                                     (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))]
                             (try
                               ;; NOTE: no :restrict
-                              (cli/dispatch table args {:help {:prog "tool"}})
+                              (cli/dispatch table args {:prog "tool" :help true})
                               (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                                 (when-not (::exit (ex-data e)) (throw e))))))]
                 {:out out :exit @exit :ran @ran}))]

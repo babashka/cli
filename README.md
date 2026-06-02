@@ -749,14 +749,15 @@ Run "example <command> --help" for more information on a command.
 
 ### Help on error
 
-`help-error-fn` turns `format-command-help` into an `:error-fn` for `dispatch`.
-It needs `:restrict true` so `--help`/`-h` arrive as errors it can intercept,
-and takes the same config map as `format-command-help` (`:table`, `:prog`,
-optional `:inherit`):
+`help-error-fn` is an `:error-fn` for `dispatch` that renders help. Pass it
+directly and set `:prog` (the program name) at the dispatch level - `dispatch`
+hands it the command tree and `:prog`/`:inherit` through the error data, so
+there is nothing to configure. It needs `:restrict true` so `--help`/`-h`
+arrive as errors it can intercept:
 
 ``` clojure
 (cli/dispatch table args
-  {:restrict true :error-fn (cli/help-error-fn {:table table :prog "example"})})
+  {:prog "example" :restrict true :error-fn cli/help-error-fn})
 ```
 
 It exits via the dynamic `*exit-fn*`, called with `:exit`, `:cause`,
@@ -782,17 +783,18 @@ your own exit codes by switching on `:cause`:
 (binding [cli/*exit-fn* (fn [{:keys [exit cause]}]
                           (System/exit (if (= :missing-subcommand cause) 0 exit)))]
   (cli/dispatch table args
-    {:restrict true :error-fn (cli/help-error-fn {:table table :prog "example"})}))
+    {:prog "example" :restrict true :error-fn cli/help-error-fn}))
 ```
 
 ### The `:help` option on `dispatch`
 
-For the common case, pass `:help` to `dispatch` instead of building an
+For the common case, pass `:help true` to `dispatch` instead of wiring up an
 `:error-fn` yourself. It handles `--help`/`-h` and prints help on a bad or
-missing subcommand, without needing `:restrict`:
+missing subcommand, without needing `:restrict`. Set `:prog` for the program
+name:
 
 ``` clojure
-(cli/dispatch table args {:help {:prog "example"}})
+(cli/dispatch table args {:prog "example" :help true})
 ```
 
 Then:
@@ -801,9 +803,7 @@ Then:
   `example deps outdated --help` shows help for `deps outdated`.
 - A mistyped or missing subcommand prints help and exits with 1.
 
-`:help` takes the same keys as `help-error-fn` (`:prog`, `:inherit`). Use
-`:help true` to skip the program name. While `:help` is on, `--help` and `-h`
-are reserved.
+While `:help` is on, `--help` and `-h` are reserved.
 
 ## Babashka tasks
 

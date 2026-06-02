@@ -972,18 +972,18 @@
 
 (defn help-error-fn
   "An `:error-fn` for [[dispatch]] that prints help and exits via [[*exit-fn*]].
-
-  Takes a single map (same keys as [[format-command-help]]):
-
-  * `:table` - the dispatch table (or tree) passed to `dispatch` (required)
-  * `:prog` - program name shown in usage / help (required)
-  * `:inherit` - the dispatch-level `:inherit`, if any, so `Inherited options:` matches
-
-  Needs `:restrict true` so `--help`/`-h` arrive as errors it can intercept:
+  Pass it directly; `dispatch` supplies the command tree, `:prog` and `:inherit`
+  through the error data, so there is nothing to configure:
 
   ```clojure
-  (cli/dispatch table args
-    {:restrict true :error-fn (cli/help-error-fn {:table table :prog \"mytool\"})})
+  (cli/dispatch table args {:prog \"mytool\" :restrict true :error-fn cli/help-error-fn})
+  ```
+
+  The `:help` option is the usual way to install it (and adds native `--help`/
+  `-h` interception, so `:restrict` is not needed):
+
+  ```clojure
+  (cli/dispatch table args {:prog \"mytool\" :help true})
   ```
 
   Behavior, with the `:cause` passed to [[*exit-fn*]]:
@@ -994,56 +994,54 @@
   * flag error -> message + usage, exit with 1, `:cause` is the babashka.cli cause (`:restrict` / `:require` / `:validate` / `:coerce`)
 
   Terse on errors. Messages name the flag as typed (`--foo`/`-x`), not `:foo`."
-  [{:keys [table prog inherit]}]
-  (let [tree   (if (map? table) table (table->tree table))
-        ctx-at (fn [path] (command-help-context tree (vec path) prog inherit))
-        print-help (fn [path]
-                     (let [ctx (ctx-at path)]
+  [{:keys [cause option dispatch wrong-input msg prog inherit tree] :as data}]
+  (let [path   (or dispatch [])
+        ctx-at (fn [p] (command-help-context tree (vec p) prog inherit))
+        print-help (fn [p]
+                     (let [ctx (ctx-at p)]
                        (println (render-help (:node ctx) ctx))))
-        hint  (fn [path]
-                (str "Run \"" (str/join " " (cons prog path))
+        hint  (fn [p]
+                (str "Run \"" (str/join " " (cons prog p))
                      " --help\" for more information."))
-        usage (fn [path]
-                (let [{:keys [node prog inherited]} (ctx-at path)]
+        usage (fn [p]
+                (let [{:keys [node prog inherited]} (ctx-at p)]
                   (help-usage-line prog node (or (seq (:spec node))
                                                  (seq inherited)))))]
-    (fn [{:keys [cause option dispatch wrong-input msg] :as data}]
-      (let [path (or dispatch [])]
-        (cond
-          ;; --help / -h: natively (`:cause :help` from dispatch's `:help` option)
-          ;; or, under `:restrict`, as an unknown `:help`/`:h` option
-          (or (= :help cause)
-              (and (= :restrict cause) (#{:help :h} option)))
-          (do (print-help path)
-              (*exit-fn* {:exit 0 :cause :help-requested :dispatch path}))
+    (cond
+      ;; --help / -h: natively (`:cause :help` from dispatch's `:help` option)
+      ;; or, under `:restrict`, as an unknown `:help`/`:h` option
+      (or (= :help cause)
+          (and (= :restrict cause) (#{:help :h} option)))
+      (do (print-help path)
+          (*exit-fn* {:exit 0 :cause :help-requested :dispatch path}))
 
-          ;; mistyped subcommand: terse, but list the available commands
-          (= :no-match cause)
-          (let [cmds    (help-commands-table (:node (ctx-at path)))
-                message (str "Unknown command: " wrong-input)]
-            (println (str message "\n"))
-            (when (seq cmds)
-              (println (str "Commands:\n"
-                            (format-table {:rows cmds :indent 2}) "\n")))
-            (println (hint path))
-            (*exit-fn* {:exit 1 :cause :unknown-subcommand :msg message
-                        :dispatch path :data data}))
+      ;; mistyped subcommand: terse, but list the available commands
+      (= :no-match cause)
+      (let [cmds    (help-commands-table (:node (ctx-at path)))
+            message (str "Unknown command: " wrong-input)]
+        (println (str message "\n"))
+        (when (seq cmds)
+          (println (str "Commands:\n"
+                        (format-table {:rows cmds :indent 2}) "\n")))
+        (println (hint path))
+        (*exit-fn* {:exit 1 :cause :unknown-subcommand :msg message
+                    :dispatch path :data data}))
 
-          ;; a group invoked with no subcommand: show its help, but this is a
-          ;; usage error (no subcommand chosen), so exit with non-zero like git
-          (= :input-exhausted cause)
-          (do (print-help path)
-              (*exit-fn* {:exit 1 :cause :missing-subcommand :dispatch path :data data}))
+      ;; a group invoked with no subcommand: show its help, but this is a
+      ;; usage error (no subcommand chosen), so exit with non-zero like git
+      (= :input-exhausted cause)
+      (do (print-help path)
+          (*exit-fn* {:exit 1 :cause :missing-subcommand :dispatch path :data data}))
 
-          ;; genuine flag error (restrict / require / validate / coerce): terse.
-          ;; The lib message already names the flag the user typed; `:cause`
-          ;; passes through.
-          :else
-          (do (println (str "Error: " msg "\n"))
-              (println (usage path))
-              (println)
-              (println (hint path))
-              (*exit-fn* {:exit 1 :cause cause :msg msg :dispatch path :data data})))))))
+      ;; genuine flag error (restrict / require / validate / coerce): terse.
+      ;; The lib message already names the flag the user typed; `:cause`
+      ;; passes through.
+      :else
+      (do (println (str "Error: " msg "\n"))
+          (println (usage path))
+          (println)
+          (println (hint path))
+          (*exit-fn* {:exit 1 :cause cause :msg msg :dispatch path :data data})))))
 
 (defn- dispatch-tree'
   ([tree args]
@@ -1053,6 +1051,7 @@
      (let [kwm cmd-info
            ;; capture before the parse-args destructure below shadows `opts`
            inherit-opt (:inherit opts)
+           prog (:prog opts)
            help? (::help opts)
            should-parse-args? (or (has-parse-opts? kwm)
                                   (seq inherited)
@@ -1062,13 +1061,16 @@
            ;; too (e.g. `prog group --opt val sub` and `prog group sub --opt val`)
            parse-opts (cond-> parse-opts
                         (seq inherited) (update :spec #(merge inherited (->spec-map %))))
-           ;; thread the current dispatch path into flag-level errors
-           ;; (restrict/require/validate/coerce) so an :error-fn can render
-           ;; help for the right subcommand
+           ;; thread dispatch context into flag-level errors
+           ;; (restrict/require/validate/coerce) so an :error-fn can render help:
+           ;; the current path, the program name, dispatch-level :inherit, and the
+           ;; command tree
            user-error-fn (:error-fn parse-opts)
            parse-opts (assoc parse-opts :error-fn
                              (fn [data]
-                               (let [data (assoc data :dispatch cmds)]
+                               (let [data (cond-> (assoc data :dispatch cmds :tree tree)
+                                            prog        (assoc :prog prog)
+                                            inherit-opt (assoc :inherit inherit-opt))]
                                  (if user-error-fn
                                    (user-error-fn data)
                                    (throw (ex-info (:msg data) data))))))
@@ -1120,13 +1122,18 @@
                          (throw (ex-info msg data))))]
      (case error
        :help
-       (error-fn (merge {:type :org.babashka/cli :cause :help}
+       (error-fn (merge {:type :org.babashka/cli :cause :help :tree tree}
+                        (when (:prog opts) {:prog (:prog opts)})
+                        (when (:inherit opts) {:inherit (:inherit opts)})
                         (select-keys res [:opts :dispatch])))
        (:no-match :input-exhausted)
        (error-fn (merge
                   {:type :org.babashka/cli
                    :cause error
-                   :all-commands available-commands}
+                   :all-commands available-commands
+                   :tree tree}
+                  (when (:prog opts) {:prog (:prog opts)})
+                  (when (:inherit opts) {:inherit (:inherit opts)})
                   (select-keys res [:wrong-input :opts :dispatch])))
        nil ((:fn cmd-info) (dissoc res :cmd-info))))))
 
@@ -1155,10 +1162,12 @@
 
   Provide an `:error-fn` to deal with non-matches.
 
-  Provide `:help true` (or `:help {:prog \"mytool\"}`) to wire up help without
-  `:restrict`: `--help`/`-h` print help for the command they follow, and
-  [[help-error-fn]] renders it on a bad/missing subcommand. Takes the same keys
-  as [[help-error-fn]] (`:prog`, `:inherit`).
+  Set `:prog` to the program name shown in help. Provide `:help true` to wire up
+  help without `:restrict`: `--help`/`-h` print help for the command they
+  precede, and [[help-error-fn]] renders it on a bad/missing subcommand.
+
+  `dispatch` threads `:prog`, `:inherit` and the command tree into the error
+  data, so any `:error-fn` (including [[help-error-fn]]) gets them for free.
 
   Each entry in the table may have additional [[parse-args]] options.
 
@@ -1167,10 +1176,6 @@
    (dispatch table args {}))
   ([table args opts]
    (let [tree (-> table table->tree)]
-     (if-let [help (:help opts)]
-       (let [help-opts (if (map? help) help {})
-             error-fn (help-error-fn {:table tree
-                                      :prog (:prog help-opts)
-                                      :inherit (or (:inherit help-opts) (:inherit opts))})]
-         (dispatch-tree tree args (assoc opts :error-fn error-fn ::help true)))
+     (if (:help opts)
+       (dispatch-tree tree args (assoc opts :error-fn help-error-fn ::help true))
        (dispatch-tree tree args opts)))))
