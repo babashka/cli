@@ -940,8 +940,8 @@
                   `:cause` (`:no-match` / `:input-exhausted` / ...) and more
                   (absent on the `--help` path)
 
-  Rebind `:exit` codes you disagree with by switching on `:cause`. Rebind this
-  var entirely to prevent the process from exiting (tests, REPL):
+  Rebind this var to use your own exit codes (switch on `:cause`), or to stop
+  the process from exiting at all (tests, REPL):
 
   ```clojure
   (binding [babashka.cli/*exit-fn* (fn [m] (throw (ex-info \"exit\" m)))]
