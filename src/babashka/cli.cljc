@@ -987,10 +987,6 @@
   * flag error               -> message + usage line, exit 1, `:cause` is the
     babashka.cli cause (`:restrict` / `:require` / `:validate` / `:coerce`)
 
-  Only `--help`/`-h` exits 0; everything else is exit 1 (git/cli-matic treat a
-  group without a subcommand as a usage error). A caller who disagrees can
-  rebind [[*exit-fn*]] and remap codes by `:cause`.
-
   Terse on misuse (no full options dump); options are rendered as the flag the
   user types (`--foo`, `-x`), not the keyword `:foo`."
   [{:keys [table prog inherit]}]
