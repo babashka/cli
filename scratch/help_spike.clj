@@ -32,6 +32,13 @@
                   reverse (drop-while str/blank?) reverse)]
       (when (seq ls) (str/join "\n" ls)))))
 
+(defn- opt->flag
+  "Render an option keyword as the flag a user types: `-x` for single-char,
+  `--long` otherwise."
+  [opt]
+  (let [n (name opt)]
+    (str (if (= 1 (count n)) "-" "--") n)))
+
 (defn- usage-line [prog node any-options?]
   (let [children? (seq (:cmd node))]
     (str "Usage: " prog
@@ -70,6 +77,8 @@
                since those options must be given before the subcommand"
   [node {:keys [prog parents inherited]}]
   (let [spec (dissoc (:spec node) :help :h)        ; hide auto-injected --help
+        ;; a redefined option shows in Options (it wins); drop it from inherited
+        inherited (apply dissoc inherited (keys spec))
         cmds (commands-table node)
         sections
         (cond-> [(usage-line prog node (or (seq spec) (seq inherited)))]
@@ -99,37 +108,40 @@
                             (str "Run \"" p " --help\" for " n " options.")))))]
     (str/join "\n\n" sections)))
 
-;; --- opt-in help-aware dispatch ---
+;; --- help as a pluggable :error-fn ---
 ;;
-;; Bundles three things that belong together for a subcommand CLI:
-;;   1. auto `--help`/`-h` at any level (prints format-help for that node)
-;;   2. `:restrict true` by default (unknown flags error instead of silent pass)
-;;   3. help-on-error (no-match / input-exhausted -> print help + commands)
-;;
-;; All opt-in: existing `cli/dispatch` callers are untouched.
+;; No new dispatch variant. Help is delivered through `cli/dispatch`'s existing
+;; `:error-fn` extension point, given `:restrict true` (so that `--help`/`-h`
+;; surface as a `:restrict` "unknown option" error that the error-fn intercepts).
+;; Use:
+;;   (cli/dispatch table args
+;;     {:restrict true :error-fn (help-error-fn table {:prog "duct"})})
+;; What it handles, from the dispatch error data (note: needs babashka.cli's
+;; `:dispatch` in error data, public `table->tree`):
+;;   - --help / -h anywhere       -> print that level's help, exit 0
+;;   - unknown subcommand         -> message + parent help, exit 1
+;;   - group with no subcommand   -> that group's help, exit 0
+;;   - flag error (require/...)   -> message + scoped help, exit 1
 
-(def ^:private help-flag
-  {:help {:coerce :boolean :alias :h :desc "Show this help"}})
-
-(defn dispatch+help
-  "Like cli/dispatch but help-aware. opts must include :prog."
-  [table args {:keys [prog inherit] :as opts}]
+(defn help-error-fn
+  "Build an `:error-fn` (for `cli/dispatch` with `:restrict true`) that renders
+  conventional help. `opts`: :prog (program name), :inherit (same value passed
+  to dispatch, for the Inherited options section), :exit-fn (default `System/exit`)."
+  [table {:keys [prog inherit exit-fn] :or {exit-fn #(System/exit %)}}]
   (let [tree    (cli/table->tree table)
         node-at (fn [path] (get-in tree (interleave (repeat :cmd) (vec path))))
         prog-at (fn [path] (str/join " " (cons prog path)))
-        ;; which of a level's options are inherited by descendants: those marked
-        ;; :inherit, or selected by a dispatch-level :inherit (true / set of keys)
+        ;; which of a level's options descendants inherit: marked :inherit, or
+        ;; selected by a dispatch-level :inherit (true / set of keys)
         inherit-marked (fn [spec]
                          (let [s (dissoc spec :help :h)]
                            (cond (true? inherit) s
                                  (coll? inherit) (select-keys s (set inherit))
                                  :else (into {} (filter (comp :inherit val) s)))))
-        ;; options of ancestor levels usable at `path` (merged down the tree)
         inherited-at (fn [path]
                        (reduce (fn [acc i]
                                  (merge acc (inherit-marked (:spec (node-at (subvec (vec path) 0 i))))))
                                {} (range (count (vec path)))))
-        ;; ancestor levels with NON-inherited options (must precede the subcommand)
         parents (fn [path]
                   (let [path (vec path)]
                     (for [i (range (count path))
@@ -138,46 +150,44 @@
                           :when (seq (apply dissoc spec (keys (inherit-marked spec))))]
                       {:prog (prog-at pre)
                        :name (if (seq pre) (last pre) "global")})))
+        ;; full help: for explicit --help and for a bare group
         print-help (fn [path]
                      (println (format-help (node-at path)
                                            {:prog (prog-at path)
                                             :inherited (inherited-at path)
                                             :parents (parents path)})))
-        ;; per entry: inject help flag, default :restrict true, wrap :fn so
-        ;; --help short-circuits and group nodes (no real :fn) print help.
-        prep (fn [{f :fn :keys [spec] :as entry}]
-               (-> entry
-                   (assoc :spec (merge help-flag spec))
-                   (update :restrict #(if (nil? %) true %))
-                   (assoc :fn
-                          (fn [{:keys [opts dispatch args] :as m}]
-                            (cond
-                              (:help opts) (print-help dispatch)
-                              f            (f m)
-                              ;; group/catch-all with no handler: leftover args
-                              ;; mean a mistyped subcommand; otherwise just help.
-                              (seq args)
-                              (do (println (str "Unknown command: " (first args) "\n"))
-                                  (print-help dispatch))
-                              :else (print-help dispatch))))))
-        ;; ensure root catch-all exists so bare `bb` / unknown prints help
-        table   (cond-> table
-                  (not (some (comp empty? :cmds) table))
-                  (conj {:cmds []}))
-        error-fn (fn [{:keys [cause dispatch wrong-input msg] :as data}]
-                   (case cause
-                     ;; subcommand routing failed: show help (dispatch already halted)
-                     (:no-match :input-exhausted)
-                     (do (when wrong-input
-                           (println (str "Unknown command: " wrong-input "\n")))
-                         (print-help (or dispatch [])))
-                     ;; flag-level error (restrict/require/validate): report +
-                     ;; halt; :dispatch now carries the subcommand path so help
-                     ;; is scoped to the right level.
-                     (do (println (str "Error: " msg "\n"))
-                         (print-help (or dispatch []))
-                         (throw (ex-info msg data)))))]
-    (cli/dispatch (mapv prep table) args (assoc opts :error-fn error-fn))))
+        ;; terse output on misuse (cf. git / clap): no full Options dump
+        hint (fn [path] (str "Run \"" (prog-at path) " --help\" for more information."))
+        usage (fn [path]
+                (let [node (node-at path)
+                      spec (dissoc (:spec node) :help :h)]
+                  (usage-line (prog-at path) node (or (seq spec) (seq (inherited-at path))))))]
+    (fn [{:keys [cause option dispatch wrong-input msg]}]
+      (let [path (or dispatch [])]
+        (cond
+          ;; --help / -h: under :restrict these arrive as an unknown option
+          (and (= :restrict cause) (#{:help :h} option))
+          (do (print-help path) (exit-fn 0))
+          ;; mistyped subcommand: terse, but list the available commands
+          (= :no-match cause)
+          (let [cmds (commands-table (node-at path))]
+            (println (str "Unknown command: " wrong-input "\n"))
+            (when (seq cmds)
+              (println (str "Commands:\n" (cli/format-table {:rows cmds :indent 2}) "\n")))
+            (println (hint path))
+            (exit-fn 1))
+          ;; a group invoked with no subcommand -> full help (shows Commands)
+          (= :input-exhausted cause)
+          (do (print-help path) (exit-fn 0))
+          ;; genuine flag error (require / validate / unknown flag): terse.
+          ;; render the option as the flag the user types (--foo), not :foo
+          :else
+          (let [msg (if option (str/replace msg (str option) (opt->flag option)) msg)]
+            (println (str "Error: " msg "\n"))
+            (println (usage path))
+            (println)
+            (println (hint path))
+            (exit-fn 1)))))))
 
 ;; --- example dispatch table (ductile-flavoured) ---
 
@@ -191,7 +201,8 @@
    :sync            {:alias :s :coerce :boolean :desc "Sync local db from production first"}})
 
 (def table
-  [{:cmds []     :doc "ductile dev tooling"}
+  [{:cmds []     :doc "ductile dev tooling"
+    :spec {:verbose {:alias :v :inherit true :desc "Verbose output"}}}
    {:cmds ["dev"] :fn (act "dev") :spec dev-spec
     :doc "Start the full dev system.\n\nWith good defaults bb dev is enough 90% of the time.\nFlags configure transactor, privilege and db sync."}
    {:cmds ["maintenance"]           :doc "Manage maintenance mode"}
@@ -200,20 +211,26 @@
    {:cmds ["deps"]              :doc "Dependency tools"
     :spec {:registry {:alias :r :inherit true :desc "Package registry URL"}}}
    {:cmds ["deps" "outdated"]   :fn (act "deps outdated")   :doc "Show outdated dependencies"
-    :spec {:format {:alias :f :desc "Output format: table or edn"}}}
+    :spec {:format {:alias :f :desc "Output format: table or edn"}
+           :registry {:desc "Outdated-specific registry override"}}}
    {:cmds ["deps" "vulnerable"] :fn (act "deps vulnerable") :doc "Show vulnerable dependencies"}])
 
+;; just plain cli/dispatch + the help error-fn. The REPL demo uses a throwing
+;; :exit-fn (so it doesn't kill the process); a real CLI uses the default System/exit.
 (defn run [args]
   (println (str "$ bb " (str/join " " args)))
   (println "----------------------------------------")
-  (try (dispatch+help table args {:prog "bb"})
-       (catch Exception e (println "ERR:" (ex-message e))))
+  (let [stop (fn [_] (throw (ex-info "exit" {::exit true})))]
+    (try (cli/dispatch table args {:restrict true
+                                   :error-fn (help-error-fn table {:prog "bb" :exit-fn stop})})
+         (catch clojure.lang.ExceptionInfo e
+           (when-not (::exit (ex-data e)) (println "ERR:" (ex-message e))))))
   (println))
 
 ;; real CLI entrypoint: drive with actual argv (see scratch/duct wrapper)
 (defn -main [& args]
-  (try (dispatch+help table (vec args) {:prog "duct"})
-       (catch Exception _ (System/exit 1))))
+  (cli/dispatch table (vec args)
+                {:restrict true :error-fn (help-error-fn table {:prog "duct"})}))
 
 ;; auto-run when loaded as a script
 (when (= *file* (System/getProperty "babashka.file"))
