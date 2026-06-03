@@ -297,7 +297,7 @@
          (cli/dispatch table ["dep" "add" "--overwrite" "cheshire/cheshire"])))
     (is (submap?
          {:args ["cheshire/cheshire"], :opts {:force true}}
-         (cli/dispatch table {:coerce {:force :boolean}} ["add" "dep" "--force" "cheshire/cheshire"])))
+         (cli/dispatch table ["add" "dep" "--force" "cheshire/cheshire"] {:coerce {:force :boolean}})))
     (is (submap?
          {:dispatch ["dep" "search"]
           :opts {:search-term "cheshire"}}
@@ -431,9 +431,9 @@
       (testing "dispatch errors return :dispatch key"
         ;; submap?: dispatch also enriches error data with :tree (and :prog/:inherit when set)
         (is (submap? {:type :org.babashka/cli, :dispatch ["foo" "bar"], :all-commands '("baz"), :cause :input-exhausted, :opts {}}
-                     (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] {:error-fn identity} ["foo" "bar"])))
+                     (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar"] {:error-fn identity})))
         (is (submap? {:type :org.babashka/cli, :dispatch ["foo" "bar"], :wrong-input "wrong", :all-commands '("baz"), :cause :no-match, :opts {}}
-                     (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] {:error-fn identity} ["foo" "bar" "wrong"])))))))
+                     (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar" "wrong"] {:error-fn identity})))))))
 
 (deftest table->tree-test
   (testing "internal represenation"
@@ -585,13 +585,12 @@
       (let [t [{:cmds [] :fn identity :doc "t" :spec {:a {:desc "A"}}}]
             out (with-out-str
                   (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
-                    (try (cli/dispatch t
+                    (try (cli/dispatch t ["--help"]
                                        {:prog "p" :help true
                                         :help-fn (fn [{:keys [tree dispatch prog inherit]}]
                                                    (println "BANNER")
                                                    (println (cli/format-command-help
-                                                             {:table tree :cmds dispatch :prog prog :inherit inherit})))}
-                                       ["--help"])
+                                                             {:table tree :cmds dispatch :prog prog :inherit inherit})))})
                          (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                            (when-not (::exit (ex-data e)) (throw e))))))]
         (is (str/includes? out "BANNER"))
@@ -629,13 +628,12 @@
       (let [exit (atom nil)
             out (with-out-str
                   (binding [cli/*exit-fn* (fn [m] (reset! exit m))]
-                    (cli/dispatch table
+                    (cli/dispatch table ["nope"]
                                   {:prog "tool" :help true
                                    :error-fn (fn [data]
                                                (println (cli/format-command-error data))
                                                (println "See https://example.com/docs")
-                                               (cli/*exit-fn* {:exit 1 :cause (:cause data)}))}
-                                  ["nope"])))]
+                                               (cli/*exit-fn* {:exit 1 :cause (:cause data)}))})))]
         (is (str/includes? out "Unknown command: nope"))
         (is (str/includes? out "See https://example.com/docs"))
         (is (= {:exit 1 :cause :no-match} @exit))))))
@@ -657,7 +655,7 @@
                                     (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))]
                             (try
                               ;; NOTE: no :restrict
-                              (cli/dispatch table {:prog "tool" :help true} args)
+                              (cli/dispatch table args {:prog "tool" :help true})
                               (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                                 (when-not (::exit (ex-data e)) (throw e))))))]
                 {:out out :exit @exit :ran @ran}))]
@@ -691,7 +689,7 @@
             out (with-out-str
                   (binding [cli/*exit-fn* (fn [m] (reset! exit m) (throw (ex-info "x" {::exit true})))]
                     (try (cli/dispatch [{:cmds [] :doc "t"} {:cmds ["go"] :fn identity :doc "Go"}]
-                                       {:help true} ["--help"])
+                                       ["--help"] {:help true})
                          (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                            (when-not (::exit (ex-data e)) (throw e))))))]
         (is (str/includes? out "Commands:"))
@@ -700,7 +698,7 @@
       (let [calls (atom [])]
         (binding [cli/*exit-fn* (fn [m] (swap! calls conj m))]
           (with-out-str
-            (cli/dispatch table {:prog "tool" :help true} ["deps"])))
+            (cli/dispatch table ["deps"] {:prog "tool" :help true})))
         (is (= :input-exhausted (:cause (first @calls))))
         (is (= 1 (:exit (first @calls))))))
     (testing "--help shows in the Options output"
@@ -711,7 +709,7 @@
                 :spec [[:help {}] [:verbose {:coerce :boolean :desc "Verbose"}]]}]
             out (with-out-str
                   (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
-                    (try (cli/dispatch t {:prog "tool" :help true} ["--help"])
+                    (try (cli/dispatch t ["--help"] {:prog "tool" :help true})
                          (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                            (when-not (::exit (ex-data e)) (throw e))))))
             lines (str/split-lines out)
@@ -725,7 +723,7 @@
             exit (atom nil)
             out (with-out-str
                   (binding [cli/*exit-fn* (fn [m] (reset! exit m) (throw (ex-info "x" {::exit true})))]
-                    (try (cli/dispatch t {:prog "tool" :help true} ["--help"])
+                    (try (cli/dispatch t ["--help"] {:prog "tool" :help true})
                          (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                            (when-not (::exit (ex-data e)) (throw e))))))]
         ;; order honored verbatim, --help NOT listed (not in :order)...
@@ -739,7 +737,7 @@
                {:cmds ["sub"] :fn identity :spec {:x {:desc "local x"}}}]
             out (with-out-str
                   (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
-                    (try (cli/dispatch t {:prog "p" :help true} ["sub" "--help"])
+                    (try (cli/dispatch t ["sub" "--help"] {:prog "p" :help true})
                          (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                            (when-not (::exit (ex-data e)) (throw e))))))]
         ;; child wins: --x shows the local desc; the ancestor's version is deduped out
@@ -762,7 +760,7 @@
                           (binding [cli/*exit-fn*
                                     (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))]
                             (try
-                              (cli/dispatch table {:prog "tool" :help true} args)
+                              (cli/dispatch table args {:prog "tool" :help true})
                               (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                                 (when-not (::exit (ex-data e)) (throw e))))))]
                 {:out out :exit @exit :ran @ran}))]
@@ -788,10 +786,9 @@
   (testing "command attaches :cmds (default [], or a given path)"
     (is (= {:cmds [] :fn identity} (cli/command {:fn identity})))
     (is (= {:cmds ["a" "b"] :fn identity} (cli/command ["a" "b"] {:fn identity}))))
-  (testing "a single-command CLI: (command ...) inside the table, opts then args"
+  (testing "a single-command CLI: (command ...) inside the table"
     (let [ran (atom nil)]
       (cli/dispatch [(cli/command {:fn (fn [m] (reset! ran m)) :spec {:port {:coerce :long}}})]
-                    {}
                     ["--port" "1339"])
       (is (= {:port 1339} (:opts @ran)))))
   (testing "with :help, --help prints help and the fn does not run"
@@ -800,8 +797,7 @@
                 (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
                   (try (cli/dispatch [(cli/command {:fn (fn [m] (reset! ran m))
                                                     :spec {:port {:coerce :long :desc "Port"}}})]
-                                     {:prog "tool" :help true}
-                                     ["--help"])
+                                     ["--help"] {:prog "tool" :help true})
                        (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                          (when-not (::exit (ex-data e)) (throw e))))))]
       (is (str/includes? out "Usage: tool [options]"))
@@ -935,14 +931,14 @@
          (cli/dispatch [{:cmds ["foo"]
                          :fn identity
                          :spec {:x {:coerce :boolean}}}]
-                       {:restrict true}
-                       ["foo" "--y"])))
+                       ["foo" "--y"]
+                       {:restrict true})))
   (is (= {:dispatch ["foo"], :opts {}, :args nil}
          (cli/dispatch [{:cmds ["foo"]
                          :fn identity
                          :spec {:x {:coerce :boolean}}}]
-                       {:restrict true}
-                       ["foo"]))))
+                       ["foo"]
+                       {:restrict true}))))
 
 (deftest dispatch-flag-error-includes-dispatch-path-test
   (testing "flag-level errors during dispatch carry the :dispatch path so an
@@ -951,11 +947,10 @@
     (let [capture (fn [table args opts]
                     (let [err (atom nil)]
                       (try
-                        (cli/dispatch table
+                        (cli/dispatch table args
                                       (assoc opts :error-fn
                                              (fn [e] (reset! err e)
-                                               (throw (ex-info "stop" {}))))
-                                      args)
+                                               (throw (ex-info "stop" {})))))
                         (catch #?(:clj Exception :cljs :default) _ nil))
                       @err))
           table [{:cmds [] :spec {:g {:coerce :boolean}}}
@@ -984,12 +979,12 @@
               :opts {:registry "X" :format "edn"}
               :args nil}
              (cli/dispatch table
-                           {:restrict true}
-                           ["deps" "--registry" "X" "outdated" "--format" "edn"])))
+                           ["deps" "--registry" "X" "outdated" "--format" "edn"]
+                           {:restrict true})))
       (testing "genuinely unknown options are still rejected"
         (is (thrown-with-msg?
              Exception #"Unknown option: --bogus"
-             (cli/dispatch table {:restrict true} ["deps" "outdated" "--bogus"]))))))
+             (cli/dispatch table ["deps" "outdated" "--bogus"] {:restrict true}))))))
   (testing "fix is scoped to dispatch: plain :exec-args still subject to :restrict"
     (is (thrown-with-msg?
          Exception #"Unknown option: --bar"
@@ -1003,43 +998,43 @@
                  {:cmds ["deps" "outdated"] :fn identity :spec {:format {}}}]]
       (testing "accepted after the subcommand"
         (is (= {:dispatch ["deps" "outdated"] :opts {:registry "X" :format "edn"} :args nil}
-               (cli/dispatch table {:restrict true} ["deps" "outdated" "--registry" "X" "--format" "edn"]))))
+               (cli/dispatch table ["deps" "outdated" "--registry" "X" "--format" "edn"] {:restrict true}))))
       (testing "still accepted before the subcommand"
         (is (= {:dispatch ["deps" "outdated"] :opts {:registry "X"} :args nil}
-               (cli/dispatch table {:restrict true} ["deps" "--registry" "X" "outdated"]))))
+               (cli/dispatch table ["deps" "--registry" "X" "outdated"] {:restrict true}))))
       (testing "alias propagates too"
         (is (= {:dispatch ["deps" "outdated"] :opts {:registry "X"} :args nil}
-               (cli/dispatch table {:restrict true} ["deps" "outdated" "-r" "X"]))))))
+               (cli/dispatch table ["deps" "outdated" "-r" "X"] {:restrict true}))))))
   (testing "coercion propagates across levels"
     (let [table [{:cmds ["a"]     :spec {:n {:coerce :int :inherit true}}}
                  {:cmds ["a" "b"] :fn identity}]]
-      (is (= {:n 7} (:opts (cli/dispatch table {:restrict true} ["a" "b" "--n" "7"]))))))
+      (is (= {:n 7} (:opts (cli/dispatch table ["a" "b" "--n" "7"] {:restrict true}))))))
   (testing "a child spec may override an inherited option"
     (let [table [{:cmds ["a"]     :spec {:x {:coerce :int :inherit true}}}
                  {:cmds ["a" "b"] :fn identity :spec {:x {:coerce :keyword}}}]]
-      (is (= {:x :hi} (:opts (cli/dispatch table {:restrict true} ["a" "b" "--x" "hi"]))))))
+      (is (= {:x :hi} (:opts (cli/dispatch table ["a" "b" "--x" "hi"] {:restrict true}))))))
   (testing "options without :inherit do NOT propagate (rejected after subcommand)"
     (let [table [{:cmds ["deps"]            :spec {:registry {}}}
                  {:cmds ["deps" "outdated"] :fn identity :spec {:format {}}}]]
       (is (thrown-with-msg?
            Exception #"Unknown option: --registry"
-           (cli/dispatch table {:restrict true} ["deps" "outdated" "--registry" "X"])))))
+           (cli/dispatch table ["deps" "outdated" "--registry" "X"] {:restrict true})))))
   (testing "dispatch-level :inherit makes options inherit without per-option marking"
     (let [table [{:cmds ["deps"]            :spec {:registry {} :token {}}}
                  {:cmds ["deps" "outdated"] :fn identity :spec {:format {}}}]]
       (testing ":inherit true -> all ancestor options inherit"
         (is (= {:registry "X" :token "T" :format "edn"}
                (:opts (cli/dispatch table
-                                    {:inherit true :restrict true}
-                                    ["deps" "outdated" "--registry" "X" "--token" "T" "--format" "edn"])))))
+                                    ["deps" "outdated" "--registry" "X" "--token" "T" "--format" "edn"]
+                                    {:inherit true :restrict true})))))
       (testing ":inherit #{ks} -> only listed options inherit"
         (is (= {:registry "X"}
-               (:opts (cli/dispatch table {:inherit #{:registry} :restrict true}
-                                    ["deps" "outdated" "--registry" "X"]))))
+               (:opts (cli/dispatch table ["deps" "outdated" "--registry" "X"]
+                                    {:inherit #{:registry} :restrict true}))))
         (is (thrown-with-msg?
              Exception #"Unknown option: --token"
-             (cli/dispatch table {:inherit #{:registry} :restrict true}
-                           ["deps" "outdated" "--token" "T"])))))))
+             (cli/dispatch table ["deps" "outdated" "--token" "T"]
+                           {:inherit #{:registry} :restrict true})))))))
 
 (deftest issue-106-test
   (d/deflet

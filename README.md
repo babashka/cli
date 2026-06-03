@@ -104,7 +104,7 @@ Here is an example babashka script to get you started!
   (println "Here are your cli args!:" opts))
 
 (defn -main [& args]
-  (cli/dispatch [(cli/command {:fn run :spec spec})] {:prog "try-me" :help true} args))
+  (cli/dispatch [(cli/command {:fn run :spec spec})] args {:prog "try-me" :help true}))
 
 (-main *command-line-args*)
 ```
@@ -576,7 +576,7 @@ This can be accomplished by doing the following:
    {:cmds []         :fn help}])
 
 (defn -main [& args]
-  (cli/dispatch table {:coerce {:depth :long}} args))
+  (cli/dispatch table args {:coerce {:depth :long}}))
 ```
 
 Calling the `example` namespace's `-main` function can be done using `clojure -M -m example` or `bb -m example`.
@@ -671,10 +671,10 @@ must be supplied before its subcommand:
   [{:cmds ["group"]       :spec {:registry {}}}
    {:cmds ["group" "sub"] :fn identity :spec {:format {}}}])
 
-(cli/dispatch table {:restrict true} ["group" "--registry" "X" "sub"])
+(cli/dispatch table ["group" "--registry" "X" "sub"] {:restrict true})
 ;;=> {:dispatch ["group" "sub"], :opts {:registry "X"}}
 
-(cli/dispatch table {:restrict true} ["group" "sub" "--registry" "X"])
+(cli/dispatch table ["group" "sub" "--registry" "X"] {:restrict true})
 ;; throws: Unknown option: :registry
 ```
 
@@ -687,7 +687,7 @@ appears:
   [{:cmds ["group"]       :spec {:registry {:inherit true}}}
    {:cmds ["group" "sub"] :fn identity :spec {:format {}}}])
 
-(cli/dispatch table {:restrict true} ["group" "sub" "--registry" "X"])
+(cli/dispatch table ["group" "sub" "--registry" "X"] {:restrict true})
 ;;=> {:dispatch ["group" "sub"], :opts {:registry "X"}}
 ```
 
@@ -699,8 +699,8 @@ Instead of marking individual options, you can pass `:inherit` to `dispatch`.
 Use `true` to inherit all options, or a set of keys to inherit only those:
 
 ``` clojure
-(cli/dispatch table {:inherit true} ["group" "sub" "--registry" "X"])
-(cli/dispatch table {:inherit #{:registry}} ["group" "sub" "--registry" "X"])
+(cli/dispatch table ["group" "sub" "--registry" "X"] {:inherit true})
+(cli/dispatch table ["group" "sub" "--registry" "X"] {:inherit #{:registry}})
 ```
 
 ### Help
@@ -709,7 +709,7 @@ Pass `:help true` to `dispatch` (and `:prog`, the program name) to add help to a
 CLI - no `:restrict` needed:
 
 ``` clojure
-(cli/dispatch table {:prog "example" :help true} args)
+(cli/dispatch table args {:prog "example" :help true})
 ```
 
 - `--help`/`-h` print help for the command in front of them and return (the
@@ -737,8 +737,8 @@ The `command` helper attaches `:cmds` (default `[]`) so you don't hand-write it 
 
 ``` clojure
 (cli/dispatch [(cli/command {:fn run :spec {:port {:coerce :long :desc "Port"}}})]
-              {:prog "example" :help true}
-              args)
+              args
+              {:prog "example" :help true})
 ```
 
 `--help`/`-h` are a success path: they print help and return (no exit call), so
@@ -764,7 +764,7 @@ codes by `:cause`:
 ;; treat a bare group as success (exit 0) instead of a usage error
 (binding [cli/*exit-fn* (fn [{:keys [exit cause]}]
                           (System/exit (if (= :input-exhausted cause) 0 exit)))]
-  (cli/dispatch table {:prog "example" :help true} args))
+  (cli/dispatch table args {:prog "example" :help true}))
 ```
 
 Both handlers are overridable: pass your own `:help-fn` (called with
@@ -773,13 +773,12 @@ the standard help and add to it, call `format-command-help` - the same renderer
 the default uses:
 
 ``` clojure
-(cli/dispatch table
+(cli/dispatch table args
   {:prog "example" :help true
    :help-fn (fn [{:keys [tree dispatch prog inherit]}]
               (println "my-tool v1.2.3")
               (println (cli/format-command-help
-                        {:table tree :cmds dispatch :prog prog :inherit inherit})))}
-  args)
+                        {:table tree :cmds dispatch :prog prog :inherit inherit})))})
 ```
 
 `format-command-help` is also usable on its own (without `dispatch`): pass
@@ -794,13 +793,12 @@ and add to it, call `format-command-error` (the same renderer the default uses)
 and exit afterwards:
 
 ``` clojure
-(cli/dispatch table
+(cli/dispatch table args
   {:prog "example" :help true
    :error-fn (fn [data]
                (println (cli/format-command-error data))
                (println "See https://example.com/docs")
-               (cli/*exit-fn* {:exit 1 :cause (:cause data)}))}
-  args)
+               (cli/*exit-fn* {:exit 1 :cause (:cause data)}))})
 ```
 
 ## Babashka tasks

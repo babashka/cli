@@ -1257,13 +1257,11 @@
 
   Use an empty `:cmds` vector to always match or to provide global options.
 
-  Opts (`:prog`/`:help`/`:error-fn`/...) are the middle argument; `args` is last.
-
   For a single-command CLI (no subcommands), use a one-entry table whose `:cmds`
   is `[]`. The [[command]] helper attaches `:cmds` (default `[]`) for you:
 
   ```clojure
-  (dispatch [(command {:fn f :spec spec})] {:prog \"tool\" :help true} args)
+  (dispatch [(command {:fn f :spec spec})] args {:prog \"tool\" :help true})
   ```
 
   Provide an `:error-fn` to deal with non-matches.
@@ -1285,8 +1283,8 @@
 
   For more information and examples, see [README.md](README.md#subcommands)."
   ([table args]
-   (dispatch table {} args))
-  ([table opts args]
+   (dispatch table args {}))
+  ([table args opts]
    (let [tree (-> table table->tree)]
      (if (:help opts)
        (dispatch-tree (inject-help tree) args
