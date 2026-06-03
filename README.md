@@ -85,46 +85,33 @@ Here is an example babashka script to get you started!
 (require '[babashka.cli :as cli]
          '[babashka.fs :as fs])
 
-(defn dir-exists?
-  [path]
+(defn dir-exists? [path]
   (fs/directory? path))
 
-(defn show-help
-  [spec]
-  (cli/format-opts spec))
-
-(def cli-spec
-  {:spec
-   {:num {:coerce :long
+(def spec
+  {:num  {:coerce :long
+          :alias :n                  ; adds -n alias for --num
           :desc "Number of some items"
-          :alias :n                     ; adds -n alias for --num
-          :validate pos?                ; tests if supplied --num >0
-          :require true}                ; --num,-n is required
-    :dir {:desc "Directory name to do stuff"
-          :alias :d
-          :validate dir-exists?}        ; tests if --dir exists
-    :flag {:coerce :boolean             ; defines a boolean flag
-           :desc "I am just a flag"}}
-   :error-fn                           ; a function to handle errors
-   (fn [{:keys [spec type cause msg option] :as data}]
-     (when (= :org.babashka/cli type)
-       (case cause
-         :require
-         (println
-           (format "Missing required argument: %s\n" option))
-         :validate
-         (println
-           (format "%s does not exist!\n" msg)))))})
+          :validate pos?             ; tests if supplied --num > 0
+          :require true}             ; --num,-n is required
+   :dir  {:alias :d
+          :desc "Directory name to do stuff"
+          :validate dir-exists?}     ; tests if --dir exists
+   :flag {:coerce :boolean           ; defines a boolean flag
+          :desc "I am just a flag"}})
 
-(defn -main
-  [args]
-  (let [opts (cli/parse-opts args cli-spec)]
-    (if (or (:help opts) (:h opts))
-      (println (show-help cli-spec))
-      (println "Here are your cli args!:" opts))))
+(defn run [{:keys [opts]}]
+  (println "Here are your cli args!:" opts))
+
+(defn -main [& args]
+  (cli/dispatch [{:cmds [] :fn run :spec spec}] args {:prog "try-me" :help true}))
 
 (-main *command-line-args*)
 ```
+
+`:help true` wires up `--help`/`-h` and terse error messages for you - no help
+function or `:error-fn` to write. See [Subcommands > Help](#help-1) for
+customizing it.
 
 And this is how you run it:
 
@@ -133,11 +120,20 @@ $ bb try-me.clj --num 1 --dir my_dir --flag
 Here are your cli args!: {:num 1, :dir my_dir, :flag true}
 
 $ bb try-me.clj --help
-Missing required argument: :num
+Usage: try-me [options] [<args>]
 
+Options:
   -n, --num  Number of some items
   -d, --dir  Directory name to do stuff
       --flag I am just a flag
+  -h, --help Show this help
+
+$ bb try-me.clj
+Error: Required option: --num
+
+Usage: try-me [options] [<args>]
+
+Run "try-me --help" for more information.
 ```
 
 ## Options
@@ -156,7 +152,7 @@ A terser shape is also supported, where each key is lifted to the top level and
 keyed by option name: `{:coerce {:port :long} :alias {:p :port}}`. It is handy
 for quick scripts and partial parsing, but only a spec can carry `:desc`/`:ref`,
 so generated help and option printing need a spec. The two are otherwise
-equivalent; the examples below use the spec shape.
+equivalent. The examples below use the spec shape.
 
 Examples:
 
