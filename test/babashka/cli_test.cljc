@@ -731,6 +731,44 @@
         (is (re-find #"--x\s+local x" out))
         (is (not (str/includes? out "global x")))))))
 
+(deftest help-wins-over-required-test
+  ;; `--help` must win over flag errors (require/validate), at any level, even
+  ;; when the failing option is at an ANCESTOR of the level --help follows:
+  ;; `foo bar --help` with `foo` requiring `--opt` shows `foo bar` help, not the
+  ;; "Required option" error. (`--opt` is unparsed at the `foo` level when its
+  ;; require fires, so it can't be detected from the parsed opts there.)
+  (let [table [{:cmds ["foo"]       :spec {:opt {:require true :coerce :long :desc "Opt"}}}
+               {:cmds ["foo" "bar"] :fn identity :spec {:baz {:desc "Baz"}}}]
+        run (fn [args]
+              (let [exit (atom nil)
+                    ran (atom nil)
+                    table (mapv (fn [e] (cond-> e (:fn e) (assoc :fn (fn [m] (reset! ran m))))) table)
+                    out (with-out-str
+                          (binding [cli/*exit-fn*
+                                    (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))]
+                            (try
+                              (cli/dispatch table args {:prog "tool" :help true})
+                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                                (when-not (::exit (ex-data e)) (throw e))))))]
+                {:out out :exit @exit :ran @ran}))]
+    (testing "foo bar --help: help wins over an ancestor's missing required option"
+      (let [{:keys [out exit ran]} (run ["foo" "bar" "--help"])]
+        (is (str/includes? out "Usage: tool foo bar"))
+        (is (nil? exit))                    ; help is not an error
+        (is (nil? ran))))                   ; the :fn did not run
+    (testing "foo --help: help wins at the level that declares the required option"
+      (let [{:keys [out exit]} (run ["foo" "--help"])]
+        (is (str/includes? out "Usage: tool foo"))
+        (is (nil? exit))))
+    (testing "foo bar (no help): the missing required option still errors, exit 1"
+      (let [{:keys [exit ran]} (run ["foo" "bar"])]
+        (is (submap? {:exit 1 :cause :require} exit))
+        (is (nil? ran))))
+    (testing "foo --opt 2 bar (no help): runs normally"
+      (let [{:keys [exit ran]} (run ["foo" "--opt" "2" "bar"])]
+        (is (nil? exit))
+        (is (= {:opt 2} (:opts ran)))))))
+
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]
                                 (let [rows (str/split-lines table)]

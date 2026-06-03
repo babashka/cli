@@ -1081,14 +1081,24 @@
            ;; the current path, the program name, dispatch-level :inherit, and the
            ;; command tree
            user-error-fn (:error-fn parse-opts)
+           ;; With the `:help` option on, a flag error (require/validate/restrict/
+           ;; coerce) is stashed rather than fired: a `--help`/`-h` further along
+           ;; (e.g. `foo bar --help` where `foo` requires an option) parses at its
+           ;; own level and routes to help, and `dispatch-tree` discards the stash.
+           ;; If no help is reached, `dispatch-tree` fires the first stashed error.
+           ;; Without `:help` (no stash) errors fire immediately, as before.
+           error-stash (::error-stash opts)
            parse-opts (assoc parse-opts :error-fn
                              (fn [data]
                                (let [data (thread-dispatch-context
                                            (assoc data :dispatch cmds :tree tree)
-                                           {:prog prog :inherit inherit-opt})]
-                                 (if user-error-fn
-                                   (user-error-fn data)
-                                   (throw (ex-info (:msg data) data))))))
+                                           {:prog prog :inherit inherit-opt})
+                                     fire #(if user-error-fn
+                                             (user-error-fn data)
+                                             (throw (ex-info (:msg data) data)))]
+                                 (if error-stash
+                                   (swap! error-stash conj fire)
+                                   (fire)))))
            {:keys [args opts]} (if should-parse-args?
                                  (parse-args args (assoc parse-opts
                                                          ::dispatch-tree true
@@ -1130,27 +1140,38 @@
   ([tree args]
    (dispatch-tree tree args nil))
   ([tree args opts]
-   (let [{:as res :keys [cmd-info error available-commands]}
+   (let [;; with `:help` on, flag errors are deferred (stashed) during the walk
+         ;; so a `--help`/`-h` deeper in the args can win - see dispatch-tree'
+         error-stash (when (::help opts) (atom []))
+         opts (cond-> opts error-stash (assoc ::error-stash error-stash))
+         {:as res :keys [cmd-info error available-commands]}
          (dispatch-tree' tree args opts)
          error-fn (or (:error-fn opts)
                        (fn [{:keys [msg] :as data}]
                          (throw (ex-info msg data))))]
-     (case error
-       ;; --help/-h: success - print help via the :help-fn and return (no exit)
-       :help
+     (cond
+       ;; --help/-h: success - print help via the :help-fn and return (no exit).
+       ;; Help wins over any stashed flag error.
+       (= :help error)
        ((::help-fn opts) (thread-dispatch-context
                           (assoc (select-keys res [:dispatch]) :tree tree)
                           opts))
-       ;; real errors: terse message via the :error-fn, which exits non-zero
-       (:no-match :input-exhausted)
-       (error-fn (thread-dispatch-context
-                  (merge {:type :org.babashka/cli
-                          :cause error
-                          :all-commands available-commands
-                          :tree tree}
-                         (select-keys res [:wrong-input :opts :dispatch]))
-                  opts))
-       nil ((:fn cmd-info) (dissoc res :cmd-info))))))
+       ;; a flag error was stashed during the walk and help did not win: fire the
+       ;; first one (terse message via :error-fn, which exits non-zero)
+       (and error-stash (seq @error-stash))
+       ((first @error-stash))
+       :else
+       (case error
+         ;; real errors: terse message via the :error-fn, which exits non-zero
+         (:no-match :input-exhausted)
+         (error-fn (thread-dispatch-context
+                    (merge {:type :org.babashka/cli
+                            :cause error
+                            :all-commands available-commands
+                            :tree tree}
+                           (select-keys res [:wrong-input :opts :dispatch]))
+                    opts))
+         nil ((:fn cmd-info) (dissoc res :cmd-info)))))))
 
 (defn- node-with-help
   "Give one node a `--help`/`-h` option: add `:help` to its `:spec` (so it parses
