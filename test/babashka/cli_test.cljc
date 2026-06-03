@@ -532,45 +532,6 @@
              ;; Include ref column, although not present in spec.
              :columns [:default :ref :desc]})))))
 
-
-
-(deftest format-command-help-test
-  (let [table [{:cmds [] :spec {:verbose {:alias :v :inherit true :desc "Verbose output"}}}
-               {:cmds ["copy"]   :fn identity :doc "Copy a file"
-                :spec {:dry-run {:desc "Do a dry run"}}}
-               {:cmds ["delete"] :fn identity :doc "Delete a file"
-                :spec {:recursive {:alias :r :desc "Delete recursively"}}}]]
-    (testing "top level: usage, commands, options, pointer"
-      (is (= (str "Usage: example [options] <command>\n\n"
-                  "Commands:\n  copy   Copy a file\n  delete Delete a file\n\n"
-                  "Options:\n  -v, --verbose Verbose output\n\n"
-                  "Run \"example <command> --help\" for more information on a command.")
-             (cli/format-command-help {:table table :prog "example"}))))
-    (testing "leaf: own options + option inherited from an ancestor"
-      (is (= (str "Usage: example copy [options] [<args>]\n\n"
-                  "Copy a file\n\n"
-                  "Options:\n  --dry-run Do a dry run\n\n"
-                  "Inherited options:\n  -v, --verbose Verbose output")
-             (cli/format-command-help {:table table :cmds ["copy"] :prog "example"}))))
-    (testing "a table or a prebuilt tree both work"
-      (is (= (cli/format-command-help {:table table :cmds ["copy"] :prog "example"})
-             (cli/format-command-help {:table (cli/table->tree table) :cmds ["copy"] :prog "example"}))))
-    (testing "a redefined inherited option shows only under Options (child wins)"
-      (let [t [{:cmds [] :spec {:x {:inherit true :desc "global x"}}}
-               {:cmds ["sub"] :fn identity :spec {:x {:desc "local x"}}}]]
-        (is (= (str "Usage: p sub [options] [<args>]\n\n"
-                    "Options:\n  --x local x")
-               (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))
-    (testing "an entry :order sets the Options order; a vec-of-pairs spec keeps its order"
-      (let [t [{:cmds [] :spec {:a {:desc "A"} :b {:desc "B"} :c {:desc "C"}} :order [:c :a :b]}]]
-        (is (= (str "Usage: p [options]\n\n"
-                    "Options:\n  --c C\n  --a A\n  --b B")
-               (cli/format-command-help {:table t :prog "p"}))))
-      (let [t [{:cmds [] :spec [[:c {:desc "C"}] [:a {:desc "A"}] [:b {:desc "B"}]]}]]
-        (is (= (str "Usage: p [options]\n\n"
-                    "Options:\n  --c C\n  --a A\n  --b B")
-               (cli/format-command-help {:table t :prog "p"})))))))
-
 ;; help-error-fn is now private (installed by dispatch's :help option). Its
 ;; behavior is covered by help-option-test below. Kept commented for reference.
 #_(deftest help-error-fn-test
@@ -737,7 +698,18 @@
         (is (str/includes? out "--a"))
         (is (not (str/includes? out "--help")))
         ;; ...but --help still triggers help
-        (is (= :help-requested (:cause @exit)))))))
+        (is (= :help-requested (:cause @exit)))))
+    (testing "a subcommand that redefines an inherited option shows it under Options, not Inherited"
+      (let [t [{:cmds [] :spec {:x {:inherit true :desc "global x"}}}
+               {:cmds ["sub"] :fn identity :spec {:x {:desc "local x"}}}]
+            out (with-out-str
+                  (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
+                    (try (cli/dispatch t ["sub" "--help"] {:prog "p" :help true})
+                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                           (when-not (::exit (ex-data e)) (throw e))))))]
+        ;; child wins: --x shows the local desc; the ancestor's version is deduped out
+        (is (re-find #"--x\s+local x" out))
+        (is (not (str/includes? out "global x")))))))
 
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]

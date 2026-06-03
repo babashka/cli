@@ -797,8 +797,9 @@
         :else (into {} spec)))
 
 (defn- render-help
-  "Render help text for one tree `node`, given a computed `:prog` (full command
-  path), `:inherited` spec and `:parents` pointers. See [[format-command-help]]."
+  "Render help text for one tree `node` (built by [[command-help-context]]):
+  given a computed `:prog` (full command path), `:inherited` spec and `:parents`
+  pointers. Renders Options in the node's `:order` (see [[node-with-help]])."
   [node {:keys [prog inherited parents]}]
   (let [spec (:spec node)                       ; map or vec-of-pairs
         order (:order node)                     ; display order (see node-with-help)
@@ -916,46 +917,6 @@
      :prog (prog-at cmds)
      :inherited inherited
      :parents (vec parents)}))
-
-(defn format-command-help
-  "Render conventional `--help` text (a string) for the command at path `cmds`
-  in a `dispatch` table (or the tree from [[table->tree]]):
-
-  ```
-  Usage: <prog> [options] <command>
-
-  <description>            ; the entry's :doc (first line, then the rest)
-
-  Commands:                ; child commands with their one-line :doc
-    ...
-  Options:                 ; the command's own :spec, via format-opts
-    ...
-  Inherited options:       ; ancestor options usable here (:inherit), deduped
-    ...
-  Run \"<prog> sub --help\" ...        ; pointer to child commands
-  Run \"<prog> --help\" for <x> options ; pointer to non-inherited ancestor opts
-  ```
-
-  Takes a single map:
-  * `:table`   - a `dispatch` table, or a tree from [[table->tree]] (required)
-  * `:cmds`    - the command path, e.g. `[\"deps\" \"outdated\"]` (default `[]`,
-                 the top level)
-  * `:prog`    - program name shown in the usage line (required)
-  * `:inherit` - only needed when you pass a dispatch-level `:inherit` (`true` /
-                 coll of keys) to `dispatch`; pass the same value here so the
-                 `Inherited options:` section matches what is actually accepted.
-                 Per-option `:inherit true` is detected automatically.
-
-  Options are listed in the entry's `:order` (a vector of option keys) when it
-  has one; otherwise in spec order (a vec-of-pairs spec is kept as-is; a map
-  follows its key order, which is unreliable beyond a handful of keys - use a
-  vec-of-pairs spec or an `:order` on the entry).
-
-  An entry may carry `:no-doc true` to be omitted from `Commands:`."
-  [{:keys [table cmds prog inherit] :or {cmds []}}]
-  (let [tree (if (map? table) table (table->tree table))
-        ctx (command-help-context tree (vec cmds) prog inherit)]
-    (render-help (:node ctx) ctx)))
 
 (defn ^:dynamic *exit-fn*
   "Terminates the process after `dispatch`'s `:help` option prints help or an
