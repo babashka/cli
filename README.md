@@ -737,13 +737,14 @@ through the dynamic `*exit-fn*`, which exits non-zero:
 | invocation | outcome |
 |---|---|
 | `--help` / `-h` | print help, return (status 0) - no `*exit-fn*` |
-| group, no subcommand | terse message, `*exit-fn*` exit 1, `:cause :missing-subcommand` |
-| unknown subcommand | terse message, `*exit-fn*` exit 1, `:cause :unknown-subcommand` |
+| group, no subcommand | terse message, `*exit-fn*` exit 1, `:cause :input-exhausted` |
+| unknown subcommand | terse message, `*exit-fn*` exit 1, `:cause :no-match` |
 | flag error | terse message, `*exit-fn*` exit 1, `:cause` = the babashka.cli cause |
 
 A bare group is a usage error (exit 1), like `git bisect` with no subcommand;
 its full help is one keystroke away via `--help`. `*exit-fn*` is called only on
-errors, with `{:exit :cause :dispatch :msg :data}` (`:data` holds the raw
+errors, with `{:exit :cause :dispatch :data}` (`:cause` is the dispatch cause:
+`:no-match`, `:input-exhausted`, or a flag cause; `:data` holds the raw
 `dispatch` error data). The default exits the process (`System/exit` on JVM,
 `js/process.exit` on Node); rebind it to not exit (tests, REPL) or to remap
 codes by `:cause`:
@@ -751,7 +752,7 @@ codes by `:cause`:
 ``` clojure
 ;; treat a bare group as success (exit 0) instead of a usage error
 (binding [cli/*exit-fn* (fn [{:keys [exit cause]}]
-                          (System/exit (if (= :missing-subcommand cause) 0 exit)))]
+                          (System/exit (if (= :input-exhausted cause) 0 exit)))]
   (cli/dispatch table args {:prog "example" :help true}))
 ```
 

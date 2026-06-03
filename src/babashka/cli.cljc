@@ -963,11 +963,11 @@
   prints help and returns, so it does not call this. Called with a map:
 
   * `:exit` - exit code (always non-zero, `1`)
-  * `:cause` - `:missing-subcommand`, `:unknown-subcommand`, or the babashka.cli
-    flag cause (`:restrict` / `:require` / `:validate` / `:coerce`)
+  * `:cause` - the dispatch error cause: `:no-match` (unknown subcommand),
+    `:input-exhausted` (group with no subcommand), or the flag cause
+    (`:restrict` / `:require` / `:validate` / `:coerce`)
   * `:dispatch` - the command path
-  * `:msg` - error message
-  * `:data` - the original `dispatch` error data (raw `:cause` etc.)
+  * `:data` - the original `dispatch` error data
 
   Rebind to use your own exit codes (switch on `:cause`), or to not exit at all
   (tests, REPL):
@@ -995,19 +995,18 @@
   [{:keys [tree dispatch prog inherit]}]
   (println (format-command-help {:table tree :cmds (or dispatch []) :prog prog :inherit inherit})))
 
-(defn- help-error-fn
-  "The `:error-fn` installed by `dispatch`'s `:help` option: print a terse,
-  helpful message and exit (non-zero) via [[*exit-fn*]]. Reads the command tree,
-  `:prog` and `:inherit` from the data dispatch threads in. `:cause` to
-  [[*exit-fn*]]:
+(defn- print-command-error
+  "Print a terse, helpful message for a dispatch error. Only prints - does not
+  exit (the default `:error-fn` prints, then calls [[*exit-fn*]] itself). Reads
+  the command tree, `:prog` and `:inherit` from the data dispatch threads in.
 
-  * `:no-match` (unknown subcommand) -> message + commands, exit 1, `:unknown-subcommand`
-  * `:input-exhausted` (group, no subcommand) -> message + commands, exit 1, `:missing-subcommand`
-  * flag error -> message + usage, exit 1, the babashka.cli cause
+  * `:no-match` (unknown subcommand) -> message + commands + hint
+  * `:input-exhausted` (group, no subcommand) -> message + commands + hint
+  * flag error -> message + usage + hint
 
   `--help`/`-h` is not an error - it goes to the `:help-fn` ([[print-command-help]]).
   Messages name the flag as typed (`--foo`/`-x`), not `:foo`."
-  [{:keys [cause dispatch wrong-input msg prog inherit tree] :as data}]
+  [{:keys [cause dispatch wrong-input msg prog inherit tree]}]
   (let [path   (or dispatch [])
         ctx-at (fn [p] (command-help-context tree (vec p) prog inherit))
         hint  (fn [p]
@@ -1020,29 +1019,26 @@
         ;; subcommand-level error (unknown / missing): terse message + the
         ;; available commands + a pointer to --help
         subcommand-error
-        (fn [message exit-cause]
+        (fn [message]
           (println (str message "\n"))
           (let [cmds (help-commands-table (:node (ctx-at path)))]
             (when (seq cmds)
               (println (str "Commands:\n" (format-table {:rows cmds :indent 2}) "\n"))))
-          (println (hint path))
-          (*exit-fn* {:exit 1 :cause exit-cause :msg message :dispatch path :data data}))]
+          (println (hint path)))]
     (cond
       (= :no-match cause)
-      (subcommand-error (str "Unknown command: " wrong-input) :unknown-subcommand)
+      (subcommand-error (str "Unknown command: " wrong-input))
 
       (= :input-exhausted cause)
-      (subcommand-error "No subcommand given." :missing-subcommand)
+      (subcommand-error "No subcommand given.")
 
       ;; genuine flag error (restrict / require / validate / coerce): terse.
-      ;; The lib message already names the flag the user typed; `:cause` passes
-      ;; through.
+      ;; The lib message already names the flag the user typed.
       :else
       (do (println (str "Error: " msg "\n"))
           (println (usage path))
           (println)
-          (println (hint path))
-          (*exit-fn* {:exit 1 :cause cause :msg msg :dispatch path :data data})))))
+          (println (hint path))))))
 
 (defn- dispatch-tree'
   ([tree args]
@@ -1219,6 +1215,13 @@
      (if (:help opts)
        (dispatch-tree (inject-help tree) args
                       (assoc opts ::help true
-                             :error-fn (or (:error-fn opts) help-error-fn)
+                             ;; default :error-fn = print the message, then exit;
+                             ;; :cause is the dispatch cause as-is (:no-match /
+                             ;; :input-exhausted / a flag cause)
+                             :error-fn (or (:error-fn opts)
+                                           (fn [{:keys [cause dispatch] :as data}]
+                                             (print-command-error data)
+                                             (*exit-fn* {:exit 1 :cause cause
+                                                         :dispatch dispatch :data data})))
                              ::help-fn (or (:help-fn opts) print-command-help)))
        (dispatch-tree tree args opts)))))
