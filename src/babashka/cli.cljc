@@ -1149,13 +1149,15 @@
         default (cond-> {:coerce :boolean :desc "Show this help"}
                   h-free? (assoc :alias :h))]
     (if (sequential? spec)
-      ;; ordered spec: keep order, merge defaults into an existing :help pair
-      ;; (keeping its position), else append the pair
+      ;; ordered spec: keep order. Position --help by placing a `:help` pair
+      ;; (its defaults are filled in); otherwise append it.
       (if (some (fn [[k]] (= :help k)) spec)
         (mapv (fn [[k v :as kv]] (if (= :help k) [:help (merge default v)] kv)) spec)
         (-> (vec spec) (conj [:help default])))
+      ;; map spec: no reliable order, so nothing to position. Respect a
+      ;; user-defined :help as-is; otherwise add one.
       (if (contains? as-map :help)
-        (update as-map :help #(merge default %))
+        as-map
         (assoc as-map :help default)))))
 
 (defn- inject-help
