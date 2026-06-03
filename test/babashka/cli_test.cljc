@@ -562,7 +562,9 @@
                     "Options:\n  --x local x")
                (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))))
 
-(deftest help-error-fn-test
+;; help-error-fn is now private (installed by dispatch's :help option). Its
+;; behavior is covered by help-option-test below. Kept commented for reference.
+#_(deftest help-error-fn-test
   (let [table [{:cmds [] :doc "tool"
                 :spec {:verbose {:alias :v :inherit true :desc "Verbose output"}}}
                {:cmds ["dev"] :fn identity :doc "Start dev."
@@ -688,7 +690,17 @@
                          (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                            (when-not (::exit (ex-data e)) (throw e))))))]
         (is (str/includes? out "Commands:"))
-        (is (= 0 (:exit @exit)))))))
+        (is (= 0 (:exit @exit)))))
+    (testing "*exit-fn* codes can be remapped by :cause (e.g. group -> 0)"
+      (let [calls (atom [])]
+        (binding [cli/*exit-fn* (fn [m] (swap! calls conj m))]
+          (with-out-str
+            (cli/dispatch table ["deps"] {:prog "tool" :help true})))
+        (is (= :missing-subcommand (:cause (first @calls))))
+        (is (= 1 (:exit (first @calls))))))
+    (testing "--help shows in the Options output"
+      (let [{:keys [out]} (run ["dev" "--help"])]
+        (is (str/includes? out "-h, --help"))))))
 
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]

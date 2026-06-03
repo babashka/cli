@@ -747,20 +747,30 @@ Options:
 Run "example <command> --help" for more information on a command.
 ```
 
-### Help on error
+### Help
 
-`help-error-fn` is an `:error-fn` for `dispatch` that renders help. Pass it
-directly and set `:prog` (the program name) at the dispatch level - `dispatch`
-hands it the command tree and `:prog`/`:inherit` through the error data, so
-there is nothing to configure. It needs `:restrict true` so `--help`/`-h`
-arrive as errors it can intercept:
+Pass `:help true` to `dispatch` (and `:prog`, the program name) to add help to a
+CLI - no `:restrict` needed:
 
 ``` clojure
-(cli/dispatch table args
-  {:prog "example" :restrict true :error-fn cli/help-error-fn})
+(cli/dispatch table args {:prog "example" :help true})
 ```
 
-It exits via the dynamic `*exit-fn*`, called with `:exit`, `:cause`,
+- `--help`/`-h` print help for the command in front of them and exit with 0. So
+  `example deps outdated --help` shows help for `deps outdated`.
+- A mistyped or missing subcommand prints help and exits with 1.
+- `-h, --help` is listed in each command's options. `--help`/`-h` are reserved
+  while `:help` is on (a command may still define its own `:help`).
+
+It works for a single-command CLI too (one entry with `:cmds []`, no
+subcommands) - `example --help` then shows Usage + Options:
+
+``` clojure
+(cli/dispatch [{:cmds [] :fn run :spec {:port {:coerce :long :desc "Port"}}}]
+              args {:prog "example" :help true})
+```
+
+Help exits via the dynamic `*exit-fn*`, called with `:exit`, `:cause`,
 `:dispatch`, and (on errors) `:msg` / `:data`:
 
 | invocation | `:exit` | `:cause` |
@@ -771,8 +781,8 @@ It exits via the dynamic `*exit-fn*`, called with `:exit`, `:cause`,
 | flag error | 1 | `:restrict` / `:require` / `:validate` / `:coerce` |
 
 Only `--help`/`-h` exits with 0; a bare group is a usage error (exit with 1),
-like `git bisect` with no subcommand. `:data` holds the raw `dispatch` error data,
-including the parser's own `:cause` (`:no-match` / `:input-exhausted`).
+like `git bisect` with no subcommand. `:data` holds the raw `dispatch` error
+data, including the parser's own `:cause` (`:no-match` / `:input-exhausted`).
 
 The default `*exit-fn*` exits the process (`System/exit` on JVM,
 `js/process.exit` on Node). Rebind it to avoid exiting (tests, REPL), or to use
@@ -782,28 +792,8 @@ your own exit codes by switching on `:cause`:
 ;; treat a bare group as success (print help, exit with 0) instead of a usage error
 (binding [cli/*exit-fn* (fn [{:keys [exit cause]}]
                           (System/exit (if (= :missing-subcommand cause) 0 exit)))]
-  (cli/dispatch table args
-    {:prog "example" :restrict true :error-fn cli/help-error-fn}))
+  (cli/dispatch table args {:prog "example" :help true}))
 ```
-
-### The `:help` option on `dispatch`
-
-For the common case, pass `:help true` to `dispatch` instead of wiring up an
-`:error-fn` yourself. It handles `--help`/`-h` and prints help on a bad or
-missing subcommand, without needing `:restrict`. Set `:prog` for the program
-name:
-
-``` clojure
-(cli/dispatch table args {:prog "example" :help true})
-```
-
-Then:
-
-- `--help`/`-h` print help for the command in front of them and exit with 0. So
-  `example deps outdated --help` shows help for `deps outdated`.
-- A mistyped or missing subcommand prints help and exits with 1.
-
-While `:help` is on, `--help` and `-h` are reserved.
 
 ## Babashka tasks
 
