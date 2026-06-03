@@ -48,7 +48,7 @@ The main ideas:
   who knows how to write the latter in `cmd.exe` or Powershell.
 - By default, employ an open world assumption: passing extra arguments does not break and arguments
   can be re-used in multiple contexts.
-- But also support incremental validations as a form of polishing a cli for production use.
+- But also support incremental restrictions and validations as a form of polishing a CLI for production use.
 
 Both `:` and `--` are supported as the initial characters of a named option, but
 cannot be mixed. See [options](#options) for more details.
@@ -76,6 +76,7 @@ See [clojure CLI](#clojure-cli) for how to turn your exec functions into CLIs.
 - [Leiningen](#leiningen)
 
 ## Simple example
+
 Babashka cli works in Clojure, ClojureScript and [babashka](https://book.babashka.org/).
 Here is an example babashka script to get you started!
 
@@ -126,6 +127,7 @@ Here is an example babashka script to get you started!
 ```
 
 And this is how you run it:
+
 ```
 $ bb try-me.clj --num 1 --dir my_dir --flag
 Here are your cli args!: {:num 1, :dir my_dir, :flag true}
@@ -139,11 +141,24 @@ Missing required argument: :num
 ```
 
 Using the [`spec`](#spec) format is optional and you can implement you own parsing logic just with [`parse-opts`/`parse-args`](#options).
-However, many would find the above example familiar.
 
 ## Options
 
 For parsing options, use either [`parse-opts`](/API.md#parse-opts) or [`parse-args`](/API.md#parse-args).
+
+Options are configured with a [spec](#spec): a map keyed by option name, each
+value a map of `:coerce`, `:alias`, `:validate`, `:require`, `:desc`, etc.,
+passed under `:spec`:
+
+``` clojure
+{:spec {:port {:coerce :long :alias :p}}}
+```
+
+A terser shape is also supported, where each key is lifted to the top level and
+keyed by option name: `{:coerce {:port :long} :alias {:p :port}}`. It is handy
+for quick scripts and partial parsing, but only a spec can carry `:desc`/`:ref`,
+so generated help and option printing need a spec. The two are otherwise
+equivalent; the examples below use the spec shape.
 
 Examples:
 
@@ -152,31 +167,31 @@ Parse `{:port 1339}` from command line arguments:
 ``` clojure
 (require '[babashka.cli :as cli])
 
-(cli/parse-opts ["--port" "1339"] {:coerce {:port :long}})
+(cli/parse-opts ["--port" "1339"] {:spec {:port {:coerce :long}}})
 ;;=> {:port 1339}
 ```
 
 Use an alias (short option):
 
 ``` clojure
-(cli/parse-opts ["-p" "1339"] {:alias {:p :port} :coerce {:port :long}})
+(cli/parse-opts ["-p" "1339"] {:spec {:port {:coerce :long :alias :p}}})
 ;; {:port 1339}
 ```
 
 Coerce values into a collection:
 
 ``` clojure
-(cli/parse-opts ["--paths" "src" "--paths" "test"] {:coerce {:paths []}})
+(cli/parse-opts ["--paths" "src" "--paths" "test"] {:spec {:paths {:coerce []}}})
 ;;=> {:paths ["src" "test"]}
 
-(cli/parse-opts ["--paths" "src" "test"] {:coerce {:paths []}})
+(cli/parse-opts ["--paths" "src" "test"] {:spec {:paths {:coerce []}}})
 ;;=> {:paths ["src" "test"]}
 ```
 
 Transforming to a collection of a certain type:
 
 ``` clojure
-(cli/parse-opts ["--foo" "bar" "--foo" "baz"] {:coerce {:foo [:keyword]}})
+(cli/parse-opts ["--foo" "bar" "--foo" "baz"] {:spec {:foo {:coerce [:keyword]}}})
 ;; => {:foo [:bar :baz]}
 ```
 
@@ -186,8 +201,7 @@ Booleans need no explicit `true` value and `:coerce` option:
 (cli/parse-opts ["--verbose"])
 ;;=> {:verbose true}
 
-(cli/parse-opts ["-v" "-v" "-v"] {:alias {:v :verbose}
-                                  :coerce {:verbose []}})
+(cli/parse-opts ["-v" "-v" "-v"] {:spec {:verbose {:alias :v :coerce []}}})
 ;;=> {:verbose [true true true]}
 ```
 
@@ -219,9 +233,9 @@ Here's an example of parsing out `,` separated multi-arg-values:
 
 ``` clojure
 (cli/parse-opts ["--foo" "a,b" "--foo=c,d,e" "--foo" "f"]
-                {:collect {:foo (fn [coll arg-value]
-                                  (into (or coll [])
-                                        (str/split arg-value #",")))}})
+                {:spec {:foo {:collect (fn [coll arg-value]
+                                         (into (or coll [])
+                                               (str/split arg-value #",")))}}})
 ;; => {:foo ["a" "b" "c" "d" "e" "f"]}
 ```
 
@@ -238,16 +252,16 @@ To parse positional arguments, you can use `parse-args` and/or the `:args->opts`
 option. E.g. to parse arguments for the `git push` command:
 
 ``` clojure
-(cli/parse-args ["--force" "ssh://foo"] {:coerce {:force :boolean}})
+(cli/parse-args ["--force" "ssh://foo"] {:spec {:force {:coerce :boolean}}})
 ;;=> {:args ["ssh://foo"], :opts {:force true}}
 
-(cli/parse-args ["ssh://foo" "--force"] {:coerce {:force :boolean}})
+(cli/parse-args ["ssh://foo" "--force"] {:spec {:force {:coerce :boolean}}})
 ;;=> {:args ["ssh://foo"], :opts {:force true}}
 ```
 
 Note that this library can only disambiguate correctly between values for
 options and trailing arguments with enough `:coerce` information
-available. Without the `:force :boolean` info, we get:
+available. Without the `:coerce :boolean` info, we get:
 
 ``` clojure
 (cli/parse-args ["--force" "ssh://foo"])
@@ -258,7 +272,7 @@ In case of ambiguity `--` may also be used to communicate the boundary between
 options and arguments:
 
 ``` clojure
-(cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:coerce {:paths []}})
+(cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"] {:spec {:paths {:coerce []}}})
 {:args ["ssh://foo"], :opts {:paths ["src" "test"]}}
 ```
 
@@ -267,7 +281,7 @@ options and arguments:
 To fold positional arguments into the parsed options, you can use `:args->opts`:
 
 ``` clojure
-(def cli-opts {:coerce {:force :boolean} :args->opts [:url]})
+(def cli-opts {:spec {:force {:coerce :boolean}} :args->opts [:url]})
 
 (cli/parse-opts ["--force" "ssh://foo"] cli-opts)
 ;;=> {:force true, :url "ssh://foo"}
@@ -282,7 +296,7 @@ If you want to fold a variable amount of arguments, you can coerce into a vector
 and specify the variable number of arguments with `repeat`:
 
 ``` clojure
-(def cli-opts {:coerce {:bar []} :args->opts (cons :foo (repeat :bar))})
+(def cli-opts {:spec {:bar {:coerce []}} :args->opts (cons :foo (repeat :bar))})
 (cli/parse-opts ["arg1" "arg2" "arg3" "arg4"] cli-opts)
 ;;=> {:foo "arg1", :bar ["arg2" "arg3" "arg4"]}
 ```
@@ -299,7 +313,7 @@ As you add polish, you'll likely make use of a [:spec](#spec), a custom [:error_
 Use the `:restrict` option to restrict options to only those explicitly mentioned in configuration:
 
 ``` clojure
-(cli/parse-args ["--foo"] {:restrict [:bar]})
+(cli/parse-args ["--foo"] {:spec {:bar {}} :restrict true})
 ;;=>
 Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:357).
 Unknown option: :foo
@@ -310,7 +324,7 @@ Unknown option: :foo
 Use the `:require` option to throw an error when an option is not present:
 
 ``` clojure
-(cli/parse-args ["--foo"] {:require [:bar]})
+(cli/parse-args ["--foo"] {:spec {:bar {:require true}}})
 ;;=>
 Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:363).
 Required option: :bar
@@ -319,7 +333,7 @@ Required option: :bar
 ## Validate
 
 ``` clojure
-(cli/parse-args ["--foo" "0"] {:validate {:foo pos?}})
+(cli/parse-args ["--foo" "0"] {:spec {:foo {:validate pos?}}})
 Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:378).
 Invalid value for option :foo: 0
 ```
@@ -327,7 +341,7 @@ Invalid value for option :foo: 0
 To gain more control over the error message, use `:pred` and `:ex-msg`:
 
 ``` clojure
-(cli/parse-args ["--foo" "0"] {:validate {:foo {:pred pos? :ex-msg (fn [m] (str "Not a positive number: " (:value m)))}}})
+(cli/parse-args ["--foo" "0"] {:spec {:foo {:validate {:pred pos? :ex-msg (fn [m] (str "Not a positive number: " (:value m)))}}}})
 ;;=>
 Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:378).
 Not a positive number: 0
@@ -416,9 +430,10 @@ You can also choose collect and then report all detected errors (see `babashka.c
 
 ## Spec
 
-This library can work with partial information to parse options. As such, the
-options to `parse-opts` and `parse-args` are optimized for terseness. However,
-when writing a CLI that supports automated printing of options, it is recommended to use the spec format:
+A spec is a map keyed by option name; each value configures one option.
+Alongside the parsing keys (`:coerce`, `:alias`, `:validate`, ...) it carries
+`:desc` and `:ref`, used when printing options (see [Help](#help)). For
+example:
 
 ``` clojure
 (def spec {:from   {:ref          "<format>"
