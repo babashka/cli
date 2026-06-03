@@ -9,7 +9,8 @@ For breaking changes, check [here](#breaking-changes).
 - Add `:help` option to `dispatch`: built-in `--help`/`-h` plus terse errors, no `:restrict` needed. Override the defaults with `:help-fn` / `:error-fn`
 - `:help` option: `--help`/`-h` takes precedence over flag errors, so `tool cmd --help` and `tool group sub --help` print help even when a required option is missing or validation would fail
 - Add `:prog` option to `dispatch`: program name shown in help. `dispatch` threads `:prog`, `:inherit` and the command tree into error/help data
-- `dispatch` accepts a single command map (e.g. `{:fn f :spec spec}`) as shorthand for a one-entry table with `:cmds []`, for single-command CLIs; the map can also carry the dispatch opts (`:prog`/`:help`/...), so `(dispatch {:fn f :spec spec :prog "p" :help true} args)` needs no separate opts map
+- `dispatch` opts are now the middle argument and `args` is last: `(dispatch table opts args)`
+- Add `command`: builds a `dispatch` table entry from a config map, attaching `:cmds` (default `[]`, or a given path). Lets a single-command CLI skip hand-writing `:cmds`: `(dispatch [(command {:fn f :spec spec})] {:prog "p" :help true} args)`
 - Add `:order` (vector of option keys) on a command entry to set the `Options:` order in help; otherwise order follows the spec
 - Help usage line labels positional args from `:args->opts` (e.g. `<file>`, `<file>...` for the variadic form) instead of a generic `[<args>]`; a command with no `:args->opts` shows no positional placeholder
 - Option error data now carries `:flag`: the option token as typed (`--foo`/`-f`/`:foo`), vs `:option` the normalized keyword. Default messages name the option by its flag; `:coerce` failures reworded to match `:validate`

@@ -1222,6 +1222,18 @@
     (:cmd node) (update :cmd (fn [m]
                                (reduce-kv (fn [acc k v] (assoc acc k (inject-help v))) {} m)))))
 
+(defn command
+  "Build a `dispatch` table entry from a command map. Attaches `:cmds` (the
+  subcommand path, default `[]`); pass `cmds` for a subcommand. Keeps `:fn`,
+  `:spec` and any other [[parse-args]] keys. Saves hand-writing `:cmds`,
+  especially for a single-command CLI:
+
+  ```clojure
+  (dispatch [(command {:fn run :spec spec})] {:prog \"tool\" :help true} args)
+  ```"
+  ([m] (command [] m))
+  ([cmds m] (assoc m :cmds cmds)))
+
 (defn dispatch
   "Subcommand dispatcher.
 
@@ -1245,12 +1257,13 @@
 
   Use an empty `:cmds` vector to always match or to provide global options.
 
-  For a single-command CLI (no subcommands), pass one entry map directly instead
-  of wrapping it in a one-element table. The map can also carry the dispatch opts
-  (`:prog`/`:help`/etc.), so no separate opts map is needed:
+  Opts (`:prog`/`:help`/`:error-fn`/...) are the middle argument; `args` is last.
+
+  For a single-command CLI (no subcommands), use a one-entry table whose `:cmds`
+  is `[]`. The [[command]] helper attaches `:cmds` (default `[]`) for you:
 
   ```clojure
-  (dispatch {:fn f :spec spec :prog \"tool\" :help true} args)
+  (dispatch [(command {:fn f :spec spec})] {:prog \"tool\" :help true} args)
   ```
 
   Provide an `:error-fn` to deal with non-matches.
@@ -1272,15 +1285,9 @@
 
   For more information and examples, see [README.md](README.md#subcommands)."
   ([table args]
-   ;; a single command map doubles as the opts (it can carry :prog/:help/etc.),
-   ;; so `(dispatch {:fn f :spec spec :prog \"p\" :help true} args)` needs no
-   ;; separate opts map
-   (dispatch table args (if (map? table) table {})))
-  ([table args opts]
-   (let [;; a single command map (no subcommands) is shorthand for a one-entry
-         ;; table with empty :cmds
-         table (if (map? table) [(merge {:cmds []} table)] table)
-         tree (-> table table->tree)]
+   (dispatch table {} args))
+  ([table opts args]
+   (let [tree (-> table table->tree)]
      (if (:help opts)
        (dispatch-tree (inject-help tree) args
                       (assoc opts ::help true
