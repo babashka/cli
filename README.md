@@ -77,7 +77,7 @@ See [clojure CLI](#clojure-cli) for how to turn your exec functions into CLIs.
 
 ## Simple example
 
-Babashka cli works in Clojure, ClojureScript and [babashka](https://book.babashka.org/).
+Babashka CLI works in Clojure, ClojureScript and [babashka](https://book.babashka.org/).
 Here is an example babashka script to get you started!
 
 ```clojure
@@ -146,9 +146,9 @@ Using the [`spec`](#spec) format is optional and you can implement you own parsi
 
 For parsing options, use either [`parse-opts`](/API.md#parse-opts) or [`parse-args`](/API.md#parse-args).
 
-Options are configured with a [spec](#spec): a map keyed by option name, each
-value a map of `:coerce`, `:alias`, `:validate`, `:require`, `:desc`, etc.,
-passed under `:spec`:
+Options are configured with a [spec](#spec) (short for "options spec", not
+`clojure.spec`): a map keyed by option name, each value a map of `:coerce`,
+`:alias`, `:validate`, `:require`, `:desc`, etc., passed under `:spec`:
 
 ``` clojure
 {:spec {:port {:coerce :long :alias :p}}}
@@ -430,7 +430,8 @@ You can also choose collect and then report all detected errors (see `babashka.c
 
 ## Spec
 
-A spec is a map keyed by option name; each value configures one option.
+A spec (short for "options spec", not `clojure.spec`) is a map keyed by option
+name; each value configures one option.
 Alongside the parsing keys (`:coerce`, `:alias`, `:validate`, ...) it carries
 `:desc` and `:ref`, used when printing options (see [Help](#help)). For
 example:
