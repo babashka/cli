@@ -801,10 +801,10 @@
   given a computed `:prog` (full command path), `:inherited` spec and `:parents`
   pointers. Renders Options in the node's `:order` (see [[node-with-help]])."
   [node {:keys [prog inherited parents]}]
-  (let [spec (:spec node)                       ; map or vec-of-pairs
+  (let [spec (:spec node)                       ; a map (node is inject-help'd)
         order (:order node)                     ; display order (see node-with-help)
-        ;; dedup against the keys this node defines (set reasoning, mapified)
-        inherited (apply dissoc inherited (keys (->spec-map spec)))
+        ;; drop inherited options this node redefines (child wins)
+        inherited (apply dissoc inherited (keys spec))
         desc (help-description (:doc node))
         cmds (help-commands-table node)
         sections
@@ -889,20 +889,20 @@
   `inherit` value, compute everything [[render-help]] needs: the target `:node`,
   its full `:prog` path, the `:inherited` options usable here (aggregated from
   ancestors) and the `:parents` pointers (ancestors with non-inherited options
-  that must precede the subcommand)."
+  that must precede the subcommand).
+
+  `tree` is dispatch's [[inject-help]]'d tree, so every node's `:spec` is a map."
   [tree cmds prog inherit]
   (let [node-at (fn [path] (get-in tree (interleave (repeat :cmd) path)))
         prog-at (fn [path] (str/join " " (cons prog path)))
         ;; options available at the target level itself (e.g. an injected --help,
         ;; or a redefined option) - those never need a "must precede" pointer
-        here (set (keys (->spec-map (:spec (node-at cmds)))))
+        here (set (keys (:spec (node-at cmds))))
         ;; for each strict ancestor prefix: what it contributes downward
-        ;; (:inh) and its own non-inherited options (:own). Mapify here - this is
-        ;; set reasoning, order doesn't matter (display order is handled by
-        ;; render-help, which reads the raw target-node spec)
+        ;; (:inh) and its own non-inherited options (:own)
         ancestors (for [i (range (count cmds))
                         :let [pre  (subvec cmds 0 i)
-                              spec (->spec-map (:spec (node-at pre)))
+                              spec (:spec (node-at pre))
                               inh  (inherited-entries spec inherit)]]
                     {:pre pre :inh inh :own (apply dissoc spec (keys inh))})
         inherited (reduce merge {} (map :inh ancestors))
