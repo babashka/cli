@@ -722,11 +722,15 @@ Inherited options:
 ```
 
 It takes a single map: `:table` (the dispatch table, or a tree from
-`table->tree`), `:cmds` (the command path), `:prog`, and optionally `:inherit`.
-It uses each entry's `:doc` for the description and `Commands:` list, its `:spec`
-for `Options:`, and shows ancestor options under `Inherited options:`. Per-option
-`:inherit true` is detected automatically; only pass `:inherit` here if you also
-pass a dispatch-level `:inherit` to `dispatch`.
+`table->tree`), `:cmds` (the command path), `:prog`, and optionally `:inherit`
+and `:order`. It uses each entry's `:doc` for the description and `Commands:`
+list, its `:spec` for `Options:`, and shows ancestor options under `Inherited
+options:`. Per-option `:inherit true` is detected automatically; only pass
+`:inherit` here if you also pass a dispatch-level `:inherit` to `dispatch`.
+
+For a stable `Options:` order, give the entry's `:spec` as a vec of pairs (its
+order is kept) or pass `:order` (a vector of option keys). A map `:spec` follows
+its key order, which Clojure does not guarantee beyond a few keys.
 
 Omit `:cmds` to render the program's top-level help:
 
@@ -760,9 +764,15 @@ CLI - no `:restrict` needed:
   `example deps outdated --help` shows help for `deps outdated`.
 - A mistyped or missing subcommand prints help and exits with 1.
 - `-h, --help` is listed in each command's options (last by default). To place
-  it elsewhere, put a `:help` entry in your spec at that position - e.g.
-  `{:help {} :verbose {...}}` lists `--help` first; its defaults are filled in
-  and your keys (`:desc`, `:alias`) win.
+  it elsewhere, use an ordered spec (a vec of pairs) and put a `:help` entry
+  where you want it; its defaults are filled in and your keys (`:desc`,
+  `:alias`) win:
+
+  ``` clojure
+  :spec [[:port {:coerce :long :desc "Port"}]
+         [:help {}]                              ; <- --help here
+         [:verbose {:coerce :boolean}]]
+  ```
 - `--help`/`-h` are reserved while `:help` is on (a command may still define its
   own `:help`).
 

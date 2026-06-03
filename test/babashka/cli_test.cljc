@@ -560,7 +560,16 @@
                {:cmds ["sub"] :fn identity :spec {:x {:desc "local x"}}}]]
         (is (= (str "Usage: p sub [options] [<args>]\n\n"
                     "Options:\n  --x local x")
-               (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))))
+               (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))
+    (testing ":order sets the Options order; a vec-of-pairs spec keeps its order"
+      (let [t [{:cmds [] :spec {:a {:desc "A"} :b {:desc "B"} :c {:desc "C"}}}]]
+        (is (= (str "Usage: p [options]\n\n"
+                    "Options:\n  --c C\n  --a A\n  --b B")
+               (cli/format-command-help {:table t :prog "p" :order [:c :a :b]}))))
+      (let [t [{:cmds [] :spec [[:c {:desc "C"}] [:a {:desc "A"}] [:b {:desc "B"}]]}]]
+        (is (= (str "Usage: p [options]\n\n"
+                    "Options:\n  --c C\n  --a A\n  --b B")
+               (cli/format-command-help {:table t :prog "p"})))))))
 
 ;; help-error-fn is now private (installed by dispatch's :help option). Its
 ;; behavior is covered by help-option-test below. Kept commented for reference.
@@ -701,9 +710,9 @@
     (testing "--help shows in the Options output"
       (let [{:keys [out]} (run ["dev" "--help"])]
         (is (str/includes? out "-h, --help"))))
-    (testing "user controls --help position by placing :help in the spec"
+    (testing "user controls --help position with an ordered (vec-of-pairs) spec"
       (let [t [{:cmds [] :fn identity :doc "t"
-                :spec {:help {} :verbose {:coerce :boolean :desc "Verbose"}}}]
+                :spec [[:help {}] [:verbose {:coerce :boolean :desc "Verbose"}]]}]
             out (with-out-str
                   (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
                     (try (cli/dispatch t ["--help"] {:prog "tool" :help true})

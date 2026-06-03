@@ -791,12 +791,18 @@
              [(str cmd) (or (help-first-line (:doc subnode)) "")]))
          (:cmd node))))
 
+(defn- ->spec-map [spec]
+  (cond (nil? spec) {}
+        (map? spec) spec
+        :else (into {} spec)))
+
 (defn- render-help
   "Render help text for one tree `node`, given a computed `:prog` (full command
   path), `:inherited` spec and `:parents` pointers. See [[format-command-help]]."
-  [node {:keys [prog inherited parents]}]
-  (let [spec (:spec node)
-        inherited (apply dissoc inherited (keys spec))
+  [node {:keys [prog inherited parents order]}]
+  (let [spec (:spec node)                       ; raw (vec-of-pairs or map): display order preserved
+        ;; dedup against the keys this node defines (set reasoning, mapified)
+        inherited (apply dissoc inherited (keys (->spec-map spec)))
         desc (help-description (:doc node))
         cmds (help-commands-table node)
         sections
@@ -808,7 +814,7 @@
           (conj (str "Commands:\n" (format-table {:rows cmds :indent 2})))
 
           (seq spec)
-          (conj (str "Options:\n" (format-opts {:spec spec})))
+          (conj (str "Options:\n" (format-opts (cond-> {:spec spec} order (assoc :order order)))))
 
           (seq inherited)
           (conj (str "Inherited options:\n" (format-opts {:spec inherited})))
@@ -864,10 +870,6 @@
        (or (str/starts-with? s "-")
            (str/starts-with? s ":"))))
 
-(defn- ->spec-map [spec]
-  (cond (nil? spec) {}
-        (map? spec) spec
-        :else (into {} spec)))
 
 (defn- inherited-entries
   "Spec entries of `spec` that propagate to descendant levels: those marked
@@ -893,10 +895,12 @@
         ;; or a redefined option) - those never need a "must precede" pointer
         here (set (keys (->spec-map (:spec (node-at cmds)))))
         ;; for each strict ancestor prefix: what it contributes downward
-        ;; (:inh) and its own non-inherited options (:own)
+        ;; (:inh) and its own non-inherited options (:own). Mapify here - this is
+        ;; set reasoning, order doesn't matter (display order is handled by
+        ;; render-help, which reads the raw target-node spec)
         ancestors (for [i (range (count cmds))
                         :let [pre  (subvec cmds 0 i)
-                              spec (:spec (node-at pre))
+                              spec (->spec-map (:spec (node-at pre)))
                               inh  (inherited-entries spec inherit)]]
                     {:pre pre :inh inh :own (apply dissoc spec (keys inh))})
         inherited (reduce merge {} (map :inh ancestors))
@@ -940,12 +944,16 @@
                  coll of keys) to `dispatch`; pass the same value here so the
                  `Inherited options:` section matches what is actually accepted.
                  Per-option `:inherit true` is detected automatically.
+  * `:order`   - option keys in the order to list them under `Options:`. Without
+                 it, the order follows the spec (a vec-of-pairs spec is kept
+                 as-is; a map follows its key order, which is unreliable beyond a
+                 handful of keys - use a vec-of-pairs spec or `:order`).
 
   An entry may carry `:no-doc true` to be omitted from `Commands:`."
-  [{:keys [table cmds prog inherit] :or {cmds []}}]
+  [{:keys [table cmds prog inherit order] :or {cmds []}}]
   (let [tree (if (map? table) table (table->tree table))
         ctx (command-help-context tree (vec cmds) prog inherit)]
-    (render-help (:node ctx) ctx)))
+    (render-help (:node ctx) (assoc ctx :order order))))
 
 (defn ^:dynamic *exit-fn*
   "Terminates the process after `dispatch`'s `:help` option prints help or an
@@ -1130,19 +1138,25 @@
 
 (defn- with-help-opt
   "Add a `--help`/`-h` boolean option to one node's `spec`. To control where
-  `--help` appears in the options, put a `:help` entry in your spec at that
-  position (e.g. `:help {}`); its defaults are filled in and your keys win.
-  Otherwise it is appended last. The `:h` alias is only added when `:h` is free."
+  `--help` appears, use an ordered (vec-of-pairs) spec and put a `:help` entry
+  where you want it (e.g. `[[:help {}] ...]`); its defaults are filled in and
+  your keys win. Otherwise it is appended last. The `:h` alias is only added
+  when `:h` is free."
   [spec]
-  (let [spec (->spec-map spec)
-        h-free? (and (not (contains? spec :h))
-                     (not (some (fn [[_ v]] (and (map? v) (= :h (:alias v)))) spec)))
+  (let [as-map (->spec-map spec)
+        h-free? (and (not (contains? as-map :h))
+                     (not (some (fn [[_ v]] (and (map? v) (= :h (:alias v)))) as-map)))
         default (cond-> {:coerce :boolean :desc "Show this help"}
                   h-free? (assoc :alias :h))]
-    (if (contains? spec :help)
-      ;; keep the user's position and overrides; fill in missing defaults
-      (update spec :help #(merge default %))
-      (assoc spec :help default))))
+    (if (sequential? spec)
+      ;; ordered spec: keep order, merge defaults into an existing :help pair
+      ;; (keeping its position), else append the pair
+      (if (some (fn [[k]] (= :help k)) spec)
+        (mapv (fn [[k v :as kv]] (if (= :help k) [:help (merge default v)] kv)) spec)
+        (-> (vec spec) (conj [:help default])))
+      (if (contains? as-map :help)
+        (update as-map :help #(merge default %))
+        (assoc as-map :help default)))))
 
 (defn- inject-help
   "Add the `--help` option to every node of a dispatch `tree` (used by the
