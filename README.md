@@ -140,8 +140,6 @@ Missing required argument: :num
       --flag I am just a flag
 ```
 
-Using the [`spec`](#spec) format is optional and you can implement you own parsing logic just with [`parse-opts`/`parse-args`](#options).
-
 ## Options
 
 For parsing options, use either [`parse-opts`](/API.md#parse-opts) or [`parse-args`](/API.md#parse-args).
