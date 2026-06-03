@@ -91,7 +91,7 @@ Here is an example babashka script to get you started!
 
 (defn show-help
   [spec]
-  (cli/format-opts (merge spec {:order (vec (keys (:spec spec)))})))
+  (cli/format-opts spec))
 
 (def cli-spec
   {:spec
