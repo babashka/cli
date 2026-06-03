@@ -6,17 +6,17 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
-- Add a `:help` option to `dispatch`: `(dispatch table args {:prog "mytool" :help true})` gives a CLI built-in help, no `:restrict` needed. `--help`/`-h` print help for the command they precede and return (a success path - the process ends with status 0; `-h, --help` is listed in each command's options); an unknown or missing subcommand prints a terse message and exits with 1 (a bare group is a usage error, like `git bisect` with no subcommand). Also works for a single-command CLI (one entry with `:cmds []`). Override the default handlers with `:help-fn` / `:error-fn`
-- Add a top-level `:prog` option to `dispatch` (program name shown in help). `dispatch` threads `:prog`, `:inherit` and the command tree into the error data, so any `:error-fn` can render help without being handed them
-- Control the `Options:` order in help with an `:order` (vector of option keys) on a command entry. It is used verbatim (so you also choose which options to list, and whether to list `--help`). Without it, order follows the spec - a vec-of-pairs spec keeps its order; a map follows key order, which Clojure does not guarantee, so prefer a vec-of-pairs spec or `:order`
-- Option errors now carry `:flag` in their error data (`:restrict` / `:validate` / `:coerce`): the literal option token as typed (e.g. `"--foo"`, `"-f"`, `":foo"`), as opposed to `:option`, the normalized keyword (`-x` and `--x` both parse to `:x`). Default error messages now name the option by this flag: the typed token when known, else the canonical `--name` (e.g. for a never-typed required option). `:coerce` failures are reworded to match `:validate` (`Invalid value for option --foo: ...`); a custom `:validate` `:ex-msg` is also passed `:flag`
-- Add `*exit-fn*`: dynamic var the `:help` option uses to terminate on an *error* (`System/exit` on JVM, `js/process.exit` on Node). `--help`/`-h` is not an error - it prints help and returns, so it does not call this. It receives `{:exit :cause :dispatch :data}` (`:exit` always non-zero; `:cause` is the dispatch cause `:no-match` / `:input-exhausted` / a babashka.cli flag cause). Rebind it to avoid exiting (tests/REPL) or to remap exit codes by `:cause`
-- Add `format-command-help`: render conventional `--help` text (Usage / Commands / Options / Inherited options) for a command in a `dispatch` table, e.g. `(format-command-help {:table table :cmds ["copy"] :prog "example"})`. This is the renderer the `:help` option uses; call it from a custom `:help-fn` to render the standard help and add to it, or use it standalone
-- Add `format-command-error`: render the terse error text (message + commands/usage + hint) for a `dispatch` error from the data passed to `:error-fn`. This is the renderer the `:help` option's default `:error-fn` uses; call it from a custom `:error-fn` to keep the standard message and add your own output, then exit via `*exit-fn*`
-- Expose `table->tree`: converts a `dispatch` table into the nested tree used internally, handy for generating help or completions
-- `dispatch` now includes the `:dispatch` (matched subcommand path) in flag-level error data (`:restrict` / `:require` / `:validate` / `:coerce`), so an `:error-fn` can show help for the right subcommand
-- Fix `:restrict` rejecting shared/parent options in `dispatch`: options parsed at a parent subcommand level (passed down via `:exec-args`) are no longer flagged as unknown at child levels
-- Support `:inherit true` on a spec option in `dispatch`: the option is inherited by descendant subcommand levels, so it is accepted (and coerced / restrict-checked) both before and after the subcommand (e.g. `prog group --opt v sub` and `prog group sub --opt v`). `:inherit` may also be passed at the `dispatch` level as `true` (all options inherit) or a collection of keys
+- Add `:help` option to `dispatch`: built-in `--help`/`-h` plus terse errors, no `:restrict` needed. Override the defaults with `:help-fn` / `:error-fn`
+- Add `:prog` option to `dispatch`: program name shown in help. `dispatch` threads `:prog`, `:inherit` and the command tree into error/help data
+- Add `:order` (vector of option keys) on a command entry to set the `Options:` order in help; otherwise order follows the spec
+- Option error data now carries `:flag`: the option token as typed (`--foo`/`-f`/`:foo`), vs `:option` the normalized keyword. Default messages name the option by its flag; `:coerce` failures reworded to match `:validate`
+- Add `*exit-fn*`: dynamic var the `:help` option uses to exit on error. Receives `{:exit :cause :dispatch :data}`; rebind to not exit (tests/REPL) or to remap codes by `:cause`
+- Add `format-command-help`: render `--help` text (Usage / Commands / Options / Inherited options) for a command in a `dispatch` table
+- Add `format-command-error`: render the terse error text for a `dispatch` error from `:error-fn` data
+- Expose `table->tree`: converts a `dispatch` table into the nested tree used internally
+- `dispatch` now includes `:dispatch` (the matched subcommand path) in flag-level error data
+- Fix `:restrict` rejecting shared/parent options in `dispatch`: options parsed at a parent level are no longer flagged unknown at child levels
+- Support `:inherit` in `dispatch`: a spec option marked `:inherit true` is accepted both before and after the subcommand; may also be set at the dispatch level (`true` or a coll of keys)
 
 ## v0.9.68 (2026-05-23)
 
