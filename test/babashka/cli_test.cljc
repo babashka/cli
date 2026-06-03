@@ -782,6 +782,26 @@
         (is (nil? exit))
         (is (= {:opt 2} (:opts ran)))))))
 
+(deftest dispatch-single-command-map-test
+  ;; a single-command CLI: pass one entry map directly instead of a one-element
+  ;; table with empty :cmds
+  (testing "a bare command map runs like [{:cmds [] ...}]"
+    (let [ran (atom nil)]
+      (cli/dispatch {:fn (fn [m] (reset! ran m)) :spec {:port {:coerce :long}}}
+                    ["--port" "1339"])
+      (is (= {:port 1339} (:opts @ran)))))
+  (testing "with :help true, --help prints help and the fn does not run"
+    (let [ran (atom nil)
+          out (with-out-str
+                (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
+                  (try (cli/dispatch {:fn (fn [m] (reset! ran m)) :spec {:port {:coerce :long :desc "Port"}}}
+                                     ["--help"] {:prog "tool" :help true})
+                       (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                         (when-not (::exit (ex-data e)) (throw e))))))]
+      (is (str/includes? out "Usage: tool [options]"))
+      (is (str/includes? out "--port"))
+      (is (nil? @ran)))))
+
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]
                                 (let [rows (str/split-lines table)]

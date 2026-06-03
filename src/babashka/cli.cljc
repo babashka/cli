@@ -1245,6 +1245,13 @@
 
   Use an empty `:cmds` vector to always match or to provide global options.
 
+  For a single-command CLI (no subcommands), pass one entry map directly instead
+  of wrapping it in a one-element table:
+
+  ```clojure
+  (dispatch {:fn f :spec spec} args {:prog \"tool\" :help true})
+  ```
+
   Provide an `:error-fn` to deal with non-matches.
 
   Set `:prog` to the program name shown in help. Provide `:help true` to wire up
@@ -1266,7 +1273,10 @@
   ([table args]
    (dispatch table args {}))
   ([table args opts]
-   (let [tree (-> table table->tree)]
+   (let [;; a single command map (no subcommands) is shorthand for a one-entry
+         ;; table with empty :cmds
+         table (if (map? table) [(merge {:cmds []} table)] table)
+         tree (-> table table->tree)]
      (if (:help opts)
        (dispatch-tree (inject-help tree) args
                       (assoc opts ::help true
