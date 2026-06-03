@@ -722,7 +722,22 @@
             idx (fn [s] (first (keep-indexed (fn [i l] (when (str/includes? l s) i)) lines)))]
         ;; :help {} placeholder -> --help rendered with defaults, before --verbose
         (is (str/includes? out "-h, --help"))
-        (is (< (idx "--help") (idx "--verbose")))))))
+        (is (< (idx "--help") (idx "--verbose")))))
+    (testing "an explicit :order is left untouched: omit :help to hide it (still works)"
+      (let [t [{:cmds [] :fn identity :doc "t"
+                :spec {:a {:desc "A"} :b {:desc "B"}} :order [:b :a]}]
+            exit (atom nil)
+            out (with-out-str
+                  (binding [cli/*exit-fn* (fn [m] (reset! exit m) (throw (ex-info "x" {::exit true})))]
+                    (try (cli/dispatch t ["--help"] {:prog "tool" :help true})
+                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                           (when-not (::exit (ex-data e)) (throw e))))))]
+        ;; order honored verbatim, --help NOT listed (not in :order)...
+        (is (str/includes? out "--b"))
+        (is (str/includes? out "--a"))
+        (is (not (str/includes? out "--help")))
+        ;; ...but --help still triggers help
+        (is (= :help-requested (:cause @exit)))))))
 
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]

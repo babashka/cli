@@ -800,7 +800,8 @@
   "Render help text for one tree `node`, given a computed `:prog` (full command
   path), `:inherited` spec and `:parents` pointers. See [[format-command-help]]."
   [node {:keys [prog inherited parents order]}]
-  (let [spec (:spec node)                       ; raw (vec-of-pairs or map): display order preserved
+  (let [spec (:spec node)                       ; map or vec-of-pairs
+        order (or order (:order node))          ; explicit display order (see node-with-help)
         ;; dedup against the keys this node defines (set reasoning, mapified)
         inherited (apply dissoc inherited (keys (->spec-map spec)))
         desc (help-description (:doc node))
@@ -1136,35 +1137,34 @@
                   (select-keys res [:wrong-input :opts :dispatch])))
        nil ((:fn cmd-info) (dissoc res :cmd-info))))))
 
-(defn- with-help-opt
-  "Add a `--help`/`-h` boolean option to one node's `spec`. To control where
-  `--help` appears, use an ordered (vec-of-pairs) spec and put a `:help` entry
-  where you want it (e.g. `[[:help {}] ...]`); its defaults are filled in and
-  your keys win. Otherwise it is appended last. The `:h` alias is only added
-  when `:h` is free."
-  [spec]
+(defn- node-with-help
+  "Give one node a `--help`/`-h` option: add `:help` to its `:spec` (so it parses
+  and triggers help), and ensure a display `:order` that doesn't depend on
+  (unguaranteed) map order.
+
+  An explicit node `:order` is left untouched - you choose the order, which keys
+  to list, and whether to list `--help` at all (leave `:help` out to hide it from
+  the options; it still works). When there is no `:order`, one is constructed
+  from the spec as written (vec-of-pairs order, or map keys) and `--help` is
+  appended. The `:h` alias is only added when `:h` is free."
+  [{:keys [spec order] :as node}]
   (let [as-map (->spec-map spec)
         h-free? (and (not (contains? as-map :h))
                      (not (some (fn [[_ v]] (and (map? v) (= :h (:alias v)))) as-map)))
         default (cond-> {:coerce :boolean :desc "Show this help"}
                   h-free? (assoc :alias :h))]
-    (if (sequential? spec)
-      ;; ordered spec: keep order. Position --help by placing a `:help` pair
-      ;; (its defaults are filled in); otherwise append it.
-      (if (some (fn [[k]] (= :help k)) spec)
-        (mapv (fn [[k v :as kv]] (if (= :help k) [:help (merge default v)] kv)) spec)
-        (-> (vec spec) (conj [:help default])))
-      ;; map spec: no reliable order, so nothing to position. Respect a
-      ;; user-defined :help as-is; otherwise add one.
-      (if (contains? as-map :help)
-        as-map
-        (assoc as-map :help default)))))
+    (assoc node
+           :spec (update as-map :help #(merge default %))
+           :order (if order
+                    (vec order)
+                    (let [c (vec (if (sequential? spec) (map first spec) (keys as-map)))]
+                      (if (some #{:help} c) c (conj c :help)))))))
 
 (defn- inject-help
   "Add the `--help` option to every node of a dispatch `tree` (used by the
   `:help` option), so it parses as a real option and shows up in help."
   [node]
-  (cond-> (update node :spec with-help-opt)
+  (cond-> (node-with-help node)
     (:cmd node) (update :cmd (fn [m]
                                (reduce-kv (fn [acc k v] (assoc acc k (inject-help v))) {} m)))))
 

@@ -763,16 +763,18 @@ CLI - no `:restrict` needed:
 - `--help`/`-h` print help for the command in front of them and exit with 0. So
   `example deps outdated --help` shows help for `deps outdated`.
 - A mistyped or missing subcommand prints help and exits with 1.
-- `-h, --help` is listed in each command's options (last by default). To place
-  it elsewhere, use an ordered spec (a vec of pairs) and put a `:help` entry
-  where you want it; its defaults are filled in and your keys (`:desc`,
-  `:alias`) win:
+- `-h, --help` is listed in each command's options, appended last. To control
+  the order, give the command entry an `:order` (a vector of option keys) - it
+  is used verbatim, so you decide the order, which options to list, and whether
+  to list `--help` at all (omit `:help` to hide it; it still works):
 
   ``` clojure
-  :spec [[:port {:coerce :long :desc "Port"}]
-         [:help {}]                              ; <- --help here
-         [:verbose {:coerce :boolean}]]
+  {:cmds [...] :spec {...} :order [:help :port :verbose]}   ; --help first
   ```
+
+  Without `:order`, the order is taken from the spec (a vec-of-pairs spec keeps
+  its order; a map follows its key order, which Clojure does not guarantee), and
+  `--help` is appended.
 - `--help`/`-h` are reserved while `:help` is on (a command may still define its
   own `:help`).
 
