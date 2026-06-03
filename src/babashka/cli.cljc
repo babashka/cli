@@ -1050,6 +1050,14 @@
   [data]
   (println (format-command-error data)))
 
+(defn- thread-dispatch-context
+  "Add the dispatch-level `:prog` and `:inherit` (when set) to error/help `data`,
+  so an `:error-fn` / `:help-fn` can render without being handed them."
+  [data {:keys [prog inherit]}]
+  (cond-> data
+    prog    (assoc :prog prog)
+    inherit (assoc :inherit inherit)))
+
 (defn- dispatch-tree'
   ([tree args]
    (dispatch-tree' tree args nil))
@@ -1075,9 +1083,9 @@
            user-error-fn (:error-fn parse-opts)
            parse-opts (assoc parse-opts :error-fn
                              (fn [data]
-                               (let [data (cond-> (assoc data :dispatch cmds :tree tree)
-                                            prog        (assoc :prog prog)
-                                            inherit-opt (assoc :inherit inherit-opt))]
+                               (let [data (thread-dispatch-context
+                                           (assoc data :dispatch cmds :tree tree)
+                                           {:prog prog :inherit inherit-opt})]
                                  (if user-error-fn
                                    (user-error-fn data)
                                    (throw (ex-info (:msg data) data))))))
@@ -1130,20 +1138,18 @@
      (case error
        ;; --help/-h: success - print help via the :help-fn and return (no exit)
        :help
-       ((::help-fn opts) (merge {:tree tree}
-                                (when (:prog opts) {:prog (:prog opts)})
-                                (when (:inherit opts) {:inherit (:inherit opts)})
-                                (select-keys res [:dispatch])))
+       ((::help-fn opts) (thread-dispatch-context
+                          (assoc (select-keys res [:dispatch]) :tree tree)
+                          opts))
        ;; real errors: terse message via the :error-fn, which exits non-zero
        (:no-match :input-exhausted)
-       (error-fn (merge
-                  {:type :org.babashka/cli
-                   :cause error
-                   :all-commands available-commands
-                   :tree tree}
-                  (when (:prog opts) {:prog (:prog opts)})
-                  (when (:inherit opts) {:inherit (:inherit opts)})
-                  (select-keys res [:wrong-input :opts :dispatch])))
+       (error-fn (thread-dispatch-context
+                  (merge {:type :org.babashka/cli
+                          :cause error
+                          :all-commands available-commands
+                          :tree tree}
+                         (select-keys res [:wrong-input :opts :dispatch]))
+                  opts))
        nil ((:fn cmd-info) (dissoc res :cmd-info))))))
 
 (defn- node-with-help
