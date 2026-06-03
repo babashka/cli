@@ -722,15 +722,16 @@ Inherited options:
 ```
 
 It takes a single map: `:table` (the dispatch table, or a tree from
-`table->tree`), `:cmds` (the command path), `:prog`, and optionally `:inherit`
-and `:order`. It uses each entry's `:doc` for the description and `Commands:`
-list, its `:spec` for `Options:`, and shows ancestor options under `Inherited
-options:`. Per-option `:inherit true` is detected automatically; only pass
-`:inherit` here if you also pass a dispatch-level `:inherit` to `dispatch`.
+`table->tree`), `:cmds` (the command path), `:prog`, and optionally `:inherit`.
+It uses each entry's `:doc` for the description and `Commands:` list, its `:spec`
+for `Options:`, and shows ancestor options under `Inherited options:`.
+Per-option `:inherit true` is detected automatically; only pass `:inherit` here
+if you also pass a dispatch-level `:inherit` to `dispatch`.
 
-For a stable `Options:` order, give the entry's `:spec` as a vec of pairs (its
-order is kept) or pass `:order` (a vector of option keys). A map `:spec` follows
-its key order, which Clojure does not guarantee beyond a few keys.
+For a stable `Options:` order, give the command entry an `:order` (a vector of
+option keys), or write its `:spec` as a vec of pairs (its order is kept). A map
+`:spec` follows its key order, which Clojure does not guarantee beyond a few
+keys.
 
 Omit `:cmds` to render the program's top-level help:
 

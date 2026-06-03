@@ -799,9 +799,9 @@
 (defn- render-help
   "Render help text for one tree `node`, given a computed `:prog` (full command
   path), `:inherited` spec and `:parents` pointers. See [[format-command-help]]."
-  [node {:keys [prog inherited parents order]}]
+  [node {:keys [prog inherited parents]}]
   (let [spec (:spec node)                       ; map or vec-of-pairs
-        order (or order (:order node))          ; explicit display order (see node-with-help)
+        order (:order node)                     ; display order (see node-with-help)
         ;; dedup against the keys this node defines (set reasoning, mapified)
         inherited (apply dissoc inherited (keys (->spec-map spec)))
         desc (help-description (:doc node))
@@ -945,16 +945,17 @@
                  coll of keys) to `dispatch`; pass the same value here so the
                  `Inherited options:` section matches what is actually accepted.
                  Per-option `:inherit true` is detected automatically.
-  * `:order`   - option keys in the order to list them under `Options:`. Without
-                 it, the order follows the spec (a vec-of-pairs spec is kept
-                 as-is; a map follows its key order, which is unreliable beyond a
-                 handful of keys - use a vec-of-pairs spec or `:order`).
+
+  Options are listed in the entry's `:order` (a vector of option keys) when it
+  has one; otherwise in spec order (a vec-of-pairs spec is kept as-is; a map
+  follows its key order, which is unreliable beyond a handful of keys - use a
+  vec-of-pairs spec or an `:order` on the entry).
 
   An entry may carry `:no-doc true` to be omitted from `Commands:`."
-  [{:keys [table cmds prog inherit order] :or {cmds []}}]
+  [{:keys [table cmds prog inherit] :or {cmds []}}]
   (let [tree (if (map? table) table (table->tree table))
         ctx (command-help-context tree (vec cmds) prog inherit)]
-    (render-help (:node ctx) (assoc ctx :order order))))
+    (render-help (:node ctx) ctx)))
 
 (defn ^:dynamic *exit-fn*
   "Terminates the process after `dispatch`'s `:help` option prints help or an

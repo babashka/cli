@@ -561,11 +561,11 @@
         (is (= (str "Usage: p sub [options] [<args>]\n\n"
                     "Options:\n  --x local x")
                (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))
-    (testing ":order sets the Options order; a vec-of-pairs spec keeps its order"
-      (let [t [{:cmds [] :spec {:a {:desc "A"} :b {:desc "B"} :c {:desc "C"}}}]]
+    (testing "an entry :order sets the Options order; a vec-of-pairs spec keeps its order"
+      (let [t [{:cmds [] :spec {:a {:desc "A"} :b {:desc "B"} :c {:desc "C"}} :order [:c :a :b]}]]
         (is (= (str "Usage: p [options]\n\n"
                     "Options:\n  --c C\n  --a A\n  --b B")
-               (cli/format-command-help {:table t :prog "p" :order [:c :a :b]}))))
+               (cli/format-command-help {:table t :prog "p"}))))
       (let [t [{:cmds [] :spec [[:c {:desc "C"}] [:a {:desc "A"}] [:b {:desc "B"}]]}]]
         (is (= (str "Usage: p [options]\n\n"
                     "Options:\n  --c C\n  --a A\n  --b B")
