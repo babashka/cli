@@ -109,8 +109,7 @@ Here is an example babashka script to get you started!
 (-main *command-line-args*)
 ```
 
-`:help true` wires up `--help`/`-h` and terse error messages for you - no help
-function or `:error-fn` to write. See [Subcommands > Help](#help-1) for
+In the above example, `:help true` wires up automatic `--help`/`-h` support and terse error messages for you. See [Subcommands > Help](#help-1) for
 customizing it.
 
 And this is how you run it:
