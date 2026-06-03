@@ -777,11 +777,29 @@
                   reverse (drop-while str/blank?) reverse)]
       (when (seq ls) (str/join "\n" ls)))))
 
+(defn- args->opts-labels
+  "Render a command's `:args->opts` as usage labels: each key as `<key>`, and a
+  key repeated at the tail (the `(cons :foo (repeat :bar))` variadic form) as
+  `<key>...`. Returns a vector of label strings, or nil when there are none.
+  Bounded so an unrealizable infinite seq can't hang."
+  [args->opts]
+  (when (seq args->opts)
+    (loop [s (seq args->opts), acc [], prev nil, n 0]
+      (let [k (first s)]
+        (cond
+          (or (nil? s) (>= n 64)) acc
+          (= k prev) (conj (pop acc) (str "<" (name prev) ">..."))
+          :else (recur (next s) (conj acc (str "<" (name k) ">")) k (inc n)))))))
+
 (defn- help-usage-line [prog node any-options?]
   (str "Usage: " prog
        (when any-options? " [options]")
        (cond (seq (:cmd node)) " <command>"
-             (:fn node)        " [<args>]"
+             ;; a runnable command: show labeled positionals from :args->opts, if
+             ;; any. We don't show a generic `[<args>]` placeholder otherwise
+             ;; (matches argparse/clap/click/picocli/cli-tools).
+             (:fn node)        (when-let [labels (args->opts-labels (:args->opts node))]
+                                 (str " " (str/join " " labels)))
              :else             "")))
 
 (defn- help-commands-table [node]

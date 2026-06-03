@@ -545,7 +545,7 @@
                   "Run \"example <command> --help\" for more information on a command.")
              (cli/format-command-help {:table table :prog "example"}))))
     (testing "leaf: own options + option inherited from an ancestor"
-      (is (= (str "Usage: example copy [options] [<args>]\n\n"
+      (is (= (str "Usage: example copy [options]\n\n"
                   "Copy a file\n\n"
                   "Options:\n  --dry-run Do a dry run\n\n"
                   "Inherited options:\n  -v, --verbose Verbose output")
@@ -556,9 +556,22 @@
     (testing "a redefined inherited option shows only under Options (child wins)"
       (let [t [{:cmds [] :spec {:x {:inherit true :desc "global x"}}}
                {:cmds ["sub"] :fn identity :spec {:x {:desc "local x"}}}]]
-        (is (= (str "Usage: p sub [options] [<args>]\n\n"
+        (is (= (str "Usage: p sub [options]\n\n"
                     "Options:\n  --x local x")
                (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))
+    (testing ":args->opts renders labeled positionals in the usage line"
+      (let [t [{:cmds ["copy"] :fn identity :doc "Copy" :args->opts [:src :dest]
+                :spec {:force {:desc "Force"}}}]]
+        (is (str/starts-with? (cli/format-command-help {:table t :cmds ["copy"] :prog "p"})
+                              "Usage: p copy [options] <src> <dest>\n")))
+      (testing "the (cons k (repeat k')) variadic form renders <k'>..."
+        (let [t [{:cmds ["rm"] :fn identity :doc "Remove" :args->opts (cons :first (repeat :file))}]]
+          (is (str/starts-with? (cli/format-command-help {:table t :cmds ["rm"] :prog "p"})
+                                "Usage: p rm <first> <file>...\n"))))
+      (testing "no :args->opts shows no positional placeholder"
+        (let [t [{:cmds ["ls"] :fn identity :doc "List" :spec {:all {:desc "All"}}}]]
+          (is (str/starts-with? (cli/format-command-help {:table t :cmds ["ls"] :prog "p"})
+                                "Usage: p ls [options]\n")))))
     (testing "an entry :order sets the Options order; a vec-of-pairs spec keeps its order"
       (let [t [{:cmds [] :spec {:a {:desc "A"} :b {:desc "B"} :c {:desc "C"}} :order [:c :a :b]}]]
         (is (= (str "Usage: p [options]\n\n"

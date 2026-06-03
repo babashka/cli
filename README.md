@@ -120,7 +120,7 @@ $ bb try-me.clj --num 1 --dir my_dir --flag
 Here are your cli args!: {:num 1, :dir my_dir, :flag true}
 
 $ bb try-me.clj --help
-Usage: try-me [options] [<args>]
+Usage: try-me [options]
 
 Options:
   -n, --num  Number of some items
@@ -131,7 +131,7 @@ Options:
 $ bb try-me.clj
 Error: Required option: --num
 
-Usage: try-me [options] [<args>]
+Usage: try-me [options]
 
 Run "try-me --help" for more information.
 ```

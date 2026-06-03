@@ -10,6 +10,7 @@ For breaking changes, check [here](#breaking-changes).
 - `:help` option: `--help`/`-h` takes precedence over flag errors, so `tool cmd --help` and `tool group sub --help` print help even when a required option is missing or validation would fail
 - Add `:prog` option to `dispatch`: program name shown in help. `dispatch` threads `:prog`, `:inherit` and the command tree into error/help data
 - Add `:order` (vector of option keys) on a command entry to set the `Options:` order in help; otherwise order follows the spec
+- Help usage line labels positional args from `:args->opts` (e.g. `<file>`, `<file>...` for the variadic form) instead of a generic `[<args>]`; a command with no `:args->opts` shows no positional placeholder
 - Option error data now carries `:flag`: the option token as typed (`--foo`/`-f`/`:foo`), vs `:option` the normalized keyword. Default messages name the option by its flag; `:coerce` failures reworded to match `:validate`
 - Add `*exit-fn*`: dynamic var the `:help` option uses to exit on error. Receives `{:exit :cause :dispatch :data}`; rebind to not exit (tests/REPL) or to remap codes by `:cause`
 - Add `format-command-help`: render `--help` text (Usage / Commands / Options / Inherited options) for a command in a `dispatch` table
