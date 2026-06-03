@@ -801,10 +801,11 @@
   given a computed `:prog` (full command path), `:inherited` spec and `:parents`
   pointers. Renders Options in the node's `:order` (see [[node-with-help]])."
   [node {:keys [prog inherited parents]}]
-  (let [spec (:spec node)                       ; a map (node is inject-help'd)
+  (let [spec (:spec node)                       ; map or vec-of-pairs
         order (:order node)                     ; display order (see node-with-help)
-        ;; drop inherited options this node redefines (child wins)
-        inherited (apply dissoc inherited (keys spec))
+        ;; drop inherited options this node redefines (child wins); mapify for the
+        ;; key set, since a standalone format-command-help spec may be a vec
+        inherited (apply dissoc inherited (keys (->spec-map spec)))
         desc (help-description (:doc node))
         cmds (help-commands-table node)
         sections
@@ -891,18 +892,19 @@
   ancestors) and the `:parents` pointers (ancestors with non-inherited options
   that must precede the subcommand).
 
-  `tree` is dispatch's [[inject-help]]'d tree, so every node's `:spec` is a map."
+  Specs are mapified here for set reasoning (a standalone `format-command-help`
+  spec may be a vec-of-pairs); display order is handled by `render-help`."
   [tree cmds prog inherit]
   (let [node-at (fn [path] (get-in tree (interleave (repeat :cmd) path)))
         prog-at (fn [path] (str/join " " (cons prog path)))
         ;; options available at the target level itself (e.g. an injected --help,
         ;; or a redefined option) - those never need a "must precede" pointer
-        here (set (keys (:spec (node-at cmds))))
+        here (set (keys (->spec-map (:spec (node-at cmds)))))
         ;; for each strict ancestor prefix: what it contributes downward
         ;; (:inh) and its own non-inherited options (:own)
         ancestors (for [i (range (count cmds))
                         :let [pre  (subvec cmds 0 i)
-                              spec (:spec (node-at pre))
+                              spec (->spec-map (:spec (node-at pre)))
                               inh  (inherited-entries spec inherit)]]
                     {:pre pre :inh inh :own (apply dissoc spec (keys inh))})
         inherited (reduce merge {} (map :inh ancestors))
@@ -917,6 +919,43 @@
      :prog (prog-at cmds)
      :inherited inherited
      :parents (vec parents)}))
+
+(defn format-command-help
+  "Render conventional `--help` text (a string) for the command at path `cmds`
+  in a `dispatch` table (or the tree from [[table->tree]]):
+
+  ```
+  Usage: <prog> [options] <command>
+
+  <description>            ; the entry's :doc (first line, then the rest)
+
+  Commands:                ; child commands with their one-line :doc
+    ...
+  Options:                 ; the command's own :spec
+    ...
+  Inherited options:       ; ancestor options usable here (:inherit), deduped
+    ...
+  ```
+
+  Takes a single map:
+  * `:table`   - a `dispatch` table, or a tree from [[table->tree]] (required)
+  * `:cmds`    - the command path, e.g. `[\"deps\" \"outdated\"]` (default `[]`)
+  * `:prog`    - program name shown in the usage line (required)
+  * `:inherit` - only needed when you pass a dispatch-level `:inherit` to
+                 `dispatch`; pass the same value so `Inherited options:` matches.
+                 Per-option `:inherit true` is detected automatically.
+
+  Options are listed in the entry's `:order` when it has one, else in spec order
+  (a vec-of-pairs `:spec` keeps its order; a map follows key order, unreliable
+  beyond a few keys - use a vec-of-pairs spec or `:order`).
+
+  This is the renderer the `:help` option uses; call it from a custom `:help-fn`
+  to render the standard help and then add your own output. An entry may carry
+  `:no-doc true` to be omitted from `Commands:`."
+  [{:keys [table cmds prog inherit] :or {cmds []}}]
+  (let [tree (if (map? table) table (table->tree table))
+        ctx (command-help-context tree (vec cmds) prog inherit)]
+    (render-help (:node ctx) ctx)))
 
 (defn ^:dynamic *exit-fn*
   "Terminates the process after `dispatch`'s `:help` option prints an *error*
@@ -952,10 +991,9 @@
   the command at `:dispatch`, then return. Asking for help is not an error - the
   caller does not exit (it returns like a normal `:fn`, so the process ends with
   status 0). Reads the command tree, `:prog` and `:inherit` from the data
-  dispatch threads in."
+  dispatch threads in; renders via [[format-command-help]]."
   [{:keys [tree dispatch prog inherit]}]
-  (let [ctx (command-help-context tree (vec (or dispatch [])) prog inherit)]
-    (println (render-help (:node ctx) ctx))))
+  (println (format-command-help {:table tree :cmds (or dispatch []) :prog prog :inherit inherit})))
 
 (defn- help-error-fn
   "The `:error-fn` installed by `dispatch`'s `:help` option: print a terse,

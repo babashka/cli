@@ -756,7 +756,23 @@ codes by `:cause`:
 ```
 
 Both handlers are overridable: pass your own `:help-fn` (called with
-`{:tree :dispatch :prog :inherit}`) and/or `:error-fn` to `dispatch`.
+`{:tree :dispatch :prog :inherit}`) and/or `:error-fn` to `dispatch`. To render
+the standard help and add to it, call `format-command-help` - the same renderer
+the default uses:
+
+``` clojure
+(cli/dispatch table args
+  {:prog "example" :help true
+   :help-fn (fn [{:keys [tree dispatch prog inherit]}]
+              (println "my-tool v1.2.3")
+              (println (cli/format-command-help
+                        {:table tree :cmds dispatch :prog prog :inherit inherit})))})
+```
+
+`format-command-help` is also usable on its own (without `dispatch`): pass
+`:table` (a `dispatch` table, or a tree from `table->tree`), `:cmds` (the command
+path, default `[]`), `:prog`, and optional `:inherit`. It returns the help
+string.
 
 ## Babashka tasks
 
