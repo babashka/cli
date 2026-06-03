@@ -1246,10 +1246,11 @@
   Use an empty `:cmds` vector to always match or to provide global options.
 
   For a single-command CLI (no subcommands), pass one entry map directly instead
-  of wrapping it in a one-element table:
+  of wrapping it in a one-element table. The map can also carry the dispatch opts
+  (`:prog`/`:help`/etc.), so no separate opts map is needed:
 
   ```clojure
-  (dispatch {:fn f :spec spec} args {:prog \"tool\" :help true})
+  (dispatch {:fn f :spec spec :prog \"tool\" :help true} args)
   ```
 
   Provide an `:error-fn` to deal with non-matches.
@@ -1271,7 +1272,10 @@
 
   For more information and examples, see [README.md](README.md#subcommands)."
   ([table args]
-   (dispatch table args {}))
+   ;; a single command map doubles as the opts (it can carry :prog/:help/etc.),
+   ;; so `(dispatch {:fn f :spec spec :prog \"p\" :help true} args)` needs no
+   ;; separate opts map
+   (dispatch table args (if (map? table) table {})))
   ([table args opts]
    (let [;; a single command map (no subcommands) is shorthand for a one-entry
          ;; table with empty :cmds

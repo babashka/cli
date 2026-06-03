@@ -104,7 +104,7 @@ Here is an example babashka script to get you started!
   (println "Here are your cli args!:" opts))
 
 (defn -main [& args]
-  (cli/dispatch {:fn run :spec spec} args {:prog "try-me" :help true}))
+  (cli/dispatch {:fn run :spec spec :prog "try-me" :help true} args))
 
 (-main *command-line-args*)
 ```
@@ -733,11 +733,13 @@ CLI - no `:restrict` needed:
   own `:help`).
 
 It works for a single-command CLI too. Pass one entry map directly (no
-subcommands, no `:cmds`) - `example --help` then shows Usage + Options:
+subcommands, no `:cmds`); the map can carry the dispatch opts too, so no separate
+opts map is needed - `example --help` then shows Usage + Options:
 
 ``` clojure
-(cli/dispatch {:fn run :spec {:port {:coerce :long :desc "Port"}}}
-              args {:prog "example" :help true})
+(cli/dispatch {:fn run :spec {:port {:coerce :long :desc "Port"}}
+               :prog "example" :help true}
+              args)
 ```
 
 `--help`/`-h` are a success path: they print help and return (no exit call), so

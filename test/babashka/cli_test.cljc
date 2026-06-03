@@ -790,17 +790,23 @@
       (cli/dispatch {:fn (fn [m] (reset! ran m)) :spec {:port {:coerce :long}}}
                     ["--port" "1339"])
       (is (= {:port 1339} (:opts @ran)))))
-  (testing "with :help true, --help prints help and the fn does not run"
+  (testing "the single map carries dispatch opts (:prog/:help), no separate opts map"
     (let [ran (atom nil)
           out (with-out-str
                 (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
-                  (try (cli/dispatch {:fn (fn [m] (reset! ran m)) :spec {:port {:coerce :long :desc "Port"}}}
-                                     ["--help"] {:prog "tool" :help true})
+                  (try (cli/dispatch {:fn (fn [m] (reset! ran m)) :prog "tool" :help true
+                                      :spec {:port {:coerce :long :desc "Port"}}}
+                                     ["--help"])
                        (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                          (when-not (::exit (ex-data e)) (throw e))))))]
       (is (str/includes? out "Usage: tool [options]"))
       (is (str/includes? out "--port"))
-      (is (nil? @ran)))))
+      (is (nil? @ran))))
+  (testing "explicit opts map still works (3-arity)"
+    (let [ran (atom nil)]
+      (cli/dispatch {:fn (fn [m] (reset! ran m)) :spec {:port {:coerce :long}}}
+                    ["--port" "1339"] {:prog "tool"})
+      (is (= {:port 1339} (:opts @ran))))))
 
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]
