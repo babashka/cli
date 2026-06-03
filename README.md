@@ -703,9 +703,10 @@ CLI - no `:restrict` needed:
 (cli/dispatch table args {:prog "example" :help true})
 ```
 
-- `--help`/`-h` print help for the command in front of them and exit with 0. So
-  `example deps outdated --help` shows help for `deps outdated`.
-- A mistyped or missing subcommand prints help and exits with 1.
+- `--help`/`-h` print help for the command in front of them and return (the
+  process ends with status 0). So `example deps outdated --help` shows help for
+  `deps outdated`.
+- A mistyped or missing subcommand prints a terse message and exits with 1.
 - `-h, --help` is listed in each command's options, appended last. To control
   the order, give the command entry an `:order` (a vector of option keys) - it
   is used verbatim, so you decide the order, which options to list, and whether
@@ -729,30 +730,33 @@ subcommands) - `example --help` then shows Usage + Options:
               args {:prog "example" :help true})
 ```
 
-Help exits via the dynamic `*exit-fn*`, called with `:exit`, `:cause`,
-`:dispatch`, and (on errors) `:msg` / `:data`:
+`--help`/`-h` are a success path: they print help and return (no exit call), so
+your `-main` ends and the process exits 0 - like a normal command. Errors go
+through the dynamic `*exit-fn*`, which exits non-zero:
 
-| invocation | `:exit` | `:cause` |
-|---|---|---|
-| `--help` / `-h` | 0 | `:help-requested` |
-| group, no subcommand | 1 | `:missing-subcommand` |
-| unknown subcommand | 1 | `:unknown-subcommand` |
-| flag error | 1 | `:restrict` / `:require` / `:validate` / `:coerce` |
+| invocation | outcome |
+|---|---|
+| `--help` / `-h` | print help, return (status 0) - no `*exit-fn*` |
+| group, no subcommand | terse message, `*exit-fn*` exit 1, `:cause :missing-subcommand` |
+| unknown subcommand | terse message, `*exit-fn*` exit 1, `:cause :unknown-subcommand` |
+| flag error | terse message, `*exit-fn*` exit 1, `:cause` = the babashka.cli cause |
 
-Only `--help`/`-h` exits with 0; a bare group is a usage error (exit with 1),
-like `git bisect` with no subcommand. `:data` holds the raw `dispatch` error
-data, including the parser's own `:cause` (`:no-match` / `:input-exhausted`).
-
-The default `*exit-fn*` exits the process (`System/exit` on JVM,
-`js/process.exit` on Node). Rebind it to avoid exiting (tests, REPL), or to use
-your own exit codes by switching on `:cause`:
+A bare group is a usage error (exit 1), like `git bisect` with no subcommand;
+its full help is one keystroke away via `--help`. `*exit-fn*` is called only on
+errors, with `{:exit :cause :dispatch :msg :data}` (`:data` holds the raw
+`dispatch` error data). The default exits the process (`System/exit` on JVM,
+`js/process.exit` on Node); rebind it to not exit (tests, REPL) or to remap
+codes by `:cause`:
 
 ``` clojure
-;; treat a bare group as success (print help, exit with 0) instead of a usage error
+;; treat a bare group as success (exit 0) instead of a usage error
 (binding [cli/*exit-fn* (fn [{:keys [exit cause]}]
                           (System/exit (if (= :missing-subcommand cause) 0 exit)))]
   (cli/dispatch table args {:prog "example" :help true}))
 ```
+
+Both handlers are overridable: pass your own `:help-fn` (called with
+`{:tree :dispatch :prog :inherit}`) and/or `:error-fn` to `dispatch`.
 
 ## Babashka tasks
 

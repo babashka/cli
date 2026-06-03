@@ -626,19 +626,19 @@
                               (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                                 (when-not (::exit (ex-data e)) (throw e))))))]
                 {:out out :exit @exit :ran @ran}))]
-    (testing "--help at root, no :restrict needed"
+    (testing "--help at root, no :restrict needed (success: prints, no *exit-fn*)"
       (let [{:keys [out exit]} (run ["--help"])]
         (is (str/includes? out "Usage: tool [options] <command>"))
         (is (str/includes? out "Commands:"))
-        (is (submap? {:exit 0 :cause :help-requested :dispatch []} exit))))
+        (is (nil? exit))))                  ; help is not an error - *exit-fn* not called
     (testing "--help after a subcommand renders that command's help"
       (let [{:keys [out exit]} (run ["deps" "outdated" "--help"])]
         (is (str/includes? out "Usage: tool deps outdated"))
-        (is (submap? {:exit 0 :cause :help-requested :dispatch ["deps" "outdated"]} exit))))
+        (is (nil? exit))))
     (testing "-h alias works"
       (let [{:keys [out exit]} (run ["dev" "-h"])]
         (is (str/includes? out "Usage: tool dev"))
-        (is (submap? {:exit 0 :cause :help-requested :dispatch ["dev"]} exit))))
+        (is (nil? exit))))
     (testing "a normal run is not intercepted"
       (let [{:keys [ran exit]} (run ["dev" "--sync"])]
         (is (nil? exit))
@@ -660,7 +660,7 @@
                          (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                            (when-not (::exit (ex-data e)) (throw e))))))]
         (is (str/includes? out "Commands:"))
-        (is (= 0 (:exit @exit)))))
+        (is (nil? @exit))))
     (testing "*exit-fn* codes can be remapped by :cause (e.g. group -> 0)"
       (let [calls (atom [])]
         (binding [cli/*exit-fn* (fn [m] (swap! calls conj m))]
@@ -697,8 +697,8 @@
         (is (str/includes? out "--b"))
         (is (str/includes? out "--a"))
         (is (not (str/includes? out "--help")))
-        ;; ...but --help still triggers help
-        (is (= :help-requested (:cause @exit)))))
+        ;; ...but --help still triggers help (prints, returns; no *exit-fn*)
+        (is (nil? @exit))))
     (testing "a subcommand that redefines an inherited option shows it under Options, not Inherited"
       (let [t [{:cmds [] :spec {:x {:inherit true :desc "global x"}}}
                {:cmds ["sub"] :fn identity :spec {:x {:desc "local x"}}}]

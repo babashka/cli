@@ -919,16 +919,16 @@
      :parents (vec parents)}))
 
 (defn ^:dynamic *exit-fn*
-  "Terminates the process after `dispatch`'s `:help` option prints help or an
-  error. Called with a map containing:
+  "Terminates the process after `dispatch`'s `:help` option prints an *error*
+  (unknown/missing subcommand, flag error). `--help`/`-h` is not an error - it
+  prints help and returns, so it does not call this. Called with a map:
 
-  * `:exit` - exit code; `0` for `--help`/`-h`, else `1`
-  * `:cause` - `:help-requested`, `:missing-subcommand`, `:unknown-subcommand`,
-    or the babashka.cli flag cause (`:restrict` / `:require` / `:validate` /
-    `:coerce`)
+  * `:exit` - exit code (always non-zero, `1`)
+  * `:cause` - `:missing-subcommand`, `:unknown-subcommand`, or the babashka.cli
+    flag cause (`:restrict` / `:require` / `:validate` / `:coerce`)
   * `:dispatch` - the command path
-  * `:msg` - error message (error paths only)
-  * `:data` - the original `dispatch` error data (raw `:cause` etc.); absent on `--help`
+  * `:msg` - error message
+  * `:data` - the original `dispatch` error data (raw `:cause` etc.)
 
   Rebind to use your own exit codes (switch on `:cause`), or to not exit at all
   (tests, REPL):
@@ -947,57 +947,58 @@
              (js/process.exit exit)
              (throw (ex-info "exit" {:exit exit})))))
 
+(defn- print-command-help
+  "The `:help-fn` installed by `dispatch`'s `:help` option: print full help for
+  the command at `:dispatch`, then return. Asking for help is not an error - the
+  caller does not exit (it returns like a normal `:fn`, so the process ends with
+  status 0). Reads the command tree, `:prog` and `:inherit` from the data
+  dispatch threads in."
+  [{:keys [tree dispatch prog inherit]}]
+  (let [ctx (command-help-context tree (vec (or dispatch [])) prog inherit)]
+    (println (render-help (:node ctx) ctx))))
+
 (defn- help-error-fn
-  "The `:error-fn` installed by `dispatch`'s `:help` option: prints help and
-  exits via [[*exit-fn*]]. Reads the command tree, `:prog` and `:inherit` from
-  the error data dispatch threads in. `:cause` passed to [[*exit-fn*]]:
+  "The `:error-fn` installed by `dispatch`'s `:help` option: print a terse,
+  helpful message and exit (non-zero) via [[*exit-fn*]]. Reads the command tree,
+  `:prog` and `:inherit` from the data dispatch threads in. `:cause` to
+  [[*exit-fn*]]:
 
-  * `:help` (from `--help`/`-h`) -> full help, exit with 0, `:cause :help-requested`
-  * `:input-exhausted` (group, no subcommand) -> its help, exit with 1, `:cause :missing-subcommand`
-  * `:no-match` (unknown subcommand) -> message + commands, exit with 1, `:cause :unknown-subcommand`
-  * flag error -> message + usage, exit with 1, `:cause` is the babashka.cli cause
+  * `:no-match` (unknown subcommand) -> message + commands, exit 1, `:unknown-subcommand`
+  * `:input-exhausted` (group, no subcommand) -> message + commands, exit 1, `:missing-subcommand`
+  * flag error -> message + usage, exit 1, the babashka.cli cause
 
-  Terse on errors. Messages name the flag as typed (`--foo`/`-x`), not `:foo`."
+  `--help`/`-h` is not an error - it goes to the `:help-fn` ([[print-command-help]]).
+  Messages name the flag as typed (`--foo`/`-x`), not `:foo`."
   [{:keys [cause dispatch wrong-input msg prog inherit tree] :as data}]
   (let [path   (or dispatch [])
         ctx-at (fn [p] (command-help-context tree (vec p) prog inherit))
-        print-help (fn [p]
-                     (let [ctx (ctx-at p)]
-                       (println (render-help (:node ctx) ctx))))
         hint  (fn [p]
                 (str "Run \"" (str/join " " (cons prog p))
                      " --help\" for more information."))
         usage (fn [p]
                 (let [{:keys [node prog inherited]} (ctx-at p)]
                   (help-usage-line prog node (or (seq (:spec node))
-                                                 (seq inherited)))))]
+                                                 (seq inherited)))))
+        ;; subcommand-level error (unknown / missing): terse message + the
+        ;; available commands + a pointer to --help
+        subcommand-error
+        (fn [message exit-cause]
+          (println (str message "\n"))
+          (let [cmds (help-commands-table (:node (ctx-at path)))]
+            (when (seq cmds)
+              (println (str "Commands:\n" (format-table {:rows cmds :indent 2}) "\n"))))
+          (println (hint path))
+          (*exit-fn* {:exit 1 :cause exit-cause :msg message :dispatch path :data data}))]
     (cond
-      ;; --help / -h (dispatch's `:help` option detects it and sends `:cause :help`)
-      (= :help cause)
-      (do (print-help path)
-          (*exit-fn* {:exit 0 :cause :help-requested :dispatch path}))
-
-      ;; mistyped subcommand: terse, but list the available commands
       (= :no-match cause)
-      (let [cmds    (help-commands-table (:node (ctx-at path)))
-            message (str "Unknown command: " wrong-input)]
-        (println (str message "\n"))
-        (when (seq cmds)
-          (println (str "Commands:\n"
-                        (format-table {:rows cmds :indent 2}) "\n")))
-        (println (hint path))
-        (*exit-fn* {:exit 1 :cause :unknown-subcommand :msg message
-                    :dispatch path :data data}))
+      (subcommand-error (str "Unknown command: " wrong-input) :unknown-subcommand)
 
-      ;; a group invoked with no subcommand: show its help, but this is a
-      ;; usage error (no subcommand chosen), so exit with non-zero like git
       (= :input-exhausted cause)
-      (do (print-help path)
-          (*exit-fn* {:exit 1 :cause :missing-subcommand :dispatch path :data data}))
+      (subcommand-error "No subcommand given." :missing-subcommand)
 
       ;; genuine flag error (restrict / require / validate / coerce): terse.
-      ;; The lib message already names the flag the user typed; `:cause`
-      ;; passes through.
+      ;; The lib message already names the flag the user typed; `:cause` passes
+      ;; through.
       :else
       (do (println (str "Error: " msg "\n"))
           (println (usage path))
@@ -1083,11 +1084,13 @@
                        (fn [{:keys [msg] :as data}]
                          (throw (ex-info msg data))))]
      (case error
+       ;; --help/-h: success - print help via the :help-fn and return (no exit)
        :help
-       (error-fn (merge {:type :org.babashka/cli :cause :help :tree tree}
-                        (when (:prog opts) {:prog (:prog opts)})
-                        (when (:inherit opts) {:inherit (:inherit opts)})
-                        (select-keys res [:opts :dispatch])))
+       ((::help-fn opts) (merge {:tree tree}
+                                (when (:prog opts) {:prog (:prog opts)})
+                                (when (:inherit opts) {:inherit (:inherit opts)})
+                                (select-keys res [:dispatch])))
+       ;; real errors: terse message via the :error-fn, which exits non-zero
        (:no-match :input-exhausted)
        (error-fn (merge
                   {:type :org.babashka/cli
@@ -1156,11 +1159,17 @@
   Provide an `:error-fn` to deal with non-matches.
 
   Set `:prog` to the program name shown in help. Provide `:help true` to wire up
-  help without `:restrict`: `--help`/`-h` print help for the command they
-  precede, and help is rendered on a bad/missing subcommand.
+  help without `:restrict`:
 
-  `dispatch` threads `:prog`, `:inherit` and the command tree into the error
-  data, so an `:error-fn` can render help without being handed them.
+  * `--help`/`-h` print help for the command they precede and return (no error,
+    so the process ends with status 0). This goes through a `:help-fn`.
+  * an unknown/missing subcommand or a flag error prints a terse message and
+    exits non-zero (via [[*exit-fn*]]). This goes through the `:error-fn`.
+
+  Both default handlers can be overridden: pass your own `:help-fn` (called with
+  `{:tree :dispatch :prog :inherit}`) and/or `:error-fn`. `dispatch` threads
+  `:prog`, `:inherit` and the command tree into the data either receives, so
+  they can render without being handed them separately.
 
   Each entry in the table may have additional [[parse-args]] options.
 
@@ -1171,5 +1180,7 @@
    (let [tree (-> table table->tree)]
      (if (:help opts)
        (dispatch-tree (inject-help tree) args
-                      (assoc opts :error-fn help-error-fn ::help true))
+                      (assoc opts ::help true
+                             :error-fn (or (:error-fn opts) help-error-fn)
+                             ::help-fn (or (:help-fn opts) print-command-help)))
        (dispatch-tree tree args opts)))))
