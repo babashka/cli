@@ -1129,17 +1129,20 @@
        nil ((:fn cmd-info) (dissoc res :cmd-info))))))
 
 (defn- with-help-opt
-  "Add a `--help`/`-h` boolean option to one node's `spec`, unless the user
-  already defines `:help` (then theirs is respected). The `:h` alias is only
-  added when `:h` is still free."
+  "Add a `--help`/`-h` boolean option to one node's `spec`. To control where
+  `--help` appears in the options, put a `:help` entry in your spec at that
+  position (e.g. `:help {}`); its defaults are filled in and your keys win.
+  Otherwise it is appended last. The `:h` alias is only added when `:h` is free."
   [spec]
-  (let [spec (->spec-map spec)]
+  (let [spec (->spec-map spec)
+        h-free? (and (not (contains? spec :h))
+                     (not (some (fn [[_ v]] (and (map? v) (= :h (:alias v)))) spec)))
+        default (cond-> {:coerce :boolean :desc "Show this help"}
+                  h-free? (assoc :alias :h))]
     (if (contains? spec :help)
-      spec
-      (let [h-free? (and (not (contains? spec :h))
-                         (not (some (fn [[_ v]] (and (map? v) (= :h (:alias v)))) spec)))]
-        (assoc spec :help (cond-> {:coerce :boolean :desc "Show this help"}
-                            h-free? (assoc :alias :h)))))))
+      ;; keep the user's position and overrides; fill in missing defaults
+      (update spec :help #(merge default %))
+      (assoc spec :help default))))
 
 (defn- inject-help
   "Add the `--help` option to every node of a dispatch `tree` (used by the

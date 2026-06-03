@@ -700,7 +700,20 @@
         (is (= 1 (:exit (first @calls))))))
     (testing "--help shows in the Options output"
       (let [{:keys [out]} (run ["dev" "--help"])]
-        (is (str/includes? out "-h, --help"))))))
+        (is (str/includes? out "-h, --help"))))
+    (testing "user controls --help position by placing :help in the spec"
+      (let [t [{:cmds [] :fn identity :doc "t"
+                :spec {:help {} :verbose {:coerce :boolean :desc "Verbose"}}}]
+            out (with-out-str
+                  (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
+                    (try (cli/dispatch t ["--help"] {:prog "tool" :help true})
+                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                           (when-not (::exit (ex-data e)) (throw e))))))
+            lines (str/split-lines out)
+            idx (fn [s] (first (keep-indexed (fn [i l] (when (str/includes? l s) i)) lines)))]
+        ;; :help {} placeholder -> --help rendered with defaults, before --verbose
+        (is (str/includes? out "-h, --help"))
+        (is (< (idx "--help") (idx "--verbose")))))))
 
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]

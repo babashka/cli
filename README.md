@@ -759,8 +759,12 @@ CLI - no `:restrict` needed:
 - `--help`/`-h` print help for the command in front of them and exit with 0. So
   `example deps outdated --help` shows help for `deps outdated`.
 - A mistyped or missing subcommand prints help and exits with 1.
-- `-h, --help` is listed in each command's options. `--help`/`-h` are reserved
-  while `:help` is on (a command may still define its own `:help`).
+- `-h, --help` is listed in each command's options (last by default). To place
+  it elsewhere, put a `:help` entry in your spec at that position - e.g.
+  `{:help {} :verbose {...}}` lists `--help` first; its defaults are filled in
+  and your keys (`:desc`, `:alias`) win.
+- `--help`/`-h` are reserved while `:help` is on (a command may still define its
+  own `:help`).
 
 It works for a single-command CLI too (one entry with `:cmds []`, no
 subcommands) - `example --help` then shows Usage + Options:
