@@ -995,23 +995,28 @@
   [{:keys [tree dispatch prog inherit]}]
   (println (format-command-help {:table tree :cmds (or dispatch []) :prog prog :inherit inherit})))
 
-(defn- print-command-error
-  "Print a terse, helpful message for a dispatch error. Only prints - does not
-  exit (the default `:error-fn` prints, then calls [[*exit-fn*]] itself). Reads
-  the command tree, `:prog` and `:inherit` from the data dispatch threads in.
+(defn format-command-error
+  "Render a terse, helpful message (a string) for a dispatch error, given the
+  data `dispatch` passes to its `:error-fn`:
 
   * `:no-match` (unknown subcommand) -> message + commands + hint
   * `:input-exhausted` (group, no subcommand) -> message + commands + hint
-  * flag error -> message + usage + hint
+  * flag error (`:restrict` / `:require` / `:validate` / `:coerce`) -> message
+    + usage + hint
 
-  `--help`/`-h` is not an error - it goes to the `:help-fn` ([[print-command-help]]).
-  Messages name the flag as typed (`--foo`/`-x`), not `:foo`."
+  Reads the command tree, `:prog`, `:inherit`, `:dispatch` (the path), and for
+  flag errors `:msg` (and for `:no-match`, `:wrong-input`) from the data.
+  Messages name the flag as typed (`--foo`/`-x`), not `:foo`.
+
+  This is the renderer the `:help` option's default `:error-fn` uses (it prints
+  this, then calls [[*exit-fn*]]). Call it from a custom `:error-fn` to keep the
+  standard message and add your own output. `--help`/`-h` is not an error - it
+  goes to the `:help-fn`, rendered by [[format-command-help]]."
   [{:keys [cause dispatch wrong-input msg prog inherit tree]}]
   (let [path   (or dispatch [])
         ctx-at (fn [p] (command-help-context tree (vec p) prog inherit))
-        hint  (fn [p]
-                (str "Run \"" (str/join " " (cons prog p))
-                     " --help\" for more information."))
+        hint  (str "Run \"" (str/join " " (cons prog path))
+                   " --help\" for more information.")
         usage (fn [p]
                 (let [{:keys [node prog inherited]} (ctx-at p)]
                   (help-usage-line prog node (or (seq (:spec node))
@@ -1020,11 +1025,12 @@
         ;; available commands + a pointer to --help
         subcommand-error
         (fn [message]
-          (println (str message "\n"))
           (let [cmds (help-commands-table (:node (ctx-at path)))]
-            (when (seq cmds)
-              (println (str "Commands:\n" (format-table {:rows cmds :indent 2}) "\n"))))
-          (println (hint path)))]
+            (str/join "\n"
+                      (concat [message ""]
+                              (when (seq cmds)
+                                [(str "Commands:\n" (format-table {:rows cmds :indent 2})) ""])
+                              [hint]))))]
     (cond
       (= :no-match cause)
       (subcommand-error (str "Unknown command: " wrong-input))
@@ -1035,10 +1041,14 @@
       ;; genuine flag error (restrict / require / validate / coerce): terse.
       ;; The lib message already names the flag the user typed.
       :else
-      (do (println (str "Error: " msg "\n"))
-          (println (usage path))
-          (println)
-          (println (hint path))))))
+      (str/join "\n" [(str "Error: " msg) "" (usage path) "" hint]))))
+
+(defn- print-command-error
+  "Print the terse [[format-command-error]] message for a dispatch error. Only
+  prints - does not exit (the default `:error-fn` prints, then calls
+  [[*exit-fn*]] itself)."
+  [data]
+  (println (format-command-error data)))
 
 (defn- dispatch-tree'
   ([tree args]

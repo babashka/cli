@@ -775,6 +775,21 @@ the default uses:
 path, default `[]`), `:prog`, and optional `:inherit`. It returns the help
 string.
 
+A custom `:error-fn` receives the dispatch error data
+(`{:cause :dispatch :prog :inherit :tree :msg ...}`) and is responsible for
+exiting (call `*exit-fn*` or exit yourself). To keep the standard terse message
+and add to it, call `format-command-error` (the same renderer the default uses)
+and exit afterwards:
+
+``` clojure
+(cli/dispatch table args
+  {:prog "example" :help true
+   :error-fn (fn [data]
+               (println (cli/format-command-error data))
+               (println "See https://example.com/docs")
+               (cli/*exit-fn* {:exit 1 :cause (:cause data)}))})
+```
+
 ## Babashka tasks
 
 For documentation on babashka tasks, go

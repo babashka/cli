@@ -583,6 +583,48 @@
         (is (str/includes? out "BANNER"))
         (is (str/includes? out "Usage: p"))))))
 
+(deftest format-command-error-test
+  (let [table [{:cmds [] :doc "tool"}
+               {:cmds ["dev"] :fn identity :doc "Start dev."
+                :spec {:port {:coerce :long :require true :desc "Port"}}}
+               {:cmds ["deps"] :doc "Dep tools"}
+               {:cmds ["deps" "outdated"] :fn identity :doc "Show outdated"}]]
+    (testing ":no-match renders the bad input, the commands, and a hint"
+      (let [s (cli/format-command-error {:cause :no-match :wrong-input "nope"
+                                         :dispatch [] :prog "tool"
+                                         :tree (cli/table->tree table)})]
+        (is (= (str "Unknown command: nope\n\n"
+                    "Commands:\n  dev  Start dev.\n  deps Dep tools\n\n"
+                    "Run \"tool --help\" for more information.")
+               s))))
+    (testing ":input-exhausted (bare group) renders the group's subcommands"
+      (let [s (cli/format-command-error {:cause :input-exhausted
+                                         :dispatch ["deps"] :prog "tool"
+                                         :tree (cli/table->tree table)})]
+        (is (str/includes? s "No subcommand given."))
+        (is (str/includes? s "outdated"))
+        (is (str/includes? s "Run \"tool deps --help\" for more information."))))
+    (testing "a flag error renders Error + usage + hint"
+      (let [s (cli/format-command-error {:cause :require :msg "Missing option: --port"
+                                         :dispatch ["dev"] :prog "tool"
+                                         :tree (cli/table->tree table)})]
+        (is (str/includes? s "Error: Missing option: --port"))
+        (is (str/includes? s "Usage: tool dev"))
+        (is (str/includes? s "Run \"tool dev --help\" for more information."))))
+    (testing "a custom :error-fn can call format-command-error and add to it"
+      (let [exit (atom nil)
+            out (with-out-str
+                  (binding [cli/*exit-fn* (fn [m] (reset! exit m))]
+                    (cli/dispatch table ["nope"]
+                                  {:prog "tool" :help true
+                                   :error-fn (fn [data]
+                                               (println (cli/format-command-error data))
+                                               (println "See https://example.com/docs")
+                                               (cli/*exit-fn* {:exit 1 :cause (:cause data)}))})))]
+        (is (str/includes? out "Unknown command: nope"))
+        (is (str/includes? out "See https://example.com/docs"))
+        (is (= {:exit 1 :cause :no-match} @exit))))))
+
 (deftest help-option-test
   ;; `:help` on dispatch: help without :restrict, native --help interception
   (let [table [{:cmds [] :doc "tool"
