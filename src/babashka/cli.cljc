@@ -791,12 +791,21 @@
              [(str cmd) (or (help-first-line (:doc subnode)) "")]))
          (:cmd node))))
 
+(defn- ->spec-map [spec]
+  (cond (nil? spec) {}
+        (map? spec) spec
+        :else (into {} spec)))
+
 (defn- render-help
-  "Render help text for one tree `node`, given a computed `:prog` (full command
-  path), `:inherited` spec and `:parents` pointers. See [[format-command-help]]."
+  "Render help text for one tree `node` (built by [[command-help-context]]):
+  given a computed `:prog` (full command path), `:inherited` spec and `:parents`
+  pointers. Renders Options in the node's `:order` (see [[node-with-help]])."
   [node {:keys [prog inherited parents]}]
-  (let [spec (:spec node)
-        inherited (apply dissoc inherited (keys spec))
+  (let [spec (:spec node)                       ; map or vec-of-pairs
+        order (:order node)                     ; display order (see node-with-help)
+        ;; drop inherited options this node redefines (child wins); mapify for the
+        ;; key set, since a standalone format-command-help spec may be a vec
+        inherited (apply dissoc inherited (keys (->spec-map spec)))
         desc (help-description (:doc node))
         cmds (help-commands-table node)
         sections
@@ -808,7 +817,7 @@
           (conj (str "Commands:\n" (format-table {:rows cmds :indent 2})))
 
           (seq spec)
-          (conj (str "Options:\n" (format-opts {:spec spec})))
+          (conj (str "Options:\n" (format-opts (cond-> {:spec spec} order (assoc :order order)))))
 
           (seq inherited)
           (conj (str "Inherited options:\n" (format-opts {:spec inherited})))
@@ -864,10 +873,6 @@
        (or (str/starts-with? s "-")
            (str/starts-with? s ":"))))
 
-(defn- ->spec-map [spec]
-  (cond (nil? spec) {}
-        (map? spec) spec
-        :else (into {} spec)))
 
 (defn- inherited-entries
   "Spec entries of `spec` that propagate to descendant levels: those marked
@@ -885,20 +890,29 @@
   `inherit` value, compute everything [[render-help]] needs: the target `:node`,
   its full `:prog` path, the `:inherited` options usable here (aggregated from
   ancestors) and the `:parents` pointers (ancestors with non-inherited options
-  that must precede the subcommand)."
+  that must precede the subcommand).
+
+  Specs are mapified here for set reasoning (a standalone `format-command-help`
+  spec may be a vec-of-pairs); display order is handled by `render-help`."
   [tree cmds prog inherit]
   (let [node-at (fn [path] (get-in tree (interleave (repeat :cmd) path)))
         prog-at (fn [path] (str/join " " (cons prog path)))
+        ;; options available at the target level itself (e.g. an injected --help,
+        ;; or a redefined option) - those never need a "must precede" pointer
+        here (set (keys (->spec-map (:spec (node-at cmds)))))
         ;; for each strict ancestor prefix: what it contributes downward
         ;; (:inh) and its own non-inherited options (:own)
         ancestors (for [i (range (count cmds))
                         :let [pre  (subvec cmds 0 i)
-                              spec (:spec (node-at pre))
+                              spec (->spec-map (:spec (node-at pre)))
                               inh  (inherited-entries spec inherit)]]
                     {:pre pre :inh inh :own (apply dissoc spec (keys inh))})
         inherited (reduce merge {} (map :inh ancestors))
-        ;; ancestors with non-inherited options (must precede the subcommand)
-        parents (for [{:keys [pre own]} ancestors :when (seq own)]
+        ;; ancestors with non-inherited options that aren't also available here
+        ;; (those must be given before the subcommand)
+        parents (for [{:keys [pre own]} ancestors
+                      :let [own (apply dissoc own here)]
+                      :when (seq own)]
                   {:prog (prog-at pre)
                    :name (if (seq pre) (peek pre) "global")})]
     {:node (node-at cmds)
@@ -917,41 +931,43 @@
 
   Commands:                ; child commands with their one-line :doc
     ...
-  Options:                 ; the command's own :spec, via format-opts
+  Options:                 ; the command's own :spec
     ...
   Inherited options:       ; ancestor options usable here (:inherit), deduped
     ...
-  Run \"<prog> sub --help\" ...        ; pointer to child commands
-  Run \"<prog> --help\" for <x> options ; pointer to non-inherited ancestor opts
   ```
 
   Takes a single map:
   * `:table`   - a `dispatch` table, or a tree from [[table->tree]] (required)
-  * `:cmds`    - the command path, e.g. `[\"deps\" \"outdated\"]` (default `[]`,
-                 the top level)
+  * `:cmds`    - the command path, e.g. `[\"deps\" \"outdated\"]` (default `[]`)
   * `:prog`    - program name shown in the usage line (required)
-  * `:inherit` - only needed when you pass a dispatch-level `:inherit` (`true` /
-                 coll of keys) to `dispatch`; pass the same value here so the
-                 `Inherited options:` section matches what is actually accepted.
+  * `:inherit` - only needed when you pass a dispatch-level `:inherit` to
+                 `dispatch`; pass the same value so `Inherited options:` matches.
                  Per-option `:inherit true` is detected automatically.
 
-  An entry may carry `:no-doc true` to be omitted from `Commands:`."
+  Options are listed in the entry's `:order` when it has one, else in spec order
+  (a vec-of-pairs `:spec` keeps its order; a map follows key order, unreliable
+  beyond a few keys - use a vec-of-pairs spec or `:order`).
+
+  This is the renderer the `:help` option uses; call it from a custom `:help-fn`
+  to render the standard help and then add your own output. An entry may carry
+  `:no-doc true` to be omitted from `Commands:`."
   [{:keys [table cmds prog inherit] :or {cmds []}}]
   (let [tree (if (map? table) table (table->tree table))
         ctx (command-help-context tree (vec cmds) prog inherit)]
     (render-help (:node ctx) ctx)))
 
 (defn ^:dynamic *exit-fn*
-  "Terminates the process after [[help-error-fn]] prints help or an error.
-  Called with a map containing:
+  "Terminates the process after `dispatch`'s `:help` option prints an *error*
+  (unknown/missing subcommand, flag error). `--help`/`-h` is not an error - it
+  prints help and returns, so it does not call this. Called with a map:
 
-  * `:exit` - exit code; `0` for `--help`/`-h`, else `1`
-  * `:cause` - `:help-requested`, `:missing-subcommand`, `:unknown-subcommand`,
-    or the babashka.cli flag cause (`:restrict` / `:require` / `:validate` /
-    `:coerce`)
+  * `:exit` - exit code (always non-zero, `1`)
+  * `:cause` - the dispatch error cause: `:no-match` (unknown subcommand),
+    `:input-exhausted` (group with no subcommand), or the flag cause
+    (`:restrict` / `:require` / `:validate` / `:coerce`)
   * `:dispatch` - the command path
-  * `:msg` - error message (error paths only)
-  * `:data` - the original `dispatch` error data (raw `:cause` etc.); absent on `--help`
+  * `:data` - the original `dispatch` error data
 
   Rebind to use your own exit codes (switch on `:cause`), or to not exit at all
   (tests, REPL):
@@ -970,78 +986,77 @@
              (js/process.exit exit)
              (throw (ex-info "exit" {:exit exit})))))
 
-(defn help-error-fn
-  "An `:error-fn` for [[dispatch]] that prints help and exits via [[*exit-fn*]].
+(defn- print-command-help
+  "The `:help-fn` installed by `dispatch`'s `:help` option: print full help for
+  the command at `:dispatch`, then return. Asking for help is not an error - the
+  caller does not exit (it returns like a normal `:fn`, so the process ends with
+  status 0). Reads the command tree, `:prog` and `:inherit` from the data
+  dispatch threads in; renders via [[format-command-help]]."
+  [{:keys [tree dispatch prog inherit]}]
+  (println (format-command-help {:table tree :cmds (or dispatch []) :prog prog :inherit inherit})))
 
-  Takes a single map (same keys as [[format-command-help]]):
+(defn format-command-error
+  "Render a terse, helpful message (a string) for a dispatch error, given the
+  data `dispatch` passes to its `:error-fn`:
 
-  * `:table` - the dispatch table (or tree) passed to `dispatch` (required)
-  * `:prog` - program name shown in usage / help (required)
-  * `:inherit` - the dispatch-level `:inherit`, if any, so `Inherited options:` matches
+  * `:no-match` (unknown subcommand) -> message + commands + hint
+  * `:input-exhausted` (group, no subcommand) -> message + commands + hint
+  * flag error (`:restrict` / `:require` / `:validate` / `:coerce`) -> message
+    + usage + hint
 
-  Needs `:restrict true` so `--help`/`-h` arrive as errors it can intercept:
+  Reads the command tree, `:prog`, `:inherit`, `:dispatch` (the path), and for
+  flag errors `:msg` (and for `:no-match`, `:wrong-input`) from the data.
+  Messages name the flag as typed (`--foo`/`-x`), not `:foo`.
 
-  ```clojure
-  (cli/dispatch table args
-    {:restrict true :error-fn (cli/help-error-fn {:table table :prog \"mytool\"})})
-  ```
-
-  Behavior, with the `:cause` passed to [[*exit-fn*]]:
-
-  * `--help` / `-h` -> full help, exit with 0, `:cause :help-requested`
-  * group with no subcommand -> its help, but a usage error, exit with 1, `:cause :missing-subcommand`
-  * unknown subcommand -> message + commands, exit with 1, `:cause :unknown-subcommand`
-  * flag error -> message + usage, exit with 1, `:cause` is the babashka.cli cause (`:restrict` / `:require` / `:validate` / `:coerce`)
-
-  Terse on errors. Messages name the flag as typed (`--foo`/`-x`), not `:foo`."
-  [{:keys [table prog inherit]}]
-  (let [tree   (if (map? table) table (table->tree table))
-        ctx-at (fn [path] (command-help-context tree (vec path) prog inherit))
-        print-help (fn [path]
-                     (let [ctx (ctx-at path)]
-                       (println (render-help (:node ctx) ctx))))
-        hint  (fn [path]
-                (str "Run \"" (str/join " " (cons prog path))
-                     " --help\" for more information."))
-        usage (fn [path]
-                (let [{:keys [node prog inherited]} (ctx-at path)]
+  This is the renderer the `:help` option's default `:error-fn` uses (it prints
+  this, then calls [[*exit-fn*]]). Call it from a custom `:error-fn` to keep the
+  standard message and add your own output. `--help`/`-h` is not an error - it
+  goes to the `:help-fn`, rendered by [[format-command-help]]."
+  [{:keys [cause dispatch wrong-input msg prog inherit tree]}]
+  (let [path   (or dispatch [])
+        ctx-at (fn [p] (command-help-context tree (vec p) prog inherit))
+        hint  (str "Run \"" (str/join " " (cons prog path))
+                   " --help\" for more information.")
+        usage (fn [p]
+                (let [{:keys [node prog inherited]} (ctx-at p)]
                   (help-usage-line prog node (or (seq (:spec node))
-                                                 (seq inherited)))))]
-    (fn [{:keys [cause option dispatch wrong-input msg] :as data}]
-      (let [path (or dispatch [])]
-        (cond
-          ;; --help / -h: under :restrict these arrive as an unknown option
-          (and (= :restrict cause) (#{:help :h} option))
-          (do (print-help path)
-              (*exit-fn* {:exit 0 :cause :help-requested :dispatch path}))
+                                                 (seq inherited)))))
+        ;; subcommand-level error (unknown / missing): terse message + the
+        ;; available commands + a pointer to --help
+        subcommand-error
+        (fn [message]
+          (let [cmds (help-commands-table (:node (ctx-at path)))]
+            (str/join "\n"
+                      (concat [message ""]
+                              (when (seq cmds)
+                                [(str "Commands:\n" (format-table {:rows cmds :indent 2})) ""])
+                              [hint]))))]
+    (cond
+      (= :no-match cause)
+      (subcommand-error (str "Unknown command: " wrong-input))
 
-          ;; mistyped subcommand: terse, but list the available commands
-          (= :no-match cause)
-          (let [cmds    (help-commands-table (:node (ctx-at path)))
-                message (str "Unknown command: " wrong-input)]
-            (println (str message "\n"))
-            (when (seq cmds)
-              (println (str "Commands:\n"
-                            (format-table {:rows cmds :indent 2}) "\n")))
-            (println (hint path))
-            (*exit-fn* {:exit 1 :cause :unknown-subcommand :msg message
-                        :dispatch path :data data}))
+      (= :input-exhausted cause)
+      (subcommand-error "No subcommand given.")
 
-          ;; a group invoked with no subcommand: show its help, but this is a
-          ;; usage error (no subcommand chosen), so exit with non-zero like git
-          (= :input-exhausted cause)
-          (do (print-help path)
-              (*exit-fn* {:exit 1 :cause :missing-subcommand :dispatch path :data data}))
+      ;; genuine flag error (restrict / require / validate / coerce): terse.
+      ;; The lib message already names the flag the user typed.
+      :else
+      (str/join "\n" [(str "Error: " msg) "" (usage path) "" hint]))))
 
-          ;; genuine flag error (restrict / require / validate / coerce): terse.
-          ;; The lib message already names the flag the user typed; `:cause`
-          ;; passes through.
-          :else
-          (do (println (str "Error: " msg "\n"))
-              (println (usage path))
-              (println)
-              (println (hint path))
-              (*exit-fn* {:exit 1 :cause cause :msg msg :dispatch path :data data})))))))
+(defn- print-command-error
+  "Print the terse [[format-command-error]] message for a dispatch error. Only
+  prints - does not exit (the default `:error-fn` prints, then calls
+  [[*exit-fn*]] itself)."
+  [data]
+  (println (format-command-error data)))
+
+(defn- thread-dispatch-context
+  "Add the dispatch-level `:prog` and `:inherit` (when set) to error/help `data`,
+  so an `:error-fn` / `:help-fn` can render without being handed them."
+  [data {:keys [prog inherit]}]
+  (cond-> data
+    prog    (assoc :prog prog)
+    inherit (assoc :inherit inherit)))
 
 (defn- dispatch-tree'
   ([tree args]
@@ -1051,6 +1066,8 @@
      (let [kwm cmd-info
            ;; capture before the parse-args destructure below shadows `opts`
            inherit-opt (:inherit opts)
+           prog (:prog opts)
+           help? (::help opts)
            should-parse-args? (or (has-parse-opts? kwm)
                                   (seq inherited)
                                   (is-option? (first args)))
@@ -1059,13 +1076,16 @@
            ;; too (e.g. `prog group --opt val sub` and `prog group sub --opt val`)
            parse-opts (cond-> parse-opts
                         (seq inherited) (update :spec #(merge inherited (->spec-map %))))
-           ;; thread the current dispatch path into flag-level errors
-           ;; (restrict/require/validate/coerce) so an :error-fn can render
-           ;; help for the right subcommand
+           ;; thread dispatch context into flag-level errors
+           ;; (restrict/require/validate/coerce) so an :error-fn can render help:
+           ;; the current path, the program name, dispatch-level :inherit, and the
+           ;; command tree
            user-error-fn (:error-fn parse-opts)
            parse-opts (assoc parse-opts :error-fn
                              (fn [data]
-                               (let [data (assoc data :dispatch cmds)]
+                               (let [data (thread-dispatch-context
+                                           (assoc data :dispatch cmds :tree tree)
+                                           {:prog prog :inherit inherit-opt})]
                                  (if user-error-fn
                                    (user-error-fn data)
                                    (throw (ex-info (:msg data) data))))))
@@ -1082,24 +1102,29 @@
            all-opts (-> (merge all-opts opts)
                         (update ::opts-by-cmds (fnil conj []) {:cmds cmds
                                                                :opts opts}))]
-       (if-let [subcmd-info (get (:cmd cmd-info) arg)]
-         (recur (conj cmds arg) all-opts rest subcmd-info
-                (merge inherited (inherited-entries (:spec kwm) inherit-opt)))
-         (if (:fn cmd-info)
-           {:cmd-info cmd-info
-            :dispatch cmds
-            :opts (dissoc all-opts ::opts-by-cmds)
-            :args args}
-           (if arg
-             {:error :no-match
-              :wrong-input arg
-              :available-commands (keys (:cmd cmd-info))
+       (if (and help? (or (:help opts) (:h opts)))
+         ;; --help / -h seen at this level: render help for the current path
+         {:error :help
+          :dispatch cmds
+          :opts (dissoc all-opts ::opts-by-cmds)}
+         (if-let [subcmd-info (get (:cmd cmd-info) arg)]
+           (recur (conj cmds arg) all-opts rest subcmd-info
+                  (merge inherited (inherited-entries (:spec kwm) inherit-opt)))
+           (if (:fn cmd-info)
+             {:cmd-info cmd-info
               :dispatch cmds
-              :opts (dissoc all-opts ::opts-by-cmds)}
-             {:error :input-exhausted
-              :available-commands (keys (:cmd cmd-info))
-              :dispatch cmds
-              :opts (dissoc all-opts ::opts-by-cmds)})))))))
+              :opts (dissoc all-opts ::opts-by-cmds)
+              :args args}
+             (if arg
+               {:error :no-match
+                :wrong-input arg
+                :available-commands (keys (:cmd cmd-info))
+                :dispatch cmds
+                :opts (dissoc all-opts ::opts-by-cmds)}
+               {:error :input-exhausted
+                :available-commands (keys (:cmd cmd-info))
+                :dispatch cmds
+                :opts (dissoc all-opts ::opts-by-cmds)}))))))))
 
 (defn- dispatch-tree
   ([tree args]
@@ -1111,13 +1136,52 @@
                        (fn [{:keys [msg] :as data}]
                          (throw (ex-info msg data))))]
      (case error
+       ;; --help/-h: success - print help via the :help-fn and return (no exit)
+       :help
+       ((::help-fn opts) (thread-dispatch-context
+                          (assoc (select-keys res [:dispatch]) :tree tree)
+                          opts))
+       ;; real errors: terse message via the :error-fn, which exits non-zero
        (:no-match :input-exhausted)
-       (error-fn (merge
-                  {:type :org.babashka/cli
-                   :cause error
-                   :all-commands available-commands}
-                  (select-keys res [:wrong-input :opts :dispatch])))
+       (error-fn (thread-dispatch-context
+                  (merge {:type :org.babashka/cli
+                          :cause error
+                          :all-commands available-commands
+                          :tree tree}
+                         (select-keys res [:wrong-input :opts :dispatch]))
+                  opts))
        nil ((:fn cmd-info) (dissoc res :cmd-info))))))
+
+(defn- node-with-help
+  "Give one node a `--help`/`-h` option: add `:help` to its `:spec` (so it parses
+  and triggers help), and ensure a display `:order` that doesn't depend on
+  (unguaranteed) map order.
+
+  An explicit node `:order` is left untouched - you choose the order, which keys
+  to list, and whether to list `--help` at all (leave `:help` out to hide it from
+  the options; it still works). When there is no `:order`, one is constructed
+  from the spec as written (vec-of-pairs order, or map keys) and `--help` is
+  appended. The `:h` alias is only added when `:h` is free."
+  [{:keys [spec order] :as node}]
+  (let [as-map (->spec-map spec)
+        h-free? (and (not (contains? as-map :h))
+                     (not (some (fn [[_ v]] (and (map? v) (= :h (:alias v)))) as-map)))
+        default (cond-> {:coerce :boolean :desc "Show this help"}
+                  h-free? (assoc :alias :h))]
+    (assoc node
+           :spec (update as-map :help #(merge default %))
+           :order (if order
+                    (vec order)
+                    (let [c (vec (if (sequential? spec) (map first spec) (keys as-map)))]
+                      (if (some #{:help} c) c (conj c :help)))))))
+
+(defn- inject-help
+  "Add the `--help` option to every node of a dispatch `tree` (used by the
+  `:help` option), so it parses as a real option and shows up in help."
+  [node]
+  (cond-> (node-with-help node)
+    (:cmd node) (update :cmd (fn [m]
+                               (reduce-kv (fn [acc k v] (assoc acc k (inject-help v))) {} m)))))
 
 (defn dispatch
   "Subcommand dispatcher.
@@ -1144,6 +1208,19 @@
 
   Provide an `:error-fn` to deal with non-matches.
 
+  Set `:prog` to the program name shown in help. Provide `:help true` to wire up
+  help without `:restrict`:
+
+  * `--help`/`-h` print help for the command they precede and return (no error,
+    so the process ends with status 0). This goes through a `:help-fn`.
+  * an unknown/missing subcommand or a flag error prints a terse message and
+    exits non-zero (via [[*exit-fn*]]). This goes through the `:error-fn`.
+
+  Both default handlers can be overridden: pass your own `:help-fn` (called with
+  `{:tree :dispatch :prog :inherit}`) and/or `:error-fn`. `dispatch` threads
+  `:prog`, `:inherit` and the command tree into the data either receives, so
+  they can render without being handed them separately.
+
   Each entry in the table may have additional [[parse-args]] options.
 
   For more information and examples, see [README.md](README.md#subcommands)."
@@ -1151,4 +1228,16 @@
    (dispatch table args {}))
   ([table args opts]
    (let [tree (-> table table->tree)]
-     (dispatch-tree tree args opts))))
+     (if (:help opts)
+       (dispatch-tree (inject-help tree) args
+                      (assoc opts ::help true
+                             ;; default :error-fn = print the message, then exit;
+                             ;; :cause is the dispatch cause as-is (:no-match /
+                             ;; :input-exhausted / a flag cause)
+                             :error-fn (or (:error-fn opts)
+                                           (fn [{:keys [cause dispatch] :as data}]
+                                             (print-command-error data)
+                                             (*exit-fn* {:exit 1 :cause cause
+                                                         :dispatch dispatch :data data})))
+                             ::help-fn (or (:help-fn opts) print-command-help)))
+       (dispatch-tree tree args opts)))))

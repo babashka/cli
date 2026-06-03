@@ -694,95 +694,100 @@ Use `true` to inherit all options, or a set of keys to inherit only those:
 (cli/dispatch table ["group" "sub" "--registry" "X"] {:inherit #{:registry}})
 ```
 
-### Help for subcommands
+### Help
 
-`format-command-help` renders conventional `--help` text for a command in a dispatch
-table. Pass the table (or a tree from `table->tree`) and a command path. Using
-the `copy`/`delete` example from above, with a global `--verbose` and some docs:
-
-``` clojure
-(def table
-  [{:cmds [] :spec {:verbose {:alias :v :inherit true :desc "Verbose output"}}}
-   {:cmds ["copy"]   :fn copy   :doc "Copy a file"   :spec {:dry-run {:desc "Do a dry run"}}}
-   {:cmds ["delete"] :fn delete :doc "Delete a file" :spec {:recursive {:alias :r :desc "Delete recursively"}}}])
-
-(println (cli/format-command-help {:table table :cmds ["copy"] :prog "example"}))
-```
-
-```
-Usage: example copy [options] [<args>]
-
-Copy a file
-
-Options:
-  --dry-run Do a dry run
-
-Inherited options:
-  -v, --verbose Verbose output
-```
-
-It takes a single map: `:table` (the dispatch table, or a tree from
-`table->tree`), `:cmds` (the command path), `:prog`, and optionally `:inherit`.
-It uses each entry's `:doc` for the description and `Commands:` list, its `:spec`
-for `Options:`, and shows ancestor options under `Inherited options:`. Per-option
-`:inherit true` is detected automatically; only pass `:inherit` here if you also
-pass a dispatch-level `:inherit` to `dispatch`.
-
-Omit `:cmds` to render the program's top-level help:
+Pass `:help true` to `dispatch` (and `:prog`, the program name) to add help to a
+CLI - no `:restrict` needed:
 
 ``` clojure
-(println (cli/format-command-help {:table table :prog "example"}))
+(cli/dispatch table args {:prog "example" :help true})
 ```
 
+- `--help`/`-h` print help for the command in front of them and return (the
+  process ends with status 0). So `example deps outdated --help` shows help for
+  `deps outdated`.
+- A mistyped or missing subcommand prints a terse message and exits with 1.
+- `-h, --help` is listed in each command's options, appended last. To control
+  the order, give the command entry an `:order` (a vector of option keys) - it
+  is used verbatim, so you decide the order, which options to list, and whether
+  to list `--help` at all (omit `:help` to hide it; it still works):
+
+  ``` clojure
+  {:cmds [...] :spec {...} :order [:help :port :verbose]}   ; --help first
+  ```
+
+  Without `:order`, the order is taken from the spec (a vec-of-pairs spec keeps
+  its order; a map follows its key order, which Clojure does not guarantee), and
+  `--help` is appended.
+- `--help`/`-h` are reserved while `:help` is on (a command may still define its
+  own `:help`).
+
+It works for a single-command CLI too (one entry with `:cmds []`, no
+subcommands) - `example --help` then shows Usage + Options:
+
+``` clojure
+(cli/dispatch [{:cmds [] :fn run :spec {:port {:coerce :long :desc "Port"}}}]
+              args {:prog "example" :help true})
 ```
-Usage: example [options] <command>
 
-Commands:
-  copy   Copy a file
-  delete Delete a file
+`--help`/`-h` are a success path: they print help and return (no exit call), so
+your `-main` ends and the process exits 0 - like a normal command. Errors go
+through the dynamic `*exit-fn*`, which exits non-zero:
 
-Options:
-  -v, --verbose Verbose output
+| invocation | outcome |
+|---|---|
+| `--help` / `-h` | print help, return (status 0) - no `*exit-fn*` |
+| group, no subcommand | terse message, `*exit-fn*` exit 1, `:cause :input-exhausted` |
+| unknown subcommand | terse message, `*exit-fn*` exit 1, `:cause :no-match` |
+| flag error | terse message, `*exit-fn*` exit 1, `:cause` = the babashka.cli cause |
 
-Run "example <command> --help" for more information on a command.
+A bare group is a usage error (exit 1), like `git bisect` with no subcommand;
+its full help is one keystroke away via `--help`. `*exit-fn*` is called only on
+errors, with `{:exit :cause :dispatch :data}` (`:cause` is the dispatch cause:
+`:no-match`, `:input-exhausted`, or a flag cause; `:data` holds the raw
+`dispatch` error data). The default exits the process (`System/exit` on JVM,
+`js/process.exit` on Node); rebind it to not exit (tests, REPL) or to remap
+codes by `:cause`:
+
+``` clojure
+;; treat a bare group as success (exit 0) instead of a usage error
+(binding [cli/*exit-fn* (fn [{:keys [exit cause]}]
+                          (System/exit (if (= :input-exhausted cause) 0 exit)))]
+  (cli/dispatch table args {:prog "example" :help true}))
 ```
 
-### Help on error
-
-`help-error-fn` turns `format-command-help` into an `:error-fn` for `dispatch`.
-It needs `:restrict true` so `--help`/`-h` arrive as errors it can intercept,
-and takes the same config map as `format-command-help` (`:table`, `:prog`,
-optional `:inherit`):
+Both handlers are overridable: pass your own `:help-fn` (called with
+`{:tree :dispatch :prog :inherit}`) and/or `:error-fn` to `dispatch`. To render
+the standard help and add to it, call `format-command-help` - the same renderer
+the default uses:
 
 ``` clojure
 (cli/dispatch table args
-  {:restrict true :error-fn (cli/help-error-fn {:table table :prog "example"})})
+  {:prog "example" :help true
+   :help-fn (fn [{:keys [tree dispatch prog inherit]}]
+              (println "my-tool v1.2.3")
+              (println (cli/format-command-help
+                        {:table tree :cmds dispatch :prog prog :inherit inherit})))})
 ```
 
-It exits via the dynamic `*exit-fn*`, called with `:exit`, `:cause`,
-`:dispatch`, and (on errors) `:msg` / `:data`:
+`format-command-help` is also usable on its own (without `dispatch`): pass
+`:table` (a `dispatch` table, or a tree from `table->tree`), `:cmds` (the command
+path, default `[]`), `:prog`, and optional `:inherit`. It returns the help
+string.
 
-| invocation | `:exit` | `:cause` |
-|---|---|---|
-| `--help` / `-h` | 0 | `:help-requested` |
-| group, no subcommand | 1 | `:missing-subcommand` |
-| unknown subcommand | 1 | `:unknown-subcommand` |
-| flag error | 1 | `:restrict` / `:require` / `:validate` / `:coerce` |
-
-Only `--help`/`-h` exits with 0; a bare group is a usage error (exit with 1),
-like `git bisect` with no subcommand. `:data` holds the raw `dispatch` error data,
-including the parser's own `:cause` (`:no-match` / `:input-exhausted`).
-
-The default `*exit-fn*` exits the process (`System/exit` on JVM,
-`js/process.exit` on Node). Rebind it to avoid exiting (tests, REPL), or to use
-your own exit codes by switching on `:cause`:
+A custom `:error-fn` receives the dispatch error data
+(`{:cause :dispatch :prog :inherit :tree :msg ...}`) and is responsible for
+exiting (call `*exit-fn*` or exit yourself). To keep the standard terse message
+and add to it, call `format-command-error` (the same renderer the default uses)
+and exit afterwards:
 
 ``` clojure
-;; treat a bare group as success (print help, exit with 0) instead of a usage error
-(binding [cli/*exit-fn* (fn [{:keys [exit cause]}]
-                          (System/exit (if (= :missing-subcommand cause) 0 exit)))]
-  (cli/dispatch table args
-    {:restrict true :error-fn (cli/help-error-fn {:table table :prog "example"})}))
+(cli/dispatch table args
+  {:prog "example" :help true
+   :error-fn (fn [data]
+               (println (cli/format-command-error data))
+               (println "See https://example.com/docs")
+               (cli/*exit-fn* {:exit 1 :cause (:cause data)}))})
 ```
 
 ## Babashka tasks

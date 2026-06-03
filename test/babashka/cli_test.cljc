@@ -429,10 +429,11 @@
                     table
                     ["foo" "bar" "--version" "2000" "some-arg"])))))
       (testing "dispatch errors return :dispatch key"
-        (is (= {:type :org.babashka/cli, :dispatch ["foo" "bar"], :all-commands '("baz"), :cause :input-exhausted, :opts {}}
-               (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar"] {:error-fn identity})))
-        (is (= {:type :org.babashka/cli, :dispatch ["foo" "bar"], :wrong-input "wrong", :all-commands '("baz"), :cause :no-match, :opts {}}
-               (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar" "wrong"] {:error-fn identity})))))))
+        ;; submap?: dispatch also enriches error data with :tree (and :prog/:inherit when set)
+        (is (submap? {:type :org.babashka/cli, :dispatch ["foo" "bar"], :all-commands '("baz"), :cause :input-exhausted, :opts {}}
+                     (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar"] {:error-fn identity})))
+        (is (submap? {:type :org.babashka/cli, :dispatch ["foo" "bar"], :wrong-input "wrong", :all-commands '("baz"), :cause :no-match, :opts {}}
+                     (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar" "wrong"] {:error-fn identity})))))))
 
 (deftest table->tree-test
   (testing "internal represenation"
@@ -531,8 +532,6 @@
              ;; Include ref column, although not present in spec.
              :columns [:default :ref :desc]})))))
 
-
-
 (deftest format-command-help-test
   (let [table [{:cmds [] :spec {:verbose {:alias :v :inherit true :desc "Verbose output"}}}
                {:cmds ["copy"]   :fn identity :doc "Copy a file"
@@ -559,78 +558,178 @@
                {:cmds ["sub"] :fn identity :spec {:x {:desc "local x"}}}]]
         (is (= (str "Usage: p sub [options] [<args>]\n\n"
                     "Options:\n  --x local x")
-               (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))))
+               (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))
+    (testing "an entry :order sets the Options order; a vec-of-pairs spec keeps its order"
+      (let [t [{:cmds [] :spec {:a {:desc "A"} :b {:desc "B"} :c {:desc "C"}} :order [:c :a :b]}]]
+        (is (= (str "Usage: p [options]\n\n"
+                    "Options:\n  --c C\n  --a A\n  --b B")
+               (cli/format-command-help {:table t :prog "p"}))))
+      (let [t [{:cmds [] :spec [[:c {:desc "C"}] [:a {:desc "A"}] [:b {:desc "B"}]]}]]
+        (is (= (str "Usage: p [options]\n\n"
+                    "Options:\n  --c C\n  --a A\n  --b B")
+               (cli/format-command-help {:table t :prog "p"})))))
+    (testing "a custom :help-fn can call format-command-help and add to it"
+      (let [t [{:cmds [] :fn identity :doc "t" :spec {:a {:desc "A"}}}]
+            out (with-out-str
+                  (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
+                    (try (cli/dispatch t ["--help"]
+                                       {:prog "p" :help true
+                                        :help-fn (fn [{:keys [tree dispatch prog inherit]}]
+                                                   (println "BANNER")
+                                                   (println (cli/format-command-help
+                                                             {:table tree :cmds dispatch :prog prog :inherit inherit})))})
+                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                           (when-not (::exit (ex-data e)) (throw e))))))]
+        (is (str/includes? out "BANNER"))
+        (is (str/includes? out "Usage: p"))))))
 
-(deftest help-error-fn-test
-  (let [table [{:cmds [] :doc "tool"
-                :spec {:verbose {:alias :v :inherit true :desc "Verbose output"}}}
+(deftest format-command-error-test
+  (let [table [{:cmds [] :doc "tool"}
                {:cmds ["dev"] :fn identity :doc "Start dev."
-                :spec {:sync {:alias :s :coerce :boolean :desc "Sync first"}}}
+                :spec {:port {:coerce :long :require true :desc "Port"}}}
+               {:cmds ["deps"] :doc "Dep tools"}
+               {:cmds ["deps" "outdated"] :fn identity :doc "Show outdated"}]]
+    (testing ":no-match renders the bad input, the commands, and a hint"
+      (let [s (cli/format-command-error {:cause :no-match :wrong-input "nope"
+                                         :dispatch [] :prog "tool"
+                                         :tree (cli/table->tree table)})]
+        (is (= (str "Unknown command: nope\n\n"
+                    "Commands:\n  dev  Start dev.\n  deps Dep tools\n\n"
+                    "Run \"tool --help\" for more information.")
+               s))))
+    (testing ":input-exhausted (bare group) renders the group's subcommands"
+      (let [s (cli/format-command-error {:cause :input-exhausted
+                                         :dispatch ["deps"] :prog "tool"
+                                         :tree (cli/table->tree table)})]
+        (is (str/includes? s "No subcommand given."))
+        (is (str/includes? s "outdated"))
+        (is (str/includes? s "Run \"tool deps --help\" for more information."))))
+    (testing "a flag error renders Error + usage + hint"
+      (let [s (cli/format-command-error {:cause :require :msg "Missing option: --port"
+                                         :dispatch ["dev"] :prog "tool"
+                                         :tree (cli/table->tree table)})]
+        (is (str/includes? s "Error: Missing option: --port"))
+        (is (str/includes? s "Usage: tool dev"))
+        (is (str/includes? s "Run \"tool dev --help\" for more information."))))
+    (testing "a custom :error-fn can call format-command-error and add to it"
+      (let [exit (atom nil)
+            out (with-out-str
+                  (binding [cli/*exit-fn* (fn [m] (reset! exit m))]
+                    (cli/dispatch table ["nope"]
+                                  {:prog "tool" :help true
+                                   :error-fn (fn [data]
+                                               (println (cli/format-command-error data))
+                                               (println "See https://example.com/docs")
+                                               (cli/*exit-fn* {:exit 1 :cause (:cause data)}))})))]
+        (is (str/includes? out "Unknown command: nope"))
+        (is (str/includes? out "See https://example.com/docs"))
+        (is (= {:exit 1 :cause :no-match} @exit))))))
+
+(deftest help-option-test
+  ;; `:help` on dispatch: help without :restrict, native --help interception
+  (let [table [{:cmds [] :doc "tool"
+                :spec {:verbose {:alias :v :inherit true :desc "Verbose"}}}
+               {:cmds ["dev"] :fn identity :doc "Start dev."
+                :spec {:sync {:coerce :boolean :desc "Sync"}}}
                {:cmds ["deps"] :doc "Dep tools"}
                {:cmds ["deps" "outdated"] :fn identity :doc "Show outdated"}]
         run (fn [args]
               (let [exit (atom nil)
+                    ran (atom nil)
+                    table (mapv (fn [e] (cond-> e (:fn e) (assoc :fn (fn [m] (reset! ran m))))) table)
                     out (with-out-str
                           (binding [cli/*exit-fn*
-                                    (fn [m]
-                                      (reset! exit m)
-                                      (throw (ex-info "exit" {::exit true})))]
+                                    (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))]
                             (try
-                              (cli/dispatch table args
-                                            {:restrict true
-                                             :error-fn (cli/help-error-fn {:table table :prog "tool"})})
+                              ;; NOTE: no :restrict
+                              (cli/dispatch table args {:prog "tool" :help true})
                               (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                                 (when-not (::exit (ex-data e)) (throw e))))))]
-                {:out out :exit @exit}))]
-    (testing "--help: full help, exit 0, :cause :help-requested"
+                {:out out :exit @exit :ran @ran}))]
+    (testing "--help at root, no :restrict needed (success: prints, no *exit-fn*)"
       (let [{:keys [out exit]} (run ["--help"])]
         (is (str/includes? out "Usage: tool [options] <command>"))
         (is (str/includes? out "Commands:"))
-        (is (submap? {:exit 0 :cause :help-requested} exit))))
-    (testing "-h at a leaf prints that command's help"
+        (is (nil? exit))))                  ; help is not an error - *exit-fn* not called
+    (testing "--help after a subcommand renders that command's help"
+      (let [{:keys [out exit]} (run ["deps" "outdated" "--help"])]
+        (is (str/includes? out "Usage: tool deps outdated"))
+        (is (nil? exit))))
+    (testing "-h alias works"
       (let [{:keys [out exit]} (run ["dev" "-h"])]
         (is (str/includes? out "Usage: tool dev"))
-        (is (str/includes? out "Inherited options:"))
-        (is (submap? {:exit 0 :cause :help-requested :dispatch ["dev"]} exit))))
-    (testing "unknown command: terse message + command list, exit 1"
+        (is (nil? exit))))
+    (testing "a normal run is not intercepted"
+      (let [{:keys [ran exit]} (run ["dev" "--sync"])]
+        (is (nil? exit))
+        (is (= {:sync true} (:opts ran)))))
+    (testing "bad subcommand renders help via the installed error-fn, exit 1"
       (let [{:keys [out exit]} (run ["nope"])]
         (is (str/includes? out "Unknown command: nope"))
-        (is (str/includes? out "Commands:"))
-        ;; :cause at top level; raw parser cause in :data
-        (is (submap? {:exit 1 :cause :unknown-subcommand :dispatch []
-                      :data {:cause :no-match}} exit))))
-    (testing "group with no subcommand: shows help but is a usage error, exit 1"
+        (is (submap? {:exit 1 :cause :no-match} exit))))
+    (testing "bare group is a usage error, exit 1"
       (let [{:keys [out exit]} (run ["deps"])]
-        (is (str/includes? out "Usage: tool deps [options] <command>"))
-        (is (str/includes? out "outdated"))
-        (is (submap? {:exit 1 :cause :missing-subcommand :dispatch ["deps"]
-                      :data {:cause :input-exhausted}} exit))))
-    (testing "flag error: terse, typed flag, exit 1, babashka.cli cause passes through"
-      (let [{:keys [out exit]} (run ["dev" "--bogus"])]
-        (is (str/includes? out "Error: Unknown option: --bogus"))
-        (is (str/includes? out "Usage: tool dev"))
-        (is (submap? {:exit 1 :cause :restrict :dispatch ["dev"]
-                      :data {:cause :restrict}} exit))))
-    (testing "missing required option: message built from the canonical flag"
-      (let [t [{:cmds ["x"] :fn identity :spec {:foo {:require true}}}]
+        (is (str/includes? out "Commands:"))
+        (is (submap? {:exit 1 :cause :input-exhausted :dispatch ["deps"]} exit))))
+    (testing ":help true works (no :prog; usage line omits it)"
+      (let [exit (atom nil)
             out (with-out-str
-                  (binding [cli/*exit-fn* (fn [_] (throw (ex-info "exit" {::exit true})))]
-                    (try (cli/dispatch t ["x"]
-                                       {:restrict true
-                                        :error-fn (cli/help-error-fn {:table t :prog "tool"})})
+                  (binding [cli/*exit-fn* (fn [m] (reset! exit m) (throw (ex-info "x" {::exit true})))]
+                    (try (cli/dispatch [{:cmds [] :doc "t"} {:cmds ["go"] :fn identity :doc "Go"}]
+                                       ["--help"] {:help true})
                          (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
                            (when-not (::exit (ex-data e)) (throw e))))))]
-        ;; required option was never typed -> canonical --foo (default in messages)
-        (is (str/includes? out "Required option: --foo"))))
+        (is (str/includes? out "Commands:"))
+        (is (nil? @exit))))
     (testing "*exit-fn* codes can be remapped by :cause (e.g. group -> 0)"
       (let [calls (atom [])]
         (binding [cli/*exit-fn* (fn [m] (swap! calls conj m))]
           (with-out-str
-            (cli/dispatch table ["deps"]
-                          {:restrict true
-                           :error-fn (cli/help-error-fn {:table table :prog "tool"})})))
-        (is (= :missing-subcommand (:cause (first @calls))))
-        (is (= 1 (:exit (first @calls))))))))
+            (cli/dispatch table ["deps"] {:prog "tool" :help true})))
+        (is (= :input-exhausted (:cause (first @calls))))
+        (is (= 1 (:exit (first @calls))))))
+    (testing "--help shows in the Options output"
+      (let [{:keys [out]} (run ["dev" "--help"])]
+        (is (str/includes? out "-h, --help"))))
+    (testing "user controls --help position with an ordered (vec-of-pairs) spec"
+      (let [t [{:cmds [] :fn identity :doc "t"
+                :spec [[:help {}] [:verbose {:coerce :boolean :desc "Verbose"}]]}]
+            out (with-out-str
+                  (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
+                    (try (cli/dispatch t ["--help"] {:prog "tool" :help true})
+                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                           (when-not (::exit (ex-data e)) (throw e))))))
+            lines (str/split-lines out)
+            idx (fn [s] (first (keep-indexed (fn [i l] (when (str/includes? l s) i)) lines)))]
+        ;; :help {} placeholder -> --help rendered with defaults, before --verbose
+        (is (str/includes? out "-h, --help"))
+        (is (< (idx "--help") (idx "--verbose")))))
+    (testing "an explicit :order is left untouched: omit :help to hide it (still works)"
+      (let [t [{:cmds [] :fn identity :doc "t"
+                :spec {:a {:desc "A"} :b {:desc "B"}} :order [:b :a]}]
+            exit (atom nil)
+            out (with-out-str
+                  (binding [cli/*exit-fn* (fn [m] (reset! exit m) (throw (ex-info "x" {::exit true})))]
+                    (try (cli/dispatch t ["--help"] {:prog "tool" :help true})
+                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                           (when-not (::exit (ex-data e)) (throw e))))))]
+        ;; order honored verbatim, --help NOT listed (not in :order)...
+        (is (str/includes? out "--b"))
+        (is (str/includes? out "--a"))
+        (is (not (str/includes? out "--help")))
+        ;; ...but --help still triggers help (prints, returns; no *exit-fn*)
+        (is (nil? @exit))))
+    (testing "a subcommand that redefines an inherited option shows it under Options, not Inherited"
+      (let [t [{:cmds [] :spec {:x {:inherit true :desc "global x"}}}
+               {:cmds ["sub"] :fn identity :spec {:x {:desc "local x"}}}]
+            out (with-out-str
+                  (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
+                    (try (cli/dispatch t ["sub" "--help"] {:prog "p" :help true})
+                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                           (when-not (::exit (ex-data e)) (throw e))))))]
+        ;; child wins: --x shows the local desc; the ancestor's version is deduped out
+        (is (re-find #"--x\s+local x" out))
+        (is (not (str/includes? out "global x")))))))
 
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]
