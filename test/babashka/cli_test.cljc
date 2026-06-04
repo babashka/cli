@@ -1005,6 +1005,13 @@
     (let [table [{:cmds ["a"]     :spec {:x {:coerce :int :inherit true}}}
                  {:cmds ["a" "b"] :fn identity :spec {:x {:coerce :keyword}}}]]
       (is (= {:x :hi} (:opts (cli/dispatch table ["a" "b" "--x" "hi"] {:restrict true}))))))
+  (testing "an inherited option beats a colliding dispatch-level (global) :spec key"
+    (let [table [{:cmds ["ver"]       :spec {:tag {:coerce :boolean :inherit true}}}
+                 {:cmds ["ver" "set"] :fn identity}]]
+      ;; global :spec also defines :tag (as :string); inherited :boolean must win
+      (is (= {:tag false}
+             (:opts (cli/dispatch table ["ver" "set" "--tag" "false"]
+                                  {:spec {:tag {:coerce :string}}}))))))
   (testing "options without :inherit do NOT propagate (rejected after subcommand)"
     (let [table [{:cmds ["deps"]            :spec {:registry {}}}
                  {:cmds ["deps" "outdated"] :fn identity :spec {:format {}}}]]
