@@ -520,11 +520,8 @@ Each table entry accepts any [parse-args](#options) option (`:spec`,
 `:args->opts`, `:alias`, `:restrict`, ...). The order of entries in the table
 doesn't matter (since 0.8.54).
 
-### Shared and inherited options
-
-Babashka CLI supports parsing shared options in between and before the subcommands.
-
-E.g.:
+Options can be supplied at each level - before and between the subcommands. The
+root level (`:cmds []`) holds options available to every command. For example:
 
 ``` clojure
 (def global-spec {:foo {:coerce :keyword}})
