@@ -1222,18 +1222,6 @@
     (:cmd node) (update :cmd (fn [m]
                                (reduce-kv (fn [acc k v] (assoc acc k (inject-help v))) {} m)))))
 
-(defn command
-  "Build a `dispatch` table entry from a command map. Attaches `:cmds` (the
-  subcommand path, default `[]`); pass `cmds` for a subcommand. Keeps `:fn`,
-  `:spec` and any other [[parse-args]] keys. Saves hand-writing `:cmds`,
-  especially for a single-command CLI:
-
-  ```clojure
-  (dispatch [(command {:fn run :spec spec})] {:prog \"tool\" :help true} args)
-  ```"
-  ([m] (command [] m))
-  ([cmds m] (assoc m :cmds cmds)))
-
 (defn dispatch
   "Subcommand dispatcher.
 
@@ -1258,10 +1246,10 @@
   Use an empty `:cmds` vector to always match or to provide global options.
 
   For a single-command CLI (no subcommands), use a one-entry table whose `:cmds`
-  is `[]`. The [[command]] helper attaches `:cmds` (default `[]`) for you:
+  is `[]`:
 
   ```clojure
-  (dispatch [(command {:fn f :spec spec})] args {:prog \"tool\" :help true})
+  (dispatch [{:cmds [] :fn f :spec spec}] args {:prog \"tool\" :help true})
   ```
 
   Provide an `:error-fn` to deal with non-matches.

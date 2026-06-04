@@ -104,7 +104,7 @@ Here is an example babashka script to get you started!
   (println "Here are your cli args!:" opts))
 
 (defn -main [& args]
-  (cli/dispatch [(cli/command {:fn run :spec spec})] args {:prog "try-me" :help true}))
+  (cli/dispatch [{:cmds [] :fn run :spec spec}] args {:prog "try-me" :help true}))
 
 (-main *command-line-args*)
 ```
@@ -112,7 +112,10 @@ Here is an example babashka script to get you started!
 In the above example, `:help true` wires up automatic `--help`/`-h` support and terse error messages for you. See [Subcommands > Help](#help-1) for
 customizing it.
 
-We use the `cli/command` function to turn an option spec into a subcommand structure. While the above CLI doesn't have any subcommands, you could view it as a special case of a multi-subcommand CLI with 0 levels.
+The CLI uses a table (the first argument to `dispatch`): a vector of command
+entries. Each entry's `:cmds` is its subcommand path. This CLI has no
+subcommands, so its single entry uses `:cmds []`: a special case of a
+multi-subcommand CLI with 0 levels.
 
 And this is how you run it:
 
@@ -136,8 +139,6 @@ Usage: try-me [options]
 
 Run "try-me --help" for more information.
 ```
-
-
 
 ## Options
 
@@ -559,9 +560,8 @@ $ example copy <file> --dry-run
 $ example delete <file> --recursive --depth 3
 ```
 
-Building on the [simple example](#simple-example): there, `cli/command` built a
-single command (`:cmds []`). Give each `command` a `:cmds` path and you have
-subcommands:
+Building on the [simple example](#simple-example): there, the single entry used
+`:cmds []`. Give each entry a non-empty `:cmds` path and you have subcommands:
 
 ``` clojure
 (ns example
@@ -574,11 +574,11 @@ subcommands:
   (prn :delete opts))
 
 (def table
-  [(cli/command ["copy"]   {:fn copy   :doc "Copy a file" :args->opts [:file]
-                            :spec {:dry-run {:coerce :boolean :desc "Do a dry run"}}})
-   (cli/command ["delete"] {:fn delete :doc "Delete a file" :args->opts [:file]
-                            :spec {:recursive {:coerce :boolean :desc "Recurse"}
-                                   :depth     {:coerce :long    :desc "Max depth"}}})])
+  [{:cmds ["copy"]   :fn copy   :doc "Copy a file" :args->opts [:file]
+    :spec {:dry-run {:coerce :boolean :desc "Do a dry run"}}}
+   {:cmds ["delete"] :fn delete :doc "Delete a file" :args->opts [:file]
+    :spec {:recursive {:coerce :boolean :desc "Recurse"}
+           :depth     {:coerce :long    :desc "Max depth"}}}])
 
 (defn -main [& args]
   (cli/dispatch table args {:prog "example" :help true}))
@@ -631,7 +631,7 @@ Run "example --help" for more information.
 
 See [neil](https://github.com/babashka/neil) for a real-world CLI using subcommands.
 
-Each `command` entry accepts any [parse-args](#options) option (`:spec`,
+Each table entry accepts any [parse-args](#options) option (`:spec`,
 `:args->opts`, `:alias`, `:restrict`, ...). The order of entries in the table
 doesn't matter (since 0.8.54).
 
@@ -749,12 +749,11 @@ CLI - no `:restrict` needed:
 - `--help`/`-h` are reserved while `:help` is on (a command may still define its
   own `:help`).
 
-It works for a single-command CLI too: a one-entry table whose `:cmds` is `[]`.
-The `command` helper attaches `:cmds` (default `[]`) so you don't hand-write it -
+It works for a single-command CLI too: a one-entry table whose `:cmds` is `[]` -
 `example --help` then shows Usage + Options:
 
 ``` clojure
-(cli/dispatch [(cli/command {:fn run :spec {:port {:coerce :long :desc "Port"}}})]
+(cli/dispatch [{:cmds [] :fn run :spec {:port {:coerce :long :desc "Port"}}}]
               args
               {:prog "example" :help true})
 ```

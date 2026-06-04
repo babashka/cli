@@ -782,28 +782,6 @@
         (is (nil? exit))
         (is (= {:opt 2} (:opts ran)))))))
 
-(deftest command-helper-test
-  (testing "command attaches :cmds (default [], or a given path)"
-    (is (= {:cmds [] :fn identity} (cli/command {:fn identity})))
-    (is (= {:cmds ["a" "b"] :fn identity} (cli/command ["a" "b"] {:fn identity}))))
-  (testing "a single-command CLI: (command ...) inside the table"
-    (let [ran (atom nil)]
-      (cli/dispatch [(cli/command {:fn (fn [m] (reset! ran m)) :spec {:port {:coerce :long}}})]
-                    ["--port" "1339"])
-      (is (= {:port 1339} (:opts @ran)))))
-  (testing "with :help, --help prints help and the fn does not run"
-    (let [ran (atom nil)
-          out (with-out-str
-                (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
-                  (try (cli/dispatch [(cli/command {:fn (fn [m] (reset! ran m))
-                                                    :spec {:port {:coerce :long :desc "Port"}}})]
-                                     ["--help"] {:prog "tool" :help true})
-                       (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
-                         (when-not (::exit (ex-data e)) (throw e))))))]
-      (is (str/includes? out "Usage: tool [options]"))
-      (is (str/includes? out "--port"))
-      (is (nil? @ran)))))
-
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]
                                 (let [rows (str/split-lines table)]
