@@ -666,7 +666,9 @@
                     table (mapv (fn [e] (cond-> e (:fn e) (assoc :fn (fn [m] (reset! ran m))))) table)
                     out (with-out-str
                           (binding [cli/*exit-fn*
-                                    (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))]
+                                    (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))
+                                    ;; capture stderr (errors print there) into the same string
+                                    #?@(:clj [*err* *out*] :cljs [*print-err-fn* *print-fn*])]
                             (try
                               ;; NOTE: no :restrict
                               (cli/dispatch table args {:prog "tool" :help true})
@@ -795,6 +797,25 @@
       (let [{:keys [exit ran]} (run ["foo" "--opt" "2" "bar"])]
         (is (nil? exit))
         (is (= {:opt 2} (:opts ran)))))))
+
+#?(:clj
+   (deftest help-error-streams-test
+     ;; --help is requested output -> stdout; errors -> stderr
+     (let [t [{:cmds [] :doc "t"} {:cmds ["go"] :fn identity :doc "Go"}]
+           run (fn [args]
+                 (let [err (java.io.StringWriter.)
+                       out (with-out-str
+                             (binding [*err* err cli/*exit-fn* (fn [_])]
+                               (cli/dispatch t args {:prog "tool" :help true})))]
+                   {:out out :err (str err)}))]
+       (testing "--help prints to stdout, stderr stays empty"
+         (let [{:keys [out err]} (run ["--help"])]
+           (is (str/includes? out "Usage: tool"))
+           (is (= "" err))))
+       (testing "unknown command prints to stderr, stdout stays empty"
+         (let [{:keys [out err]} (run ["nope"])]
+           (is (= "" out))
+           (is (str/includes? err "Unknown command: nope")))))))
 
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]

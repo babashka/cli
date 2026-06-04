@@ -1074,11 +1074,14 @@
       (str/join "\n" [(str "Error: " msg) "" (usage path) "" hint]))))
 
 (defn- print-command-error
-  "Print the terse [[format-command-error]] message for a dispatch error. Only
-  prints - does not exit (the default `:error-fn` prints, then calls
-  [[*exit-fn*]] itself)."
+  "Print the terse [[format-command-error]] message for a dispatch error, to
+  stderr (errors and usage-on-error go to stderr; explicit `--help` goes to
+  stdout). Only prints - does not exit (the default `:error-fn` prints, then
+  calls [[*exit-fn*]] itself)."
   [data]
-  (println (format-command-error data)))
+  (let [s (format-command-error data)]
+    #?(:clj  (binding [*out* *err*] (println s))
+       :cljs (binding [*print-fn* *print-err-fn*] (println s)))))
 
 (defn- thread-dispatch-context
   "Add the dispatch-level `:prog` and `:inherit` (when set) to error/help `data`,
