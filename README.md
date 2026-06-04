@@ -235,25 +235,6 @@ Arguments that start with `--no-` arg parsed as negative flags:
 This works for any option. For a boolean option where the negation is meaningful,
 set `:negatable true` in its spec to advertise it in help as `--[no-]colors`.
 
-### Custom collection handling
-
-Usually the above will suffice, but for custom transformation to a collection, you can use `:collect`.
-Here's an example of parsing out `,` separated multi-arg-values:
-
-``` clojure
-(cli/parse-opts ["--foo" "a,b" "--foo=c,d,e" "--foo" "f"]
-                {:spec {:foo {:collect (fn [coll arg-value]
-                                         (into (or coll [])
-                                               (str/split arg-value #",")))}}})
-;; => {:foo ["a" "b" "c" "d" "e" "f"]}
-```
-
-### Auto-coercion
-
-Babashka CLI auto-coerces values that have no explicit coercion
-with [`auto-coerce`](/API.md#auto-coerce):
-it automatically tries to convert booleans, numbers and keywords.
-
 ## Spec
 
 A spec (short for "options spec", not `clojure.spec`) is a map keyed by option
@@ -304,6 +285,25 @@ An explanation of each key:
   (set) or `()` (list) - or a function `(fn [coll arg-value] ...)` for custom
   collection
 - `:negatable`: `true` shows a boolean option as `--[no-]name` in help (the `--no-name` form parses regardless)
+
+### Custom collection handling
+
+Usually the above will suffice, but for custom transformation to a collection, you can use `:collect`.
+Here's an example of parsing out `,` separated multi-arg-values:
+
+``` clojure
+(cli/parse-opts ["--foo" "a,b" "--foo=c,d,e" "--foo" "f"]
+                {:spec {:foo {:collect (fn [coll arg-value]
+                                         (into (or coll [])
+                                               (str/split arg-value #",")))}}})
+;; => {:foo ["a" "b" "c" "d" "e" "f"]}
+```
+
+### Auto-coercion
+
+Babashka CLI auto-coerces values that have no explicit coercion
+with [`auto-coerce`](/API.md#auto-coerce):
+it automatically tries to convert booleans, numbers and keywords.
 
 ## Aliases
 
