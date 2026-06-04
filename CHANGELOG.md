@@ -6,7 +6,7 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
-- `format-opts` now uses the conventional two-column layout: `:ref` is attached to the option (`--foo <ref>`) and `:default` is folded into the description as `(default: ...)`, instead of separate `ref`/`default` columns. Avoids wide gaps when only some options have a ref/default. `opts->table` (for custom tables) is unchanged
+- `format-opts` now uses the conventional two-column `option | description` layout (argparse/clap/click style): the alias, `--option` and `:ref` form one invocation column (`-f, --foo <ref>`), `:default` is folded into the description as `(default: ...)`, and there is a 2-space gap before the description. Replaces the previous separate `ref`/`default` columns (which left wide gaps when only some options had them). `opts->table` (for custom tables) is unchanged; `format-table` gained a `:divider` option (default `" "`)
 - Add spec option `:negatable true`: show a boolean option as `--[no-]name` in help (the `--no-name` form parses regardless)
 - A `dispatch` command entry may carry `:epilog` (free text), rendered verbatim after the options in help (for examples, notes, links); put it on the root entry (`:cmds []`) for top-level help
 - Add `:help` option to `dispatch`: built-in `--help`/`-h` plus terse errors, no `:restrict` needed. Override the defaults with `:help-fn` / `:error-fn`

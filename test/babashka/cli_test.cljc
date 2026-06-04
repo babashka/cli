@@ -201,11 +201,11 @@
                       :alias :m
                       :collect multi-arg-val-collect}}]
     (is (= (str/trim "
-  -i, --from <format> The input format. <format> can be edn, json or transit. (default: edn)
-  -o, --to <format>   The output format. <format> can be edn, json or transit. (default: json)
-      --paths         Paths of files to transform. (default: src test)
-  -p, --pretty        Pretty-print output.
-  -m, --multi         Custom multi-arg-val test.")
+  -i, --from <format>  The input format. <format> can be edn, json or transit. (default: edn)
+  -o, --to <format>    The output format. <format> can be edn, json or transit. (default: json)
+      --paths          Paths of files to transform. (default: src test)
+  -p, --pretty         Pretty-print output.
+  -m, --multi          Custom multi-arg-val test.")
            (str/trim (cli/format-opts {:spec spec
                                        :order [:from :to :paths :pretty :multi]}))))
     (is (= {:coerce {:from :keyword,
@@ -215,8 +215,8 @@
             :collect {:multi multi-arg-val-collect}}
            (cli/spec->opts spec nil)))
     (is (= (str/trim "
-  -p, --pretty Pretty-print output. (default: false)
-      --paths  Paths of files to transform. (default: src test)
+  -p, --pretty  Pretty-print output. (default: false)
+      --paths   Paths of files to transform. (default: src test)
 ") (str/trim
     (cli/format-opts {:spec [[:pretty {:desc "Pretty-print output."
                                        :default false
@@ -233,7 +233,7 @@
     (is (submap?
          {:opts {:from :edn, :to :json, :paths ["src" "test"]}}
          (cli/parse-args [] {:spec spec})))
-    (is (submap? "  --deps/root The root"
+    (is (submap? "  --deps/root  The root"
                  (cli/format-opts {:spec [[:deps/root {:desc "The root"}]]})))
     (is (submap?
          #:deps{:root "the-root"}
@@ -497,14 +497,14 @@
 
 (deftest format-opts-test
   (testing "default width with default and default-desc"
-    (is (= "  -f, --foo <foo> Thingy (default: yupyupyupyup)\n  -b, --bar <bar> Barbarbar (default: Mos def)"
+    (is (= "  -f, --foo <foo>  Thingy (default: yupyupyupyup)\n  -b, --bar <bar>  Barbarbar (default: Mos def)"
            (cli/format-opts
             {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
                           :desc "Thingy"}
                     :bar {:alias :b, :default "sure", :ref "<bar>"
                           :desc "Barbarbar" :default-desc "Mos def"}}}))))
   (testing ":negatable opts in to showing --[no-]name; others stay --name"
-    (is (= "  --[no-]color Use color\n  --verbose    Be verbose"
+    (is (= "  --[no-]color  Use color\n  --verbose     Be verbose"
            (cli/format-opts
             {:spec {:color   {:coerce :boolean :negatable true :desc "Use color"}
                     :verbose {:coerce :boolean :desc "Be verbose"}}
@@ -547,14 +547,14 @@
     (testing "top level: usage, commands, options, pointer"
       (is (= (str "Usage: example [options] <command>\n\n"
                   "Commands:\n  copy   Copy a file\n  delete Delete a file\n\n"
-                  "Options:\n  -v, --verbose Verbose output\n\n"
+                  "Options:\n  -v, --verbose  Verbose output\n\n"
                   "Run \"example <command> --help\" for more information on a command.")
              (cli/format-command-help {:table table :prog "example"}))))
     (testing "leaf: own options + option inherited from an ancestor"
       (is (= (str "Usage: example copy [options]\n\n"
                   "Copy a file\n\n"
-                  "Options:\n  --dry-run Do a dry run\n\n"
-                  "Inherited options:\n  -v, --verbose Verbose output")
+                  "Options:\n  --dry-run  Do a dry run\n\n"
+                  "Inherited options:\n  -v, --verbose  Verbose output")
              (cli/format-command-help {:table table :cmds ["copy"] :prog "example"}))))
     (testing "a table or a prebuilt tree both work"
       (is (= (cli/format-command-help {:table table :cmds ["copy"] :prog "example"})
@@ -563,7 +563,7 @@
       (let [t [{:cmds [] :spec {:x {:inherit true :desc "global x"}}}
                {:cmds ["sub"] :fn identity :spec {:x {:desc "local x"}}}]]
         (is (= (str "Usage: p sub [options]\n\n"
-                    "Options:\n  --x local x")
+                    "Options:\n  --x  local x")
                (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))
     (testing ":args->opts renders labeled positionals in the usage line"
       (let [t [{:cmds ["copy"] :fn identity :doc "Copy" :args->opts [:src :dest]
@@ -583,17 +583,17 @@
                 :epilog "Examples:\n\n  p search foo"}]]
         (is (= (str "Usage: p search [options]\n\n"
                     "Search\n\n"
-                    "Options:\n  --limit Max\n\n"
+                    "Options:\n  --limit  Max\n\n"
                     "Examples:\n\n  p search foo")
                (cli/format-command-help {:table t :cmds ["search"] :prog "p"})))))
     (testing "an entry :order sets the Options order; a vec-of-pairs spec keeps its order"
       (let [t [{:cmds [] :spec {:a {:desc "A"} :b {:desc "B"} :c {:desc "C"}} :order [:c :a :b]}]]
         (is (= (str "Usage: p [options]\n\n"
-                    "Options:\n  --c C\n  --a A\n  --b B")
+                    "Options:\n  --c  C\n  --a  A\n  --b  B")
                (cli/format-command-help {:table t :prog "p"}))))
       (let [t [{:cmds [] :spec [[:c {:desc "C"}] [:a {:desc "A"}] [:b {:desc "B"}]]}]]
         (is (= (str "Usage: p [options]\n\n"
-                    "Options:\n  --c C\n  --a A\n  --b B")
+                    "Options:\n  --c  C\n  --a  A\n  --b  B")
                (cli/format-command-help {:table t :prog "p"})))))
     (testing "a custom :help-fn can call format-command-help and add to it"
       (let [t [{:cmds [] :fn identity :doc "t" :spec {:a {:desc "A"}}}]

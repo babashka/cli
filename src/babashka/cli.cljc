@@ -696,7 +696,7 @@
                        (range max-lines))))
               rows))))
 
-(defn format-table [{:keys [rows indent] :or {indent 2}}]
+(defn format-table [{:keys [rows indent divider] :or {indent 2 divider " "}}]
   (let [rows (-> rows
                  expand-multiline-cells
                  pad-cells)
@@ -707,7 +707,7 @@
     (->> rows
          (map (fn [row]
                 #_(fmt-row "| " " | " " |" row)
-                (fmt-row (apply str (repeat indent " ")) " " "" row)))
+                (fmt-row (apply str (repeat indent " ")) divider "" row)))
          (map str/trimr)
          (str/join "\n"))))
 
@@ -762,32 +762,34 @@
             spec))))
 
 (defn- opts->help-rows
-  "Rows for [[format-opts]]: the conventional two-column layout. The `:ref` is
-  attached to the option (`--foo <ref>`) and the default folded into the
-  description as `(default: ...)`, matching argparse/clap/click/picocli. Alias
-  keeps its own leading column (only when some option has one) so long options
-  line up. Honors `:order`."
+  "Rows for [[format-opts]]: the conventional two-column layout `option | desc`.
+  The alias, `--option` and `:ref` are one invocation column (`-f, --foo <ref>`,
+  short left-padded so the `--` long forms line up); the default is folded into
+  the description as `(default: ...)`. Matches argparse/clap/click/picocli.
+  Honors `:order`. The two columns are joined with a 2-space divider by
+  `format-opts`."
   [{:keys [spec order]}]
   (let [entries (if (map? spec)
                   (map (fn [k] [k (spec k)]) (or order (keys spec)))
                   spec)
-        any-alias? (some (fn [[_ s]] (:alias s)) entries)]
-    (mapv (fn [[long-opt {:keys [alias default default-desc ref desc negatable]}]]
+        short (fn [[_ {:keys [alias]}]] (if alias (str "-" (kw->str alias) ", ") ""))
+        sw (transduce (map (comp count short)) max 0 entries)]
+    (mapv (fn [[long-opt {:keys [default default-desc ref desc negatable]}] sh]
             (let [dflt (or default-desc (when (some? default) (str default)))
-                  opt (str "--" (when negatable "[no-]") (kw->str long-opt)
+                  inv (str sh (apply str (repeat (- sw (count sh)) \space))
+                           "--" (when negatable "[no-]") (kw->str long-opt)
                            (when ref (str " " ref)))
                   desc (str desc (when dflt
                                    (str (when (seq desc) " ") "(default: " dflt ")")))]
-              (if any-alias?
-                [(if alias (str "-" (kw->str alias) ",") "") opt desc]
-                [opt desc])))
-          entries)))
+              [inv desc]))
+          entries (map short entries))))
 
 (defn format-opts [{:as cfg
                     :keys [indent]
                     :or {indent 2}}]
   (format-table {:rows (opts->help-rows cfg)
-                 :indent indent}))
+                 :indent indent
+                 :divider "  "}))
 
 (defn- help-first-line [s]
   (when s (first (str/split-lines s))))
