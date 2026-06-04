@@ -480,7 +480,7 @@ Each table entry accepts any [parse-args](#options) option (`:spec`,
 `:args->opts`, `:alias`, `:restrict`, ...). The order of entries in the table
 doesn't matter (since 0.8.54).
 
-### Shared options
+### Shared and inherited options
 
 Babashka CLI supports parsing shared options in between and before the subcommands.
 
@@ -505,19 +505,8 @@ E.g.:
  :args ["arg"]}
 ```
 
-Specs are not merged across levels: an option is parsed with the spec of the
-level it appears at. So:
-
-``` clojure
-(cli/dispatch table ["sub1" "--foo" "bar"])
-```
-
-returns `{:dispatch ["sub1"], :opts {:foo "bar"}}` - `--foo` is parsed at the
-`sub1` level, whose spec has no `:foo`, so it is not coerced as a keyword. To
-make an option's spec apply after its subcommand, mark it `:inherit` (see
-[Inherited options](#inherited-options)).
-
-Note that it is possible to use `:args->opts` but subcommands are always prioritized over arguments:
+It is possible to use `:args->opts`, but subcommands are always prioritized over
+arguments:
 
 ``` clojure
 (def table
@@ -528,10 +517,9 @@ Note that it is possible to use `:args->opts` but subcommands are always priorit
 (cli/dispatch table ["sub1" "sub2"]) ;;=> {:dispatch ["sub1" "sub2"], :opts {}}
 ```
 
-### Inherited options
-
-By default an option is only parsed at the level whose spec defines it, so it
-must be supplied before its subcommand:
+Specs are not merged across levels: an option is parsed with the spec of the
+level it appears at, so it must be supplied before its subcommand. With
+`:restrict`, supplying it after the subcommand is an error:
 
 ``` clojure
 (def table
@@ -542,12 +530,11 @@ must be supplied before its subcommand:
 ;;=> {:dispatch ["group" "sub"], :opts {:registry "X"}}
 
 (cli/dispatch table ["group" "sub" "--registry" "X"] {:restrict true})
-;; throws: Unknown option: :registry
+;; throws: Unknown option: --registry
 ```
 
 Mark an option `:inherit true` to also accept it at any descendant level (after
-the subcommand). It is coerced and restrict-checked at whichever level it
-appears:
+the subcommand); it is coerced and restrict-checked wherever it appears:
 
 ``` clojure
 (def table
@@ -562,8 +549,8 @@ It's called `:inherit` because the option is inherited down the command tree by
 the descendants of the level that declares it. A descendant may redefine it in
 its own spec, in which case the descendant's definition wins.
 
-Instead of marking individual options, you can pass `:inherit` to `dispatch`.
-Use `true` to inherit all options, or a set of keys to inherit only those:
+Instead of marking individual options, pass `:inherit` to `dispatch`: `true` to
+inherit all options, or a set of keys to inherit only those:
 
 ``` clojure
 (cli/dispatch table ["group" "sub" "--registry" "X"] {:inherit true})
