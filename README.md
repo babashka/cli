@@ -115,7 +115,7 @@ customizing it.
 The CLI uses a table (the first argument to `dispatch`): a vector of command
 entries. Each entry's `:cmds` is its subcommand path. This CLI has no
 subcommands, so its single entry uses `:cmds []`: a special case of a
-multi-subcommand CLI with 0 levels.
+multi-subcommand CLI with 0 levels (see [Subcommands](#subcommands)).
 
 And this is how you run it:
 
@@ -139,6 +139,46 @@ Usage: try-me [options]
 
 Run "try-me --help" for more information.
 ```
+
+### Adding a subcommand
+
+To grow this into a multi-command CLI, give each entry a `:cmds` path. Here the
+single command becomes a `run` subcommand, with a `version` subcommand added:
+
+``` clojure
+(defn run [{:keys [opts]}]
+  (println "Here are your cli args!:" opts))
+
+(defn version [_]
+  (println "try-me 1.0"))
+
+(def table
+  [{:cmds ["run"]     :fn run     :doc "Run the thing" :spec spec}
+   {:cmds ["version"] :fn version :doc "Print version"}])
+
+(defn -main [& args]
+  (cli/dispatch table args {:prog "try-me" :help true}))
+```
+
+`--help` now lists the commands:
+
+```
+$ bb try-me.clj --help
+Usage: try-me [options] <command>
+
+Commands:
+  run     Run the thing
+  version Print version
+
+Options:
+  -h, --help Show this help
+
+Run "try-me <command> --help" for more information on a command.
+```
+
+`bb try-me.clj run --num 1 --flag` calls `run`; `bb try-me.clj version` calls
+`version`. See [Subcommands](#subcommands) for shared options, inheritance and
+help customization.
 
 ## Options
 
