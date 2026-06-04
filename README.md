@@ -112,6 +112,8 @@ Here is an example babashka script to get you started!
 In the above example, `:help true` wires up automatic `--help`/`-h` support and terse error messages for you. See [Subcommands > Help](#help-1) for
 customizing it.
 
+We use the `cli/command` function to turn an option spec into a subcommand structure. While the above CLI doesn't have any subcommands, you could view it as a special case of a multi-subcommand CLI with 0 levels.
+
 And this is how you run it:
 
 ```
@@ -134,6 +136,8 @@ Usage: try-me [options]
 
 Run "try-me --help" for more information.
 ```
+
+
 
 ## Options
 
@@ -548,74 +552,88 @@ user=> (cli/parse-opts ["-vvv"] {:spec spec})
 To handle subcommands, use
 [dispatch](/API.md#dispatch).
 
-An example. Say we want to create a CLI that can be called as:
+Say we want a CLI called as:
 
-``` clojure
+```
 $ example copy <file> --dry-run
 $ example delete <file> --recursive --depth 3
 ```
 
-This can be accomplished by doing the following:
+Building on the [simple example](#simple-example): there, `cli/command` built a
+single command (`:cmds []`). Give each `command` a `:cmds` path and you have
+subcommands:
 
 ``` clojure
 (ns example
   (:require [babashka.cli :as cli]))
 
-(defn copy [m]
-  (assoc m :fn :copy))
+(defn copy [{:keys [opts]}]
+  (prn :copy opts))
 
-(defn delete [m]
-  (assoc m :fn :delete))
-
-(defn help [m]
-  (assoc m :fn :help))
+(defn delete [{:keys [opts]}]
+  (prn :delete opts))
 
 (def table
-  [{:cmds ["copy"]   :fn copy   :args->opts [:file]}
-   {:cmds ["delete"] :fn delete :args->opts [:file]}
-   {:cmds []         :fn help}])
+  [(cli/command ["copy"]   {:fn copy   :doc "Copy a file" :args->opts [:file]
+                            :spec {:dry-run {:coerce :boolean :desc "Do a dry run"}}})
+   (cli/command ["delete"] {:fn delete :doc "Delete a file" :args->opts [:file]
+                            :spec {:recursive {:coerce :boolean :desc "Recurse"}
+                                   :depth     {:coerce :long    :desc "Max depth"}}})])
 
 (defn -main [& args]
-  (cli/dispatch table args {:coerce {:depth :long}}))
+  (cli/dispatch table args {:prog "example" :help true}))
 ```
 
-Calling the `example` namespace's `-main` function can be done using `clojure -M -m example` or `bb -m example`.
-The last entry in the `dispatch-table` always matches and calls the help function.
+Run it with `clojure -M -m example ...` or `bb -m example ...`. `dispatch`
+matches the longest `:cmds` path in the args and calls that entry's `:fn` with
+the parsed result. `:help true` wires up `--help`/`-h` and terse errors (see
+[Help](#help-1)):
 
-When running `clj -M -m example --help`, `dispatch` calls `help` which returns:
+```
+$ example --help
+Usage: example [options] <command>
+
+Commands:
+  copy   Copy a file
+  delete Delete a file
+
+Options:
+  -h, --help Show this help
+
+Run "example <command> --help" for more information on a command.
+```
+
+`example copy the-file --dry-run` calls `copy`, which prints:
 
 ``` clojure
-{:opts {:help true}, :dispatch [], :fn :help}
+:copy {:file "the-file", :dry-run true}
 ```
 
-When running `clj -M -m example copy the-file --dry-run`, `dispatch` calls `copy`,
-which returns:
+The `:fn` is called with a map of the parsed result:
 
-``` clojure
-{:cmds ["copy" "the-file"], :opts {:file "the-file" :dry-run true},
- :dispatch ["copy"], :fn :copy}
+- `:opts` - the parsed options (`{:file "the-file" :dry-run true}`; `:file` comes
+  from `:args->opts`)
+- `:dispatch` - the matched command path (`["copy"]`)
+- `:args` - any leftover positional args (`nil` here)
+
+An unknown or missing subcommand prints a terse message and exits 1:
+
+```
+$ example bogus
+Unknown command: bogus
+
+Commands:
+  copy
+  delete
+
+Run "example --help" for more information.
 ```
 
-When running `clj -M -m example delete the-file --depth 3`, `dispatch` calls `delete` which returns:
+See [neil](https://github.com/babashka/neil) for a real-world CLI using subcommands.
 
-``` clojure
-{:cmds ["delete" "the-file"], :opts {:depth 3, :file "the-file"},
- :dispatch ["delete"], :fn :delete}
-```
-
-See [neil](https://github.com/babashka/neil) for a real world example of a CLI
-that uses subcommands.
-
-Additional `parse-arg` options may be passed in each table entry:
-
-``` clojure
-(def table
-  [{:cmds ["copy"]   :fn copy   :args->opts [:file] :alias {:f :file :restrict true}}
-   {:cmds ["delete"] :fn delete :args->opts [:file]}
-   {:cmds []         :fn help}])
-```
-
-Since cli 0.8.54 the order of `:cmds` in the table doesn't matter.
+Each `command` entry accepts any [parse-args](#options) option (`:spec`,
+`:args->opts`, `:alias`, `:restrict`, ...). The order of entries in the table
+doesn't matter (since 0.8.54).
 
 ### Shared options
 
