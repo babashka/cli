@@ -1105,7 +1105,14 @@
            ;; options marked `:inherit` at an ancestor level are accepted here
            ;; too (e.g. `prog group --opt val sub` and `prog group sub --opt val`)
            parse-opts (cond-> parse-opts
-                        (seq inherited) (update :spec #(merge inherited (->spec-map %))))
+                        ;; precedence: dispatch-level (global) :spec < inherited <
+                        ;; this node's own :spec. Rebuild from the still-separate
+                        ;; global (:spec opts) and node-own (:spec kwm) so an
+                        ;; inherited option isn't clobbered by a colliding global key.
+                        (seq inherited)
+                        (assoc :spec (deep-merge (deep-merge (->spec-map (:spec opts))
+                                                             inherited)
+                                                 (->spec-map (:spec kwm)))))
            ;; thread dispatch context into flag-level errors
            ;; (restrict/require/validate/coerce) so an :error-fn can render help:
            ;; the current path, the program name, dispatch-level :inherit, and the
