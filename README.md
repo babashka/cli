@@ -482,7 +482,7 @@ doesn't matter (since 0.8.54).
 
 ### Shared options
 
-Since cli 0.8.54, babashka.cli supports parsing shared options in between and before the subcommands.
+Babashka CLI supports parsing shared options in between and before the subcommands.
 
 E.g.:
 
@@ -505,13 +505,17 @@ E.g.:
  :args ["arg"]}
 ```
 
-Note that specs are not merged, such that:
+Specs are not merged across levels: an option is parsed with the spec of the
+level it appears at. So:
 
 ``` clojure
 (cli/dispatch table ["sub1" "--foo" "bar"])
 ```
 
-returns `{:dispatch ["sub1"], :opts {:foo "bar"}}` (`"bar"` is not coerced as a keyword).
+returns `{:dispatch ["sub1"], :opts {:foo "bar"}}` - `--foo` is parsed at the
+`sub1` level, whose spec has no `:foo`, so it is not coerced as a keyword. To
+make an option's spec apply after its subcommand, mark it `:inherit` (see
+[Inherited options](#inherited-options)).
 
 Note that it is possible to use `:args->opts` but subcommands are always prioritized over arguments:
 
