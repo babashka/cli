@@ -843,17 +843,18 @@
           (seq inherited)
           (conj (str "Inherited options:\n" (format-opts {:spec inherited})))
 
-          ;; free-text the entry supplies (examples, notes), rendered verbatim
-          (:epilog node)
-          (conj (str/trim (:epilog node)))
-
           (seq cmds)
           (conj (str "Run \"" prog " <command> --help\" for more information on a command."))
 
           (seq parents)
           (conj (str/join "\n"
                           (for [{p :prog n :name} parents]
-                            (str "Run \"" p " --help\" for " n " options.")))))]
+                            (str "Run \"" p " --help\" for " n " options."))))
+
+          ;; free-text the entry supplies (examples, notes), rendered verbatim
+          ;; last, as a closing footer (argparse epilog / picocli footer convention)
+          (:epilog node)
+          (conj (str/trim (:epilog node))))]
     (str/join "\n\n" sections)))
 
 (defn- split [a b]
