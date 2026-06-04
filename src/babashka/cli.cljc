@@ -843,6 +843,10 @@
           (seq inherited)
           (conj (str "Inherited options:\n" (format-opts {:spec inherited})))
 
+          ;; free-text the entry supplies (examples, notes), rendered verbatim
+          (:epilog node)
+          (conj (str/trim (:epilog node)))
+
           (seq cmds)
           (conj (str "Run \"" prog " <command> --help\" for more information on a command."))
 
@@ -956,7 +960,12 @@
     ...
   Inherited options:       ; ancestor options usable here (:inherit), deduped
     ...
+  <epilog>                 ; the entry's :epilog free-text, rendered verbatim
   ```
+
+  An entry's `:epilog` (a string) is rendered verbatim after the options - use it
+  for examples, notes or links. Put it on the root entry (`:cmds []`) for the
+  top-level help.
 
   Takes a single map:
   * `:table`   - a `dispatch` table, or a tree from [[table->tree]] (required)

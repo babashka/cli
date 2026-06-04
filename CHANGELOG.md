@@ -7,6 +7,7 @@ For breaking changes, check [here](#breaking-changes).
 ## Unreleased
 
 - Add spec option `:negatable true`: show a boolean option as `--[no-]name` in help (the `--no-name` form parses regardless)
+- A `dispatch` command entry may carry `:epilog` (free text), rendered verbatim after the options in help (for examples, notes, links); put it on the root entry (`:cmds []`) for top-level help
 - Add `:help` option to `dispatch`: built-in `--help`/`-h` plus terse errors, no `:restrict` needed. Override the defaults with `:help-fn` / `:error-fn`
 - `:help` option: `--help`/`-h` takes precedence over flag errors, so `tool cmd --help` and `tool group sub --help` print help even when a required option is missing or validation would fail
 - Add `:prog` option to `dispatch`: program name shown in help. `dispatch` threads `:prog`, `:inherit` and the command tree into error/help data

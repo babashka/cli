@@ -619,6 +619,9 @@ CLI, no `:restrict` needed:
   `--help` is appended.
 - `--help`/`-h` are reserved while `:help` is on (a command may still define its
   own `:help`).
+- An entry's `:epilog` (a string) is rendered verbatim after that command's
+  options, for examples, notes or links. Put it on the root entry (`:cmds []`)
+  for the top-level help.
 
 It works for a single-command CLI too: a one-entry table whose `:cmds` is `[]`.
 `example --help` then shows Usage + Options:

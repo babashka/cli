@@ -578,6 +578,14 @@
         (let [t [{:cmds ["ls"] :fn identity :doc "List" :spec {:all {:desc "All"}}}]]
           (is (str/starts-with? (cli/format-command-help {:table t :cmds ["ls"] :prog "p"})
                                 "Usage: p ls [options]\n")))))
+    (testing ":epilog is rendered verbatim after the options"
+      (let [t [{:cmds ["search"] :fn identity :doc "Search" :spec {:limit {:desc "Max"}}
+                :epilog "Examples:\n\n  p search foo"}]]
+        (is (= (str "Usage: p search [options]\n\n"
+                    "Search\n\n"
+                    "Options:\n  --limit Max\n\n"
+                    "Examples:\n\n  p search foo")
+               (cli/format-command-help {:table t :cmds ["search"] :prog "p"})))))
     (testing "an entry :order sets the Options order; a vec-of-pairs spec keeps its order"
       (let [t [{:cmds [] :spec {:a {:desc "A"} :b {:desc "B"} :c {:desc "C"}} :order [:c :a :b]}]]
         (is (= (str "Usage: p [options]\n\n"
