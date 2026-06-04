@@ -69,8 +69,8 @@ See [clojure CLI](#clojure-cli) for how to turn your exec functions into CLIs.
 - [Simple example](#simple-example)
 - [Options](#options)
 - [Arguments](#arguments)
-- [Adding Production Polish](#adding-production-polish)
 - [Subcommands](#subcommands)
+- [Adding Production Polish](#adding-production-polish)
 - [Babashka tasks](#babashka-tasks)
 - [Clojure CLI](#clojure-cli)
 - [Leiningen](#leiningen)
@@ -109,7 +109,7 @@ Here is an example babashka script to get you started!
 (-main *command-line-args*)
 ```
 
-In the above example, `:help true` wires up automatic `--help`/`-h` support and terse error messages for you. See [Subcommands > Help](#help-1) for
+In the above example, `:help true` wires up automatic `--help`/`-h` support and terse error messages for you. See [Subcommands > Help](#help) for
 customizing it.
 
 The CLI uses a table (the first argument to `dispatch`): a vector of command
@@ -244,6 +244,82 @@ with
 [`auto-coerce`](/API.md#auto-coerce):
 it automatically tries to convert booleans, numbers and keywords.
 
+## Spec
+
+A spec (short for "options spec", not `clojure.spec`) is a map keyed by option
+name; each value configures one option.
+Alongside the parsing keys (`:coerce`, `:alias`, `:validate`, ...) it carries
+`:desc` and `:ref`, used when printing options (see [Printing options](#printing-options)). For
+example:
+
+``` clojure
+(def spec {:from   {:ref          "<format>"
+                    :desc         "The input format. <format> can be edn, json or transit."
+                    :coerce       :keyword
+                    :alias        :i
+                    :default-desc "edn"
+                    :default      :edn}
+           :to     {:ref          "<format>"
+                    :desc         "The output format. <format> can be edn, json or transit."
+                    :coerce       :keyword
+                    :alias        :o
+                    :default-desc "json"
+                    :default      :json}
+           :pretty {:desc         "Pretty-print output."
+                    :alias        :p}
+           :paths  {:desc         "Paths of files to transform."
+                    :coerce       []
+                    :default      ["src" "test"]
+                    :default-desc "src test"}})
+```
+
+You can pass the spec to `parse-opts` under the `:spec` key: `(parse-opts args {:spec spec})`.
+An explanation of each key:
+
+- `:ref`: a name which can be used as a reference in the description (`:desc`)
+- `:desc`: a description of the option.
+- `:coerce`: coerce string to given type.
+- `:alias`: mapping of short name to long name.
+- `:default`: default value.
+- `:default-desc`: a string representation of the default value.
+- `:require`: `true` make this opt required.
+- `:validate`: a function used to validate the value of this opt (as described
+  in the [Validate](#validate) section).
+- `:collect`: for custom collection/transformation of argument values
+
+## Aliases
+
+An `:alias` specifies a mapping from short to long name.
+
+The library can distinguish aliases with characters in common, so a way to implement the common `-v`/`-vv` unix pattern is:
+``` clojure
+(def spec {:verbose      {:alias :v
+                          :desc  "Enable verbose output."}
+           :very-verbose {:alias :vv
+                          :desc  "Enable very verbose output."}})
+```
+
+You get:
+
+```clojure
+(cli/parse-opts ["-v"] {:spec spec})
+;;=> {:verbose true}
+
+(cli/parse-opts ["-vv"] {:spec spec})
+;;=> {:very-verbose true}
+```
+
+Another way would be to collect the flags in a vector with `:coerce` (and base verbosity on the size of that vector):
+
+``` clojure
+(def spec {:verbose {:alias :v
+                     :desc  "Enable verbose output."
+                     :coerce []}})
+
+user=> (cli/parse-opts ["-vvv"] {:spec spec})
+{:verbose [true true true]}
+```
+
 ## Arguments
 
 To parse positional arguments, you can use `parse-args` and/or the `:args->opts`
@@ -299,255 +375,6 @@ and specify the variable number of arguments with `repeat`:
 ;;=> {:foo "arg1", :bar ["arg2" "arg3" "arg4"]}
 ```
 
-## Adding Production Polish
-Babashka cli lets you get up and running quickly.
-As you move toward production quality, it’s helpful to let users know when their inputs are invalid.
-Strict validation can be introduced with [:restrict](#restrict), [:require](#require), and [:validate](#validate).
-
-As you add polish, you'll likely make use of a [:spec](#spec), a custom [:error_fn](#error-handling), and maybe [subcommand dispatching](#subcommands). 
-
-## Restrict
-
-Use the `:restrict` option to restrict options to only those explicitly mentioned in configuration:
-
-``` clojure
-(cli/parse-args ["--foo"] {:spec {:bar {}} :restrict true})
-;;=>
-Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:357).
-Unknown option: :foo
-```
-
-## Require
-
-Use the `:require` option to throw an error when an option is not present:
-
-``` clojure
-(cli/parse-args ["--foo"] {:spec {:bar {:require true}}})
-;;=>
-Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:363).
-Required option: :bar
-```
-
-## Validate
-
-``` clojure
-(cli/parse-args ["--foo" "0"] {:spec {:foo {:validate pos?}}})
-Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:378).
-Invalid value for option :foo: 0
-```
-
-To gain more control over the error message, use `:pred` and `:ex-msg`:
-
-``` clojure
-(cli/parse-args ["--foo" "0"] {:spec {:foo {:validate {:pred pos? :ex-msg (fn [m] (str "Not a positive number: " (:value m)))}}}})
-;;=>
-Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:378).
-Not a positive number: 0
-```
-
-## Adding default args
-
-You can supply default args with `:exec-args`:
-
-``` clojure
-(cli/parse-args ["--foo" "0"] {:exec-args {:bar 1}})
-;;=> {:foo 0, :bar 1}
-```
-
-Note that args specified in `args` will override defaults in `:exec-args`:
-
-``` clojure
-(cli/parse-args ["--foo" "0" "--bar" "42"] {:exec-args {:bar 1}})
-;;=> {:foo 0, :bar 42}
-```
-
-## Error handling
-
-By default, an exception will be thrown in the following situations:
-- A restricted option is encountered
-- A required option is missing
-- Validation fails for an option
-- Coercion fails for an option
-
-You may supply a custom error handler function with `:error-fn`. The function
-will be called with a map containing the following keys:
-- `:type` - `:org.babashka/cli` (for filtering out other types of errors).
-- `:cause` - one of:
-  - `:restrict` - a restricted option was encountered.
-  - `:require` - a required option was missing.
-  - `:validate` - validation failed for an option.
-  - `:coerce` - coercion failed for an option.
-- `:msg` - default error message.
-- `:option` - the option being parsed when the error occurred.
-- `:spec` - the spec passed into `parse-opts` (see the [Spec](#spec) section).
-
-The following keys are present depending on `:cause`:
-- `:cause :restrict`
-  - `:restrict` - the value of the `:restrict` opt to `parse-args` (see the
-    [Restrict](#restrict) section).
-- `:cause :require`
-  - `:require` - the value of the `:require` opt to `parse-args` (see the
-    [Require](#require) section).
-- `:cause :validate`
-  - `:value` - the value of the option that failed validation.
-  - `:validate` - the value of the `:validate` opt to `parse-args` (see the
-    [Validate](#validate) section).
-- `:cause :coerce`
-  - `:value` - the value of the option that failed coercion.
-
-By default, babashka cli will throw exception on errors it detects.
-You can do the same from your custom error handler.
-
-For a more polished user experience, you might choose to have your custom error handler print the error and exit. For example:
-``` clojure
-(cli/parse-opts
- []
- {:spec {:foo {:desc "You know what this is."
-         :ref "<val>"
-         :require true}}
-  :error-fn
-  (fn [{:keys [spec type cause msg option] :as data}]
-    (if (= :org.babashka/cli type)
-      (case cause
-        :require
-        (println
-         (format "Missing required argument:\n%s"
-                 (cli/format-opts {:spec (select-keys spec [option])})))
-        (println msg))
-      (throw (ex-info msg data)))
-    (System/exit 1))})
-```
-would print:
-
-```
-Missing required argument:
-  --foo <val> You know what this is.
-```
-
-You can also choose collect and then report all detected errors (see `babashka.cli-test/error-fn-test` for an example of this).
-
-## Spec
-
-A spec (short for "options spec", not `clojure.spec`) is a map keyed by option
-name; each value configures one option.
-Alongside the parsing keys (`:coerce`, `:alias`, `:validate`, ...) it carries
-`:desc` and `:ref`, used when printing options (see [Help](#help)). For
-example:
-
-``` clojure
-(def spec {:from   {:ref          "<format>"
-                    :desc         "The input format. <format> can be edn, json or transit."
-                    :coerce       :keyword
-                    :alias        :i
-                    :default-desc "edn"
-                    :default      :edn}
-           :to     {:ref          "<format>"
-                    :desc         "The output format. <format> can be edn, json or transit."
-                    :coerce       :keyword
-                    :alias        :o
-                    :default-desc "json"
-                    :default      :json}
-           :pretty {:desc         "Pretty-print output."
-                    :alias        :p}
-           :paths  {:desc         "Paths of files to transform."
-                    :coerce       []
-                    :default      ["src" "test"]
-                    :default-desc "src test"}})
-```
-
-You can pass the spec to `parse-opts` under the `:spec` key: `(parse-opts args {:spec spec})`.
-An explanation of each key:
-
-- `:ref`: a name which can be used as a reference in the description (`:desc`)
-- `:desc`: a description of the option.
-- `:coerce`: coerce string to given type.
-- `:alias`: mapping of short name to long name.
-- `:default`: default value.
-- `:default-desc`: a string representation of the default value.
-- `:require`: `true` make this opt required.
-- `:validate`: a function used to validate the value of this opt (as described
-  in the [Validate](#validate) section).
-- `:collect`: for custom collection/transformation of argument values
-
-## Help
-
-Given the above `spec` you can print options as follows:
-
-``` clojure
-(println (cli/format-opts {:spec spec :order [:from :to :paths :pretty]}))
-```
-
-This will print:
-
-```
-  -i, --from   <format> edn      The input format. <format> can be edn, json or transit.
-  -o, --to     <format> json     The output format. <format> can be edn, json or transit.
-      --paths           src test Paths of files to transform.
-  -p, --pretty                   Pretty-print output.
-```
-
-As options can often be re-used in multiple subcommands, you can determine the
-order _and_ selection of printed options with `:order`. If you don't want to use
-`:order` and simply want to present the options as written, you can also use a
-vector of vectors for the spec:
-
-``` clojure
-[[:pretty {:desc "Pretty-print output."
-           :alias :p}]
- [:paths {:desc "Paths of files to transform."
-          :coerce []
-          :default ["src" "test"]
-          :default-desc "src test"}]]
-```
-
-If you need more flexibility, you can also use `opts->table`, which turns a spec into a vector of vectors, representing rows of a table.
-You can then use`format-table` to produce a table as returned by `format-opts`.
-For example to add a header row with labels for each column, you could do something like:
-
-``` clojure
-(cli/format-table
- {:rows (concat [["alias" "option" "ref" "default" "description"]]
-                (cli/opts->table
-                 {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
-                               :desc "Thingy"}
-                         :bar {:alias :b, :default "sure", :ref "<bar>"
-                               :desc "Barbarbar" :default-desc "Mos def"}}}))
-  :indent 2})
-```
-
-### Aliases
-
-An `:alias` specifies a mapping from short to long name.
-
-The library can distinguish aliases with characters in common, so a way to implement the common `-v`/`-vv` unix pattern is:
-``` clojure
-(def spec {:verbose      {:alias :v
-                          :desc  "Enable verbose output."}
-           :very-verbose {:alias :vv
-                          :desc  "Enable very verbose output."}})
-```
-
-You get:
-
-```clojure
-(cli/parse-opts ["-v"] {:spec spec})
-;;=> {:verbose true}
-
-(cli/parse-opts ["-vv"] {:spec spec})
-;;=> {:very-verbose true}
-```
-
-Another way would be to collect the flags in a vector with `:coerce` (and base verbosity on the size of that vector):
-
-``` clojure
-(def spec {:verbose {:alias :v
-                     :desc  "Enable verbose output."
-                     :coerce []}})
-
-user=> (cli/parse-opts ["-vvv"] {:spec spec})
-{:verbose [true true true]}
-```
-
 ## Subcommands
 
 To handle subcommands, use
@@ -587,7 +414,7 @@ Building on the [simple example](#simple-example): there, the single entry used
 Run it with `clojure -M -m example ...` or `bb -m example ...`. `dispatch`
 matches the longest `:cmds` path in the args and calls that entry's `:fn` with
 the parsed result. `:help true` wires up `--help`/`-h` and terse errors (see
-[Help](#help-1)):
+[Help](#help)):
 
 ```
 $ example --help
@@ -816,6 +643,180 @@ and exit afterwards:
                (println (cli/format-command-error data))
                (println "See https://example.com/docs")
                (cli/*exit-fn* {:exit 1 :cause (:cause data)}))})
+```
+
+## Adding Production Polish
+Babashka cli lets you get up and running quickly.
+As you move toward production quality, it’s helpful to let users know when their inputs are invalid.
+Strict validation can be introduced with [:restrict](#restrict), [:require](#require), and [:validate](#validate).
+
+As you add polish, you'll likely make use of a [:spec](#spec), a custom [:error_fn](#error-handling), and maybe [subcommand dispatching](#subcommands). 
+
+## Restrict
+
+Use the `:restrict` option to restrict options to only those explicitly mentioned in configuration:
+
+``` clojure
+(cli/parse-args ["--foo"] {:spec {:bar {}} :restrict true})
+;;=>
+Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:357).
+Unknown option: :foo
+```
+
+## Require
+
+Use the `:require` option to throw an error when an option is not present:
+
+``` clojure
+(cli/parse-args ["--foo"] {:spec {:bar {:require true}}})
+;;=>
+Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:363).
+Required option: :bar
+```
+
+## Validate
+
+``` clojure
+(cli/parse-args ["--foo" "0"] {:spec {:foo {:validate pos?}}})
+Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:378).
+Invalid value for option :foo: 0
+```
+
+To gain more control over the error message, use `:pred` and `:ex-msg`:
+
+``` clojure
+(cli/parse-args ["--foo" "0"] {:spec {:foo {:validate {:pred pos? :ex-msg (fn [m] (str "Not a positive number: " (:value m)))}}}})
+;;=>
+Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:378).
+Not a positive number: 0
+```
+
+## Error handling
+
+By default, an exception will be thrown in the following situations:
+- A restricted option is encountered
+- A required option is missing
+- Validation fails for an option
+- Coercion fails for an option
+
+You may supply a custom error handler function with `:error-fn`. The function
+will be called with a map containing the following keys:
+- `:type` - `:org.babashka/cli` (for filtering out other types of errors).
+- `:cause` - one of:
+  - `:restrict` - a restricted option was encountered.
+  - `:require` - a required option was missing.
+  - `:validate` - validation failed for an option.
+  - `:coerce` - coercion failed for an option.
+- `:msg` - default error message.
+- `:option` - the option being parsed when the error occurred.
+- `:spec` - the spec passed into `parse-opts` (see the [Spec](#spec) section).
+
+The following keys are present depending on `:cause`:
+- `:cause :restrict`
+  - `:restrict` - the value of the `:restrict` opt to `parse-args` (see the
+    [Restrict](#restrict) section).
+- `:cause :require`
+  - `:require` - the value of the `:require` opt to `parse-args` (see the
+    [Require](#require) section).
+- `:cause :validate`
+  - `:value` - the value of the option that failed validation.
+  - `:validate` - the value of the `:validate` opt to `parse-args` (see the
+    [Validate](#validate) section).
+- `:cause :coerce`
+  - `:value` - the value of the option that failed coercion.
+
+By default, babashka cli will throw exception on errors it detects.
+You can do the same from your custom error handler.
+
+For a more polished user experience, you might choose to have your custom error handler print the error and exit. For example:
+``` clojure
+(cli/parse-opts
+ []
+ {:spec {:foo {:desc "You know what this is."
+         :ref "<val>"
+         :require true}}
+  :error-fn
+  (fn [{:keys [spec type cause msg option] :as data}]
+    (if (= :org.babashka/cli type)
+      (case cause
+        :require
+        (println
+         (format "Missing required argument:\n%s"
+                 (cli/format-opts {:spec (select-keys spec [option])})))
+        (println msg))
+      (throw (ex-info msg data)))
+    (System/exit 1))})
+```
+would print:
+
+```
+Missing required argument:
+  --foo <val> You know what this is.
+```
+
+You can also choose collect and then report all detected errors (see `babashka.cli-test/error-fn-test` for an example of this).
+
+## Adding default args
+
+You can supply default args with `:exec-args`:
+
+``` clojure
+(cli/parse-args ["--foo" "0"] {:exec-args {:bar 1}})
+;;=> {:foo 0, :bar 1}
+```
+
+Note that args specified in `args` will override defaults in `:exec-args`:
+
+``` clojure
+(cli/parse-args ["--foo" "0" "--bar" "42"] {:exec-args {:bar 1}})
+;;=> {:foo 0, :bar 42}
+```
+
+## Printing options
+
+Given a [spec](#spec) (like the `from`/`to`/`paths`/`pretty` one above), print
+its options with `format-opts`:
+
+``` clojure
+(println (cli/format-opts {:spec spec :order [:from :to :paths :pretty]}))
+```
+
+This will print:
+
+```
+  -i, --from   <format> edn      The input format. <format> can be edn, json or transit.
+  -o, --to     <format> json     The output format. <format> can be edn, json or transit.
+      --paths           src test Paths of files to transform.
+  -p, --pretty                   Pretty-print output.
+```
+
+As options can often be re-used in multiple subcommands, you can determine the
+order _and_ selection of printed options with `:order`. If you don't want to use
+`:order` and simply want to present the options as written, you can also use a
+vector of vectors for the spec:
+
+``` clojure
+[[:pretty {:desc "Pretty-print output."
+           :alias :p}]
+ [:paths {:desc "Paths of files to transform."
+          :coerce []
+          :default ["src" "test"]
+          :default-desc "src test"}]]
+```
+
+If you need more flexibility, you can also use `opts->table`, which turns a spec into a vector of vectors, representing rows of a table.
+You can then use`format-table` to produce a table as returned by `format-opts`.
+For example to add a header row with labels for each column, you could do something like:
+
+``` clojure
+(cli/format-table
+ {:rows (concat [["alias" "option" "ref" "default" "description"]]
+                (cli/opts->table
+                 {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
+                               :desc "Thingy"}
+                         :bar {:alias :b, :default "sure", :ref "<bar>"
+                               :desc "Barbarbar" :default-desc "Mos def"}}}))
+  :indent 2})
 ```
 
 ## Babashka tasks
