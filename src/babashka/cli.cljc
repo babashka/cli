@@ -741,11 +741,14 @@
 
 (defn opts->table [{:keys [spec order columns]}]
   (let [columns (set (or columns (mapcat (fn [[_ s]] (keys s)) spec)))]
-    (mapv (fn [[long-opt {:keys [alias default default-desc ref desc]}]]
+    (mapv (fn [[long-opt {:keys [alias default default-desc ref desc negatable]}]]
             (keep identity
                   [(when (:alias columns)
                      (if alias (str "-" (kw->str alias) ",") ""))
-                   (str "--" (kw->str long-opt))
+                   ;; `:negatable true` opts in to showing `--[no-]<name>`, for
+                   ;; boolean options where the always-available `--no-<name>`
+                   ;; form (sets it false) is meaningful
+                   (str "--" (when negatable "[no-]") (kw->str long-opt))
                    (when (:ref columns)
                      (if ref ref ""))
                    (when (or (:default-desc columns)

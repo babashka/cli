@@ -210,19 +210,22 @@ Long options also support the syntax `--foo=bar`:
 ;;=> {:foo "bar"}
 ```
 
-Flags may be combined into a single short option (since 0.7.51):
+Flags may be combined into a single short option:
 
 ``` clojure
 (cli/parse-opts ["-abc"])
 ;;=> {:a true :b true :c true}
 ```
 
-Arguments that start with `--no-` arg parsed as negative flags (since 0.7.51):
+Arguments that start with `--no-` arg parsed as negative flags:
 
 ``` clojure
 (cli/parse-opts ["--no-colors"])
 ;;=> {:colors false}
 ```
+
+This works for any option. For a boolean option where the negation is meaningful,
+set `:negatable true` in its spec to advertise it in help as `--[no-]colors`.
 
 ### Custom collection handling
 
@@ -239,9 +242,8 @@ Here's an example of parsing out `,` separated multi-arg-values:
 
 ### Auto-coercion
 
-Since `v0.3.35` babashka CLI auto-coerces values that have no explicit coercion
-with
-[`auto-coerce`](/API.md#auto-coerce):
+Babashka CLI auto-coerces values that have no explicit coercion
+with [`auto-coerce`](/API.md#auto-coerce):
 it automatically tries to convert booleans, numbers and keywords.
 
 ## Spec
@@ -286,6 +288,7 @@ An explanation of each key:
 - `:validate`: a function used to validate the value of this opt (as described
   in the [Validate](#validate) section).
 - `:collect`: for custom collection/transformation of argument values
+- `:negatable`: `true` shows a boolean option as `--[no-]name` in help (the `--no-name` form parses regardless)
 
 ## Aliases
 

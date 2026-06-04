@@ -503,6 +503,12 @@
                           :desc "Thingy"}
                     :bar {:alias :b, :default "sure", :ref "<bar>"
                           :desc "Barbarbar" :default-desc "Mos def"}}}))))
+  (testing ":negatable opts in to showing --[no-]name; others stay --name"
+    (is (= "  --[no-]color Use color\n  --verbose    Be verbose"
+           (cli/format-opts
+            {:spec {:color   {:coerce :boolean :negatable true :desc "Use color"}
+                    :verbose {:coerce :boolean :desc "Be verbose"}}
+             :order [:color :verbose]}))))
   (testing "header"
     (is (= "  alias option ref   default      description\n  -f,   --foo  <foo> yupyupyupyup Thingy\n  -b,   --bar  <bar> Mos def      Barbarbar"
            (cli/format-table
