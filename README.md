@@ -305,7 +305,7 @@ Babashka CLI auto-coerces values that have no explicit coercion
 with [`auto-coerce`](/API.md#auto-coerce):
 it automatically tries to convert booleans, numbers and keywords.
 
-## Aliases
+### Aliases
 
 An `:alias` specifies a mapping from short to long name.
 
