@@ -201,11 +201,11 @@
                       :alias :m
                       :collect multi-arg-val-collect}}]
     (is (= (str/trim "
-  -i, --from   <format> edn      The input format. <format> can be edn, json or transit.
-  -o, --to     <format> json     The output format. <format> can be edn, json or transit.
-      --paths           src test Paths of files to transform.
-  -p, --pretty                   Pretty-print output.
-  -m, --multi                    Custom multi-arg-val test.")
+  -i, --from <format> The input format. <format> can be edn, json or transit. (default: edn)
+  -o, --to <format>   The output format. <format> can be edn, json or transit. (default: json)
+      --paths         Paths of files to transform. (default: src test)
+  -p, --pretty        Pretty-print output.
+  -m, --multi         Custom multi-arg-val test.")
            (str/trim (cli/format-opts {:spec spec
                                        :order [:from :to :paths :pretty :multi]}))))
     (is (= {:coerce {:from :keyword,
@@ -215,8 +215,8 @@
             :collect {:multi multi-arg-val-collect}}
            (cli/spec->opts spec nil)))
     (is (= (str/trim "
-  -p, --pretty false    Pretty-print output.
-      --paths  src test Paths of files to transform.
+  -p, --pretty Pretty-print output. (default: false)
+      --paths  Paths of files to transform. (default: src test)
 ") (str/trim
     (cli/format-opts {:spec [[:pretty {:desc "Pretty-print output."
                                        :default false
@@ -497,7 +497,7 @@
 
 (deftest format-opts-test
   (testing "default width with default and default-desc"
-    (is (= "  -f, --foo <foo> yupyupyupyup Thingy\n  -b, --bar <bar> Mos def      Barbarbar"
+    (is (= "  -f, --foo <foo> Thingy (default: yupyupyupyup)\n  -b, --bar <bar> Barbarbar (default: Mos def)"
            (cli/format-opts
             {:spec {:foo {:alias :f, :default "yupyupyupyup", :ref "<foo>"
                           :desc "Thingy"}

@@ -831,10 +831,10 @@ its options with `format-opts`:
 This will print:
 
 ```
-  -i, --from   <format> edn      The input format. <format> can be edn, json or transit.
-  -o, --to     <format> json     The output format. <format> can be edn, json or transit.
-      --paths           src test Paths of files to transform.
-  -p, --pretty                   Pretty-print output.
+  -i, --from <format> The input format. <format> can be edn, json or transit. (default: edn)
+  -o, --to <format>   The output format. <format> can be edn, json or transit. (default: json)
+      --paths         Paths of files to transform. (default: src test)
+  -p, --pretty        Pretty-print output.
 ```
 
 As options can often be re-used in multiple subcommands, you can determine the

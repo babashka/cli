@@ -761,10 +761,32 @@
               (map (fn [k] [k (spec k)]) order))
             spec))))
 
+(defn- opts->help-rows
+  "Rows for [[format-opts]]: the conventional two-column layout. The `:ref` is
+  attached to the option (`--foo <ref>`) and the default folded into the
+  description as `(default: ...)`, matching argparse/clap/click/picocli. Alias
+  keeps its own leading column (only when some option has one) so long options
+  line up. Honors `:order`."
+  [{:keys [spec order]}]
+  (let [entries (if (map? spec)
+                  (map (fn [k] [k (spec k)]) (or order (keys spec)))
+                  spec)
+        any-alias? (some (fn [[_ s]] (:alias s)) entries)]
+    (mapv (fn [[long-opt {:keys [alias default default-desc ref desc negatable]}]]
+            (let [dflt (or default-desc (when (some? default) (str default)))
+                  opt (str "--" (when negatable "[no-]") (kw->str long-opt)
+                           (when ref (str " " ref)))
+                  desc (str desc (when dflt
+                                   (str (when (seq desc) " ") "(default: " dflt ")")))]
+              (if any-alias?
+                [(if alias (str "-" (kw->str alias) ",") "") opt desc]
+                [opt desc])))
+          entries)))
+
 (defn format-opts [{:as cfg
                     :keys [indent]
                     :or {indent 2}}]
-  (format-table {:rows (opts->table cfg)
+  (format-table {:rows (opts->help-rows cfg)
                  :indent indent}))
 
 (defn- help-first-line [s]
