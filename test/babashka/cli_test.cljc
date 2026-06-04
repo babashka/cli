@@ -503,6 +503,12 @@
                           :desc "Thingy"}
                     :bar {:alias :b, :default "sure", :ref "<bar>"
                           :desc "Barbarbar" :default-desc "Mos def"}}}))))
+  (testing ":negatable opts in to showing --[no-]name; others stay --name"
+    (is (= "  --[no-]color Use color\n  --verbose    Be verbose"
+           (cli/format-opts
+            {:spec {:color   {:coerce :boolean :negatable true :desc "Use color"}
+                    :verbose {:coerce :boolean :desc "Be verbose"}}
+             :order [:color :verbose]}))))
   (testing "header"
     (is (= "  alias option ref   default      description\n  -f,   --foo  <foo> yupyupyupyup Thingy\n  -b,   --bar  <bar> Mos def      Barbarbar"
            (cli/format-table
@@ -545,7 +551,7 @@
                   "Run \"example <command> --help\" for more information on a command.")
              (cli/format-command-help {:table table :prog "example"}))))
     (testing "leaf: own options + option inherited from an ancestor"
-      (is (= (str "Usage: example copy [options] [<args>]\n\n"
+      (is (= (str "Usage: example copy [options]\n\n"
                   "Copy a file\n\n"
                   "Options:\n  --dry-run Do a dry run\n\n"
                   "Inherited options:\n  -v, --verbose Verbose output")
@@ -556,9 +562,30 @@
     (testing "a redefined inherited option shows only under Options (child wins)"
       (let [t [{:cmds [] :spec {:x {:inherit true :desc "global x"}}}
                {:cmds ["sub"] :fn identity :spec {:x {:desc "local x"}}}]]
-        (is (= (str "Usage: p sub [options] [<args>]\n\n"
+        (is (= (str "Usage: p sub [options]\n\n"
                     "Options:\n  --x local x")
                (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))
+    (testing ":args->opts renders labeled positionals in the usage line"
+      (let [t [{:cmds ["copy"] :fn identity :doc "Copy" :args->opts [:src :dest]
+                :spec {:force {:desc "Force"}}}]]
+        (is (str/starts-with? (cli/format-command-help {:table t :cmds ["copy"] :prog "p"})
+                              "Usage: p copy [options] <src> <dest>\n")))
+      (testing "the (cons k (repeat k')) variadic form renders <k'>..."
+        (let [t [{:cmds ["rm"] :fn identity :doc "Remove" :args->opts (cons :first (repeat :file))}]]
+          (is (str/starts-with? (cli/format-command-help {:table t :cmds ["rm"] :prog "p"})
+                                "Usage: p rm <first> <file>...\n"))))
+      (testing "no :args->opts shows no positional placeholder"
+        (let [t [{:cmds ["ls"] :fn identity :doc "List" :spec {:all {:desc "All"}}}]]
+          (is (str/starts-with? (cli/format-command-help {:table t :cmds ["ls"] :prog "p"})
+                                "Usage: p ls [options]\n")))))
+    (testing ":epilog is rendered verbatim after the options"
+      (let [t [{:cmds ["search"] :fn identity :doc "Search" :spec {:limit {:desc "Max"}}
+                :epilog "Examples:\n\n  p search foo"}]]
+        (is (= (str "Usage: p search [options]\n\n"
+                    "Search\n\n"
+                    "Options:\n  --limit Max\n\n"
+                    "Examples:\n\n  p search foo")
+               (cli/format-command-help {:table t :cmds ["search"] :prog "p"})))))
     (testing "an entry :order sets the Options order; a vec-of-pairs spec keeps its order"
       (let [t [{:cmds [] :spec {:a {:desc "A"} :b {:desc "B"} :c {:desc "C"}} :order [:c :a :b]}]]
         (is (= (str "Usage: p [options]\n\n"
@@ -730,6 +757,44 @@
         ;; child wins: --x shows the local desc; the ancestor's version is deduped out
         (is (re-find #"--x\s+local x" out))
         (is (not (str/includes? out "global x")))))))
+
+(deftest help-wins-over-required-test
+  ;; `--help` must win over flag errors (require/validate), at any level, even
+  ;; when the failing option is at an ANCESTOR of the level --help follows:
+  ;; `foo bar --help` with `foo` requiring `--opt` shows `foo bar` help, not the
+  ;; "Required option" error. (`--opt` is unparsed at the `foo` level when its
+  ;; require fires, so it can't be detected from the parsed opts there.)
+  (let [table [{:cmds ["foo"]       :spec {:opt {:require true :coerce :long :desc "Opt"}}}
+               {:cmds ["foo" "bar"] :fn identity :spec {:baz {:desc "Baz"}}}]
+        run (fn [args]
+              (let [exit (atom nil)
+                    ran (atom nil)
+                    table (mapv (fn [e] (cond-> e (:fn e) (assoc :fn (fn [m] (reset! ran m))))) table)
+                    out (with-out-str
+                          (binding [cli/*exit-fn*
+                                    (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))]
+                            (try
+                              (cli/dispatch table args {:prog "tool" :help true})
+                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                                (when-not (::exit (ex-data e)) (throw e))))))]
+                {:out out :exit @exit :ran @ran}))]
+    (testing "foo bar --help: help wins over an ancestor's missing required option"
+      (let [{:keys [out exit ran]} (run ["foo" "bar" "--help"])]
+        (is (str/includes? out "Usage: tool foo bar"))
+        (is (nil? exit))                    ; help is not an error
+        (is (nil? ran))))                   ; the :fn did not run
+    (testing "foo --help: help wins at the level that declares the required option"
+      (let [{:keys [out exit]} (run ["foo" "--help"])]
+        (is (str/includes? out "Usage: tool foo"))
+        (is (nil? exit))))
+    (testing "foo bar (no help): the missing required option still errors, exit 1"
+      (let [{:keys [exit ran]} (run ["foo" "bar"])]
+        (is (submap? {:exit 1 :cause :require} exit))
+        (is (nil? ran))))
+    (testing "foo --opt 2 bar (no help): runs normally"
+      (let [{:keys [exit ran]} (run ["foo" "--opt" "2" "bar"])]
+        (is (nil? exit))
+        (is (= {:opt 2} (:opts ran)))))))
 
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]
