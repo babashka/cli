@@ -193,6 +193,14 @@ Transforming to a collection of a certain type:
 ;; => {:foo [:bar :baz]}
 ```
 
+Besides the built-in coercion keywords, `:coerce` accepts any function (called
+with the string value):
+
+``` clojure
+(cli/parse-opts ["--letter" "alpha"] {:spec {:letter {:coerce (fn [s] (subs s 0 1))}}})
+;;=> {:letter "a"}
+```
+
 Booleans need no explicit `true` value and `:coerce` option:
 
 ``` clojure
@@ -280,14 +288,19 @@ An explanation of each key:
 
 - `:ref`: a name which can be used as a reference in the description (`:desc`)
 - `:desc`: a description of the option.
-- `:coerce`: coerce string to given type.
+- `:coerce`: coerce a string value to a type. Built-in keywords: `:boolean`
+  (`:bool`), `:int` (`:long`), `:double`, `:number`, `:symbol`, `:keyword`,
+  `:string`, `:edn`, `:auto`. A collection (`[]`, `#{}`, or with an inner type
+  like `[:keyword]`) collects repeated values, coercing each element. Any
+  function is also accepted: it's called with the string and returns the value.
 - `:alias`: mapping of short name to long name.
 - `:default`: default value.
 - `:default-desc`: a string representation of the default value.
 - `:require`: `true` make this opt required.
 - `:validate`: a function used to validate the value of this opt (as described
   in the [Validate](#validate) section).
-- `:collect`: for custom collection/transformation of argument values
+- `:collect`: collect repeated values - a collection (e.g. `[]`, `#{}`) to
+  `conj` into, or a function `(fn [coll arg-value] ...)` for custom collection
 - `:negatable`: `true` shows a boolean option as `--[no-]name` in help (the `--no-name` form parses regardless)
 
 ## Aliases
