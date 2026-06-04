@@ -533,8 +533,8 @@ level it appears at, so it must be supplied before its subcommand. With
 ;; throws: Unknown option: --registry
 ```
 
-Mark an option `:inherit true` to also accept it at any descendant level (after
-the subcommand); it is coerced and restrict-checked wherever it appears:
+Mark an option with `:inherit true` to also accept it at any descendant level (after
+the subcommand). It is coerced and restrict-checked wherever it appears:
 
 ``` clojure
 (def table
@@ -545,9 +545,8 @@ the subcommand); it is coerced and restrict-checked wherever it appears:
 ;;=> {:dispatch ["group" "sub"], :opts {:registry "X"}}
 ```
 
-It's called `:inherit` because the option is inherited down the command tree by
-the descendants of the level that declares it. A descendant may redefine it in
-its own spec, in which case the descendant's definition wins.
+A descendant may redefine it in its own spec, in which case the descendant's
+definition wins.
 
 Instead of marking individual options, pass `:inherit` to `dispatch`: `true` to
 inherit all options, or a set of keys to inherit only those:
