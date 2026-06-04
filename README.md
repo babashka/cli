@@ -311,19 +311,18 @@ An explanation of each key:
 - `:desc`: a description of the option.
 - `:coerce`: coerce a string value to a type. Built-in keywords: `:boolean`
   (`:bool`), `:int` (`:long`), `:double`, `:number`, `:symbol`, `:keyword`,
-  `:string`, `:edn`, `:auto`. A collection - `[]` (vector), `#{}` (set) or `()`
-  (list) - collects repeated values; put a coercion keyword inside it to coerce
-  each element (e.g. `[:keyword]`, `#{:int}`). A function is also accepted: it is
-  called with the string and returns the value.
+  `:string`, `:edn`, `:auto`. A collection collects repeated values: `[]`
+  (vector), `#{}` (set) or `()` (list); put a coercion keyword inside it to
+  coerce each element (e.g. `[:keyword]`, `#{:int}`). A function is also
+  accepted: it is called with the string and returns the value.
 - `:alias`: mapping of short name to long name.
 - `:default`: default value.
 - `:default-desc`: a string representation of the default value.
 - `:require`: `true` make this opt required.
 - `:validate`: a function used to validate the value of this opt (as described
   in the [Validate](#validate) section).
-- `:collect`: collect repeated values into a collection - `[]` (vector), `#{}`
-  (set) or `()` (list) - or a function `(fn [coll arg-value] ...)` for custom
-  collection
+- `:collect`: collect repeated values into a collection (`[]` vector, `#{}` set
+  or `()` list), or a function `(fn [coll arg-value] ...)` for custom collection
 - `:negatable`: `true` shows a boolean option as `--[no-]name` in help (the `--no-name` form parses regardless)
 
 ### Custom collection handling
@@ -496,10 +495,10 @@ Run "example <command> --help" for more information on a command.
 
 The `:fn` is called with a map of the parsed result:
 
-- `:opts` - the parsed options (`{:file "the-file" :dry-run true}`; `:file` comes
+- `:opts`: the parsed options (`{:file "the-file" :dry-run true}`; `:file` comes
   from `:args->opts`)
-- `:dispatch` - the matched command path (`["copy"]`)
-- `:args` - any leftover positional args (`nil` here)
+- `:dispatch`: the matched command path (`["copy"]`)
+- `:args`: any leftover positional args (`nil` here)
 
 An unknown or missing subcommand prints a terse message and exits 1:
 
@@ -520,7 +519,7 @@ Each table entry accepts any [parse-args](#options) option (`:spec`,
 `:args->opts`, `:alias`, `:restrict`, ...). The order of entries in the table
 doesn't matter (since 0.8.54).
 
-Options can be supplied at each level - before and between the subcommands. The
+Options can be supplied at each level, before and between the subcommands. The
 root level (`:cmds []`) holds options available to every command. For example:
 
 ``` clojure
@@ -596,7 +595,7 @@ inherit all options, or a set of keys to inherit only those:
 ### Help
 
 Pass `:help true` to `dispatch` (and `:prog`, the program name) to add help to a
-CLI - no `:restrict` needed:
+CLI, no `:restrict` needed:
 
 ``` clojure
 (cli/dispatch table args {:prog "example" :help true})
@@ -607,7 +606,7 @@ CLI - no `:restrict` needed:
   `deps outdated`.
 - A mistyped or missing subcommand prints a terse message and exits with 1.
 - `-h, --help` is listed in each command's options, appended last. To control
-  the order, give the command entry an `:order` (a vector of option keys) - it
+  the order, give the command entry an `:order` (a vector of option keys); it
   is used verbatim, so you decide the order, which options to list, and whether
   to list `--help` at all (omit `:help` to hide it; it still works):
 
@@ -621,7 +620,7 @@ CLI - no `:restrict` needed:
 - `--help`/`-h` are reserved while `:help` is on (a command may still define its
   own `:help`).
 
-It works for a single-command CLI too: a one-entry table whose `:cmds` is `[]` -
+It works for a single-command CLI too: a one-entry table whose `:cmds` is `[]`.
 `example --help` then shows Usage + Options:
 
 ``` clojure
@@ -631,12 +630,12 @@ It works for a single-command CLI too: a one-entry table whose `:cmds` is `[]` -
 ```
 
 `--help`/`-h` are a success path: they print help and return (no exit call), so
-your `-main` ends and the process exits 0 - like a normal command. Errors go
+your `-main` ends and the process exits 0, like a normal command. Errors go
 through the dynamic `*exit-fn*`, which exits non-zero:
 
 | invocation | outcome |
 |---|---|
-| `--help` / `-h` | print help, return (status 0) - no `*exit-fn*` |
+| `--help` / `-h` | print help, return (status 0), no `*exit-fn*` |
 | group, no subcommand | terse message, `*exit-fn*` exit 1, `:cause :input-exhausted` |
 | unknown subcommand | terse message, `*exit-fn*` exit 1, `:cause :no-match` |
 | flag error | terse message, `*exit-fn*` exit 1, `:cause` = the babashka.cli cause |
@@ -658,7 +657,7 @@ codes by `:cause`:
 
 Both handlers are overridable: pass your own `:help-fn` (called with
 `{:tree :dispatch :prog :inherit}`) and/or `:error-fn` to `dispatch`. To render
-the standard help and add to it, call `format-command-help` - the same renderer
+the standard help and add to it, call `format-command-help`, the same renderer
 the default uses:
 
 ``` clojure
