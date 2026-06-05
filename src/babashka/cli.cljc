@@ -394,6 +394,10 @@
          ;; passed down via ::dispatch-inherited and must not be flagged as
          ;; unknown at child levels. Internal, not a public option.
          inherited (::dispatch-inherited opts)
+         ;; values supplied programmatically via `:exec-args` (author-provided
+         ;; defaults, e.g. from a config file) are not user-typed tokens, so
+         ;; `:restrict` must not flag them as unknown options.
+         exec-args (:exec-args opts)
          ;; literal flag tokens the user typed, by key (see parse-opts*)
          key->flag (::key->flag (meta m))
          flag-for (fn [k] (option-label key->flag k))
@@ -402,6 +406,7 @@
        (doseq [k (keys m)]
          (when (and (not (contains? restrict k))
                     (not (contains? inherited k))
+                    (not (contains? exec-args k))
                     (not= "babashka.cli" (namespace k)))
            (let [flag (get key->flag k)]
              (error-fn (cond-> {:cause :restrict
@@ -448,7 +453,7 @@
   Preserves metadata of `m`.
 
   Supported options:
-  * `:exec-args` - map of defaults.
+  * `:exec-args` - map of defaults. Not subject to `:restrict`.
   * `:spec` - spec; `:default` entries become defaults via `spec->opts`."
   ([m] (apply-defaults m {}))
   ([m opts]
@@ -621,7 +626,7 @@
   * `:restrict` - `true` or coll of keys. Throw on first parsed option not in set of keys or keys of `:spec` and `:coerce` combined.
   * `:require` - a coll of options that are required. See [require](https://github.com/babashka/cli#restrict).
   * `:validate` - a map of validator functions. See [validate](https://github.com/babashka/cli#validate).
-  * `:exec-args` - a map of default args. Will be overridden by args specified in `args`. Values from `:exec-args` are NOT coerced or auto-coerced; provide them in their final form.
+  * `:exec-args` - a map of default args. Will be overridden by args specified in `args`. Values from `:exec-args` are NOT coerced or auto-coerced; provide them in their final form. Not subject to `:restrict`.
   * `:no-keyword-opts` - `true`. Support only `--foo`-style opts (i.e. `:foo` will not work).
   * `:repeated-opts` - `true`. Forces writing the option name for every value, e.g. `--foo a --foo b`, rather than `--foo a b`
   * `:args->opts` - consume unparsed commands and args as options

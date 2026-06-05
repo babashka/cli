@@ -6,6 +6,7 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
+- `:restrict` no longer flags keys supplied via `:exec-args`
 - `format-opts` now uses the conventional two-column `option | description` layout (argparse/clap/click style): the alias, `--option` and `:ref` form one invocation column (`-f, --foo <ref>`), `:default` is folded into the description as `(default: ...)`, and there is a 2-space gap before the description. Replaces the previous separate `ref`/`default` columns (which left wide gaps when only some options had them). `opts->table` (for custom tables) is unchanged; `format-table` gained a `:divider` option (default `" "`)
 - Add spec option `:negatable true`: show a boolean option as `--[no-]name` in help (the `--no-name` form parses regardless)
 - A `dispatch` command entry may carry `:epilog` (free text), rendered verbatim after the options in help (for examples, notes, links); put it on the root entry (`:cmds []`) for top-level help

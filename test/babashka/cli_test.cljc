@@ -998,12 +998,17 @@
         (is (thrown-with-msg?
              Exception #"Unknown option: --bogus"
              (cli/dispatch table ["deps" "outdated" "--bogus"] {:restrict true}))))))
-  (testing "fix is scoped to dispatch: plain :exec-args still subject to :restrict"
-    (is (thrown-with-msg?
-         Exception #"Unknown option: --bar"
-         (cli/parse-opts ["--foo"] {:spec {:foo {:coerce :boolean}}
-                                    :exec-args {:bar 1}
-                                    :restrict true})))))
+  (testing ":exec-args are programmatic defaults, not user input, so :restrict never flags them"
+    (is (= {:foo true :bar 1}
+           (cli/parse-opts ["--foo"] {:spec {:foo {:coerce :boolean}}
+                                      :exec-args {:bar 1}
+                                      :restrict true})))
+    (testing "but a user-typed unknown option is still rejected"
+      (is (thrown-with-msg?
+           Exception #"Unknown option: --baz"
+           (cli/parse-opts ["--foo" "--baz"] {:spec {:foo {:coerce :boolean}}
+                                              :exec-args {:bar 1}
+                                              :restrict true}))))))
 
 (deftest inherit-flags-test
   (testing ":inherit options propagate to descendant levels"
