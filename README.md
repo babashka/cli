@@ -432,6 +432,20 @@ and specify the variable number of arguments with `repeat`:
 ;;=> {:foo "arg1", :bar ["arg2" "arg3" "arg4"]}
 ```
 
+Options may be interspersed with the positional arguments:
+
+``` clojure
+(def cli-opts {:spec {:bar {:coerce []} :force {:coerce :boolean}}
+               :args->opts (cons :foo (repeat :bar))})
+(cli/parse-opts ["arg1" "arg2" "--force" "arg3"] cli-opts)
+;;=> {:foo "arg1", :bar ["arg2" "arg3"], :force true}
+```
+
+This also holds for a subcommand leaf in [dispatch](#subcommands): a command with
+variadic `:args->opts` parses options before, among or after its positional
+arguments. Without `:args->opts`, `dispatch` stops at the first positional (to
+route subcommands), so trailing options would not be parsed.
+
 ## Subcommands
 
 To handle subcommands, use
