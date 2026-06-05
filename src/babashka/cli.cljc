@@ -339,9 +339,13 @@
                             km (::key->flag m-meta)
                             flag (get km k)]
                         (error-fn (cond-> {:cause :coerce
-                                           ;; same shape as validate: name the option, then the reason
-                                           :msg (str "Invalid value for option " (option-label km k) ": "
-                                                     (coerce-failure-reason (:input data) (:implicit-true data) (:coerce-fn data)))
+                                           ;; same shape as validate: name the option, then the reason.
+                                           ;; implicit-true = option given without a value: say so plainly
+                                           ;; instead of "cannot transform (implicit) true to ..."
+                                           :msg (if (:implicit-true data)
+                                                  (str "Missing value for option " (option-label km k))
+                                                  (str "Invalid value for option " (option-label km k) ": "
+                                                       (coerce-failure-reason (:input data) (:implicit-true data) (:coerce-fn data))))
                                            :option k
                                            :value v
                                            :opts acc}

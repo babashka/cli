@@ -83,18 +83,18 @@
   (testing "merging spec + other opts"
     (is (submap? '{:foo dude, :exec my/fn}
                  (cli/parse-opts ["--foo" "dude" "--exec" "my/fn"] {:spec {:foo {:coerce :symbol}} :coerce {:exec :symbol}}))))
-  (testing "implicit true"
+  (testing "implicit true (option given without a value)"
     (is (thrown-with-msg?
-         Exception #"cannot transform \(implicit\) true"
+         Exception #"Missing value for option --foo"
          (cli/parse-opts ["--foo" "--bar"] {:coerce {:foo :number}})))
     (is (thrown-with-msg?
-         Exception #"cannot transform \(implicit\) true"
+         Exception #"Missing value for option --foo"
          (cli/parse-opts ["--bar" "--foo"] {:coerce {:foo :number}})))
     (is (thrown-with-msg?
-         Exception #"cannot transform \(implicit\) true"
+         Exception #"Missing value for option :foo"
          (cli/parse-opts [":foo"] {:coerce {:foo :string}})))
     (is (thrown-with-msg?
-         Exception #"cannot transform \(implicit\) true"
+         Exception #"Missing value for option :foo"
          (cli/parse-opts [":foo"] {:coerce {:foo [:string]}}))))
   (testing "composite opts"
     (is (= {:a true, :b true, :c true, :foo true}
