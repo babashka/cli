@@ -880,6 +880,41 @@ For example to add a header row with labels for each column, you could do someth
   :indent 2})
 ```
 
+### Terminal width
+
+`format-opts` and `format-table` wrap long descriptions to the terminal width,
+aligning continuation lines under the description column:
+
+```
+  --copy-resources <resource>  Copy non cljs/cljc files from --paths as
+                               resources; a keyword matches by extension,
+                               otherwise by regex
+```
+
+On by default; `:wrap false` disables it.
+
+The width comes from `:max-width-fn`, a `(fn [cfg] -> width)` defaulting to
+`cli/default-width-fn` (node `process.stdout.columns`, else `$COLUMNS`, else a
+JLine probe on the JVM, else 80). Override per call:
+
+``` clojure
+(cli/format-opts {:spec spec :max-width-fn (constantly 80)})
+```
+
+On the JVM, `default-width-fn` reads the real width via JLine when it is on the
+classpath - **babashka bundles it, so bb scripts get it for free**. Other JVM
+programs add a provider (FFM is lightest):
+
+``` clojure
+;; deps.edn
+org.jline/jline-terminal     {:mvn/version "3.30.4"}
+org.jline/jline-terminal-ffm {:mvn/version "3.30.4"}
+```
+
+It queries `systemStreamWidth` (an `ioctl`) without building a `Terminal`, so it
+never grabs the tty. On Java 24+ add `--enable-native-access=ALL-UNNAMED` to
+silence native-access warnings (babashka already enables it).
+
 ## Babashka tasks
 
 For documentation on babashka tasks, go
