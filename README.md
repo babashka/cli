@@ -903,8 +903,9 @@ Override per call:
 ```
 
 On the JVM, `default-width-fn` reads the real width via JLine when it is on the
-classpath. babashka bundles it, so bb scripts get it for free. Other JVM
-programs add a provider (FFM is lightest):
+classpath. babashka bundles it, so bb scripts get it for free; without JLine the
+width falls back to `$COLUMNS`/80. If you want real-width detection on another
+JVM, you can add a JLine provider (FFM is the lightest):
 
 ``` clojure
 ;; deps.edn
