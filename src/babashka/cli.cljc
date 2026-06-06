@@ -866,10 +866,13 @@
   the description as `(default: ...)`. Matches argparse/clap/click/picocli.
   Honors `:order`. The two columns are joined with a 2-space divider by
   `format-opts`."
-  [{:keys [spec order]}]
+  [{:keys [spec order required]}]
   (let [entries (if (map? spec)
                   (map (fn [k] [k (spec k)]) (or order (keys spec)))
                   spec)
+        ;; effective required set, matching validation: per-option `:require true`
+        ;; or membership in a top-level `:require` coll (both fold into one set)
+        required (set required)
         short (fn [[_ {:keys [alias]}]] (if alias (str "-" (kw->str alias) ", ") ""))
         sw (transduce (map (comp count short)) max 0 entries)]
     (mapv (fn [[long-opt {:keys [default default-desc ref desc negatable] req :require}] sh]
@@ -877,7 +880,7 @@
                   ;; folded into the description, in the same slot: a required
                   ;; option has no default, so `(required)` / `(default: ...)`
                   ;; are mutually exclusive
-                  note (cond req "(required)"
+                  note (cond (or req (contains? required long-opt)) "(required)"
                              dflt (str "(default: " dflt ")"))
                   inv (str sh (apply str (repeat (- sw (count sh)) \space))
                            "--" (when negatable "[no-]") (kw->str long-opt)
@@ -967,7 +970,8 @@
           (conj (str "Commands:\n" (format-table {:rows cmds :indent 2})))
 
           (seq spec)
-          (conj (str "Options:\n" (format-opts (cond-> {:spec spec} order (assoc :order order)))))
+          (conj (str "Options:\n" (format-opts (cond-> {:spec spec :required (:require node)}
+                                                 order (assoc :order order)))))
 
           (seq inherited)
           (conj (str "Inherited options:\n" (format-opts {:spec inherited})))
