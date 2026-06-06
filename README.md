@@ -913,10 +913,6 @@ org.jline/jline-terminal     {:mvn/version "3.30.4"}
 org.jline/jline-terminal-ffm {:mvn/version "3.30.4"}
 ```
 
-It queries `systemStreamWidth` (an `ioctl`) without building a `Terminal`, so it
-never grabs the tty. On Java 24+ add `--enable-native-access=ALL-UNNAMED` to
-silence native-access warnings (babashka already enables it).
-
 ## Babashka tasks
 
 For documentation on babashka tasks, go
