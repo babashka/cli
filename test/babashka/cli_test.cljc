@@ -201,13 +201,16 @@
                       :alias :m
                       :collect multi-arg-val-collect}}]
     (is (= (str/trim "
-  -i, --from <format>  The input format. <format> can be edn, json or transit. (default: edn)
-  -o, --to <format>    The output format. <format> can be edn, json or transit. (default: json)
+  -i, --from <format>  The input format. <format> can be edn, json or transit.
+                       (default: edn)
+  -o, --to <format>    The output format. <format> can be edn, json or transit.
+                       (default: json)
       --paths          Paths of files to transform. (default: src test)
   -p, --pretty         Pretty-print output.
   -m, --multi          Custom multi-arg-val test.")
            (str/trim (cli/format-opts {:spec spec
-                                       :order [:from :to :paths :pretty :multi]}))))
+                                       :order [:from :to :paths :pretty :multi]
+                                       :max-width 80}))))
     (is (= {:coerce {:from :keyword,
                      :to :keyword, :paths []},
             :alias {:i :from, :o :to, :p :pretty :m :multi},
@@ -845,6 +848,26 @@
                                        ["r2c1 wider" "r2c2\nr2c2 l2\nr2c2 l3" "r2c3\nr2c3 l2"]
                                        ["r3c1" "r3c2 wider" "r3c3\nr3c3 l2\nr3c3 l3"]]})
              str/split-lines))))
+
+(deftest format-table-wrap-test
+  (testing "the last column wraps at word boundaries to :max-width, continuation aligned"
+    (is (= ["  --foo one two three"
+            "        four five"]
+           (-> (cli/format-table {:rows [["--foo" "one two three four five"]]
+                                  :max-width 22})
+               str/split-lines))))
+  (testing ":wrap false leaves long cells untouched"
+    (is (= ["  --foo one two three four five"]
+           (-> (cli/format-table {:rows [["--foo" "one two three four five"]]
+                                  :max-width 22 :wrap false})
+               str/split-lines))))
+  (testing "existing newlines are preserved as hard breaks while long lines wrap"
+    (is (= ["  --foo one two"
+            "        three"
+            "        four"]
+           (-> (cli/format-table {:rows [["--foo" "one two three\nfour"]]
+                                  :max-width 17})
+               str/split-lines)))))
 
 (deftest require-test
   (is (thrown-with-msg?

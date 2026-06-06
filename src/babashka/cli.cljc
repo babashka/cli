@@ -693,6 +693,56 @@
                   (map pad widths row))]
     (map pad-row rows)))
 
+(defn- terminal-width
+  "Best-effort terminal width: node `stdout.columns`, else `$COLUMNS`, else 80.
+  Not-a-TTY yields 80, so non-interactive output (pipes, CI) stays deterministic."
+  []
+  (or #?(:clj (when-let [c (System/getenv "COLUMNS")]
+                (try (Long/parseLong c) (catch Exception _ nil)))
+         :cljs (when (and (exists? js/process) js/process.stdout
+                          (pos-int? (.-columns js/process.stdout)))
+                 (.-columns js/process.stdout)))
+      80))
+
+(defn- word-wrap
+  "Wrap `s` to `width` columns at spaces, keeping existing newlines as hard breaks.
+  A single word longer than `width` overflows on its own line (matches argparse)."
+  [width s]
+  (->> (str/split-lines (str s))
+       (mapcat (fn [line]
+                 (if (<= (str-width line) width)
+                   [line]
+                   (reduce (fn [lines word]
+                             (let [cur (peek lines)]
+                               (if (or (nil? cur) (= "" cur))
+                                 (conj (pop lines) word)
+                                 (if (<= (+ (str-width cur) 1 (str-width word)) width)
+                                   (conj (pop lines) (str cur " " word))
+                                   (conj lines word)))))
+                           [""]
+                           (str/split line #" ")))))
+       (str/join "\n")))
+
+(defn- wrap-last-column
+  "Word-wrap each row's last cell so the table fits `max-width`, inserting newlines
+  (which [[expand-multiline-cells]] then aligns under the column). Earlier (short)
+  columns are left as-is."
+  [rows indent divider max-width]
+  (let [col-cnt (count (first rows))]
+    (if (zero? col-cnt)
+      rows
+      (let [last-idx (dec col-cnt)
+            fixed-widths (reduce (fn [ws row]
+                                   (mapv max ws (map str-width (take last-idx row))))
+                                 (vec (repeat last-idx 0))
+                                 rows)
+            start (+ indent (reduce + 0 fixed-widths) (* last-idx (count divider)))
+            avail (max 10 (- max-width start))]
+        (mapv (fn [row]
+                (let [v (vec row)]
+                  (assoc v last-idx (word-wrap avail (str (nth v last-idx))))))
+              rows)))))
+
 (defn- expand-multiline-cells [rows]
   (if (empty? rows)
     []
@@ -705,8 +755,12 @@
                        (range max-lines))))
               rows))))
 
-(defn format-table [{:keys [rows indent divider] :or {indent 2 divider " "}}]
-  (let [rows (-> rows
+(defn format-table [{:keys [rows indent divider wrap max-width]
+                     :or {indent 2 divider " " wrap true}}]
+  (let [rows (cond-> rows
+               (and wrap (seq rows))
+               (wrap-last-column indent divider (or max-width (terminal-width))))
+        rows (-> rows
                  expand-multiline-cells
                  pad-cells)
         fmt-row (fn [leader divider trailer row]
@@ -794,11 +848,13 @@
           entries (map short entries))))
 
 (defn format-opts [{:as cfg
-                    :keys [indent]
-                    :or {indent 2}}]
+                    :keys [indent wrap max-width]
+                    :or {indent 2 wrap true}}]
   (format-table {:rows (opts->help-rows cfg)
                  :indent indent
-                 :divider "  "}))
+                 :divider "  "
+                 :wrap wrap
+                 :max-width max-width}))
 
 (defn- help-first-line [s]
   (when s (first (str/split-lines s))))
