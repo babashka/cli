@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## v0.10.69 (2026-06-06)
 
 - [#112](https://github.com/babashka/cli/issues/112): auto-generated `--help` for `dispatch` CLIs (`Usage` / `Commands` / `Options`, `--help`/`-h` on every (sub)command, terse errors). See [Help](https://github.com/babashka/cli#help)
 - `format-opts` two-column help layout, plus terminal-width description wrapping. See [Printing options](https://github.com/babashka/cli#printing-options) and [Terminal width](https://github.com/babashka/cli#terminal-width)
