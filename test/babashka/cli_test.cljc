@@ -506,6 +506,24 @@
                           :desc "Thingy"}
                     :bar {:alias :b, :default "sure", :ref "<bar>"
                           :desc "Barbarbar" :default-desc "Mos def"}}}))))
+  (testing "required options show (required) in the description (in the default slot)"
+    (let [expected (str "  --token <token>  API token (required)\n"
+                        "  --paths <path>   Search paths (default: ., src)")
+          paths {:ref "<path>" :desc "Search paths"
+                 :default ["." "src"] :default-desc "., src"}]
+      (testing "via per-option :require true"
+        (is (= expected
+               (cli/format-opts
+                {:spec {:token {:ref "<token>" :desc "API token" :require true}
+                        :paths paths}
+                 :order [:token :paths]}))))
+      (testing "via the top-level :required coll (same effective set)"
+        (is (= expected
+               (cli/format-opts
+                {:spec {:token {:ref "<token>" :desc "API token"}
+                        :paths paths}
+                 :required [:token]
+                 :order [:token :paths]}))))))
   (testing ":negatable opts in to showing --[no-]name; others stay --name"
     (is (= "  --[no-]color  Use color\n  --verbose     Be verbose"
            (cli/format-opts

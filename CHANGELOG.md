@@ -6,6 +6,7 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
+- `format-opts` / `--help` show `(required)` for required options (per-option `:require true` or a `:require` coll), in the slot a default would otherwise occupy
 - `format-table` / `format-opts` wrap long descriptions to the terminal width (`:wrap false` to disable). Width via `:max-width-fn` (default: node `stdout.columns`; JVM `$COLUMNS` then JLine; else 80)
 - An option given without a value now reports `Missing value for option --foo` instead of `Invalid value for option --foo: cannot transform (implicit) true to ...`
 - `:restrict` no longer flags keys supplied via `:exec-args`
