@@ -1,7 +1,6 @@
-{:pods {clj-kondo/clj-kondo {:version "2022.05.31"}}
- :deps {io.github.borkdude/quickdoc
+{:deps {io.github.borkdude/quickdoc
         #_{:local/root "/Users/borkdude/dev/quickdoc"}
-        {:git/sha "026b4fab8570853e38c3097fe1f8619abc95b2e0"}}
+        {:git/tag "v0.2.6" :git/sha "ce8678000afa5f835639dd7267dc191fd90495a2"}}
  :paths ["src" ".build"]
 
  :tasks
