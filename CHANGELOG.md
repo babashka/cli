@@ -6,10 +6,10 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
-- [#112](https://github.com/babashka/cli/issues/112): auto-generated help for `dispatch` CLIs. Pass `:help true` to add `--help`/`-h` to every (sub)command and print standard `Usage` / `Commands` / `Options` help - with per-command `:doc`/`:order`/`:epilog`, `:negatable` options shown as `--[no-]name`, and `(required)` / `(default: ...)` markers - plus terse errors on missing/unknown options. Customize via `:help-fn` / `:error-fn` / `:prog`, render the text yourself with `format-command-help` / `format-command-error`, and control process exit with `*exit-fn*`
-- `format-opts` now uses a conventional two-column layout (invocation column `-f, --foo <ref>`, with `:default` / `(required)` folded into the description) and wraps long descriptions to the terminal width (`:max-width-fn`; `:wrap false` to disable). `opts->table` is unchanged
-- Support `:inherit` in `dispatch`: a spec option marked `:inherit true` is accepted both before and after its subcommand, or set at the dispatch level
-- `:restrict` no longer flags keys from `:exec-args`, nor options parsed at a parent `dispatch` level
+- [#112](https://github.com/babashka/cli/issues/112): auto-generated `--help` for `dispatch` CLIs (`Usage` / `Commands` / `Options`, `--help`/`-h` on every (sub)command, terse errors). See [Help](https://github.com/babashka/cli#help)
+- `format-opts` two-column help layout, plus terminal-width description wrapping. See [Printing options](https://github.com/babashka/cli#printing-options) and [Terminal width](https://github.com/babashka/cli#terminal-width)
+- `:inherit` in `dispatch`: an option usable before or after its subcommand. See [Subcommands](https://github.com/babashka/cli#subcommands)
+- `:restrict` no longer flags `:exec-args` keys or parent-level options. See [Restrict](https://github.com/babashka/cli#restrict)
 - An option given without a value now reports `Missing value for option --foo`
 
 ## v0.9.68 (2026-05-23)
