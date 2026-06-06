@@ -708,7 +708,7 @@ and exit afterwards:
 
 ## Adding Production Polish
 Babashka cli lets you get up and running quickly.
-As you move toward production quality, it’s helpful to let users know when their inputs are invalid.
+As you move toward production quality, it's helpful to let users know when their inputs are invalid.
 Strict validation can be introduced with [:restrict](#restrict), [:require](#require), and [:validate](#validate).
 
 As you add polish, you'll likely make use of a [:spec](#spec), a custom [:error_fn](#error-handling), and maybe [subcommand dispatching](#subcommands). 
