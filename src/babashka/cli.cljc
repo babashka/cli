@@ -683,9 +683,9 @@
                                          (re-pattern "(\\x9B|\\x1B\\[)[0-?]*[ -\\/]*[@-~]") "")]
     (count (strip-escape-codes s))))
 
-(defn pad [len s] (str s (apply str (repeat (- len (str-width s)) " "))))
+(defn ^:no-doc pad [len s] (str s (apply str (repeat (- len (str-width s)) " "))))
 
-(defn pad-cells [rows]
+(defn ^:no-doc pad-cells [rows]
   (let [widths  (reduce
                  (fn [widths row]
                    (map max (map str-width row) widths)) (repeat 0) rows)

@@ -14,8 +14,6 @@
     -  [`merge-opts`](#babashka.cli/merge-opts) - Merges babashka CLI options.
     -  [`number-char?`](#babashka.cli/number-char?)
     -  [`opts->table`](#babashka.cli/opts->table)
-    -  [`pad`](#babashka.cli/pad)
-    -  [`pad-cells`](#babashka.cli/pad-cells)
     -  [`parse-args`](#babashka.cli/parse-args) - Same as [<code>parse-opts</code>](#babashka.cli/parse-opts) with return data reshaped.
     -  [`parse-cmds`](#babashka.cli/parse-cmds) - Parses sub-commands (arguments not starting with an option prefix).
     -  [`parse-keyword`](#babashka.cli/parse-keyword) - Parse keyword from <code>s</code>.
@@ -304,20 +302,6 @@ Function.
 ```
 Function.
 <p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L840-L860">Source</a></sub></p>
-
-## <a name="babashka.cli/pad">`pad`</a>
-``` clojure
-(pad len s)
-```
-Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L686-L686">Source</a></sub></p>
-
-## <a name="babashka.cli/pad-cells">`pad-cells`</a>
-``` clojure
-(pad-cells rows)
-```
-Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L688-L694">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-args">`parse-args`</a>
 ``` clojure
