@@ -872,13 +872,18 @@
                   spec)
         short (fn [[_ {:keys [alias]}]] (if alias (str "-" (kw->str alias) ", ") ""))
         sw (transduce (map (comp count short)) max 0 entries)]
-    (mapv (fn [[long-opt {:keys [default default-desc ref desc negatable]}] sh]
+    (mapv (fn [[long-opt {:keys [default default-desc ref desc negatable] req :require}] sh]
             (let [dflt (or default-desc (when (some? default) (str default)))
+                  ;; folded into the description, in the same slot: a required
+                  ;; option has no default, so `(required)` / `(default: ...)`
+                  ;; are mutually exclusive
+                  note (cond req "(required)"
+                             dflt (str "(default: " dflt ")"))
                   inv (str sh (apply str (repeat (- sw (count sh)) \space))
                            "--" (when negatable "[no-]") (kw->str long-opt)
                            (when ref (str " " ref)))
-                  desc (str desc (when dflt
-                                   (str (when (seq desc) " ") "(default: " dflt ")")))]
+                  desc (str desc (when note
+                                   (str (when (seq desc) " ") note)))]
               [inv desc]))
           entries (map short entries))))
 

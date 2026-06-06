@@ -726,7 +726,8 @@ Unknown option: :foo
 
 ## Require
 
-Use the `:require` option to throw an error when an option is not present:
+Mark an option required in its [spec](#spec) with `:require true`; parsing throws
+when it is not present:
 
 ``` clojure
 (cli/parse-args ["--foo"] {:spec {:bar {:require true}}})
@@ -734,6 +735,9 @@ Use the `:require` option to throw an error when an option is not present:
 Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:363).
 Required option: :bar
 ```
+
+Required options are shown as `(required)` in `--help`, in the slot a default
+would otherwise occupy.
 
 ## Validate
 

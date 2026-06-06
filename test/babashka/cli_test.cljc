@@ -506,6 +506,14 @@
                           :desc "Thingy"}
                     :bar {:alias :b, :default "sure", :ref "<bar>"
                           :desc "Barbarbar" :default-desc "Mos def"}}}))))
+  (testing ":require true shows (required) in the description (in the default slot)"
+    (is (= (str "  --token <token>  API token (required)\n"
+                "  --paths <path>   Search paths (default: ., src)")
+           (cli/format-opts
+            {:spec {:token {:ref "<token>" :desc "API token" :require true}
+                    :paths {:ref "<path>" :desc "Search paths"
+                            :default ["." "src"] :default-desc "., src"}}
+             :order [:token :paths]}))))
   (testing ":negatable opts in to showing --[no-]name; others stay --name"
     (is (= "  --[no-]color  Use color\n  --verbose     Be verbose"
            (cli/format-opts
