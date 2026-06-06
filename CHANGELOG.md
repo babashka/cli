@@ -6,27 +6,11 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
-- [#112](https://github.com/babashka/cli/issues/112): auto-generated help for `dispatch` CLIs - single-call help text, implicit `--help`/`-h` on every (sub)command, terse errors, nested commands (see the `:help` / `format-command-help` / `format-command-error` entries below)
-- `format-opts` / `--help` show `(required)` for required options (per-option `:require true` or a `:require` coll), in the slot a default would otherwise occupy
-- `format-table` / `format-opts` wrap long descriptions to the terminal width (`:wrap false` to disable). Width via `:max-width-fn` (default: node `stdout.columns`; JVM `$COLUMNS` then JLine; else 80)
-- An option given without a value now reports `Missing value for option --foo` instead of `Invalid value for option --foo: cannot transform (implicit) true to ...`
-- `:restrict` no longer flags keys supplied via `:exec-args`
-- `format-opts` now uses the conventional two-column `option | description` layout (argparse/clap/click style): the alias, `--option` and `:ref` form one invocation column (`-f, --foo <ref>`), `:default` is folded into the description as `(default: ...)`, and there is a 2-space gap before the description. Replaces the previous separate `ref`/`default` columns (which left wide gaps when only some options had them). `opts->table` (for custom tables) is unchanged; `format-table` gained a `:divider` option (default `" "`)
-- Add spec option `:negatable true`: show a boolean option as `--[no-]name` in help (the `--no-name` form parses regardless)
-- A `dispatch` command entry may carry `:epilog` (free text), rendered verbatim after the options in help (for examples, notes, links); put it on the root entry (`:cmds []`) for top-level help
-- Add `:help` option to `dispatch`: built-in `--help`/`-h` plus terse errors, no `:restrict` needed. Override the defaults with `:help-fn` / `:error-fn`
-- `:help` option: `--help`/`-h` takes precedence over flag errors, so `tool cmd --help` and `tool group sub --help` print help even when a required option is missing or validation would fail
-- Add `:prog` option to `dispatch`: program name shown in help. `dispatch` threads `:prog`, `:inherit` and the command tree into error/help data
-- Add `:order` (vector of option keys) on a command entry to set the `Options:` order in help; otherwise order follows the spec
-- Help usage line labels positional args from `:args->opts` (e.g. `<file>`, `<file>...` for the variadic form) instead of a generic `[<args>]`; a command with no `:args->opts` shows no positional placeholder
-- Option error data now carries `:flag`: the option token as typed (`--foo`/`-f`/`:foo`), vs `:option` the normalized keyword. Default messages name the option by its flag; `:coerce` failures reworded to match `:validate`
-- Add `*exit-fn*`: dynamic var the `:help` option uses to exit on error. Receives `{:exit :cause :dispatch :data}`; rebind to not exit (tests/REPL) or to remap codes by `:cause`
-- Add `format-command-help`: render `--help` text (Usage / Commands / Options / Inherited options) for a command in a `dispatch` table
-- Add `format-command-error`: render the terse error text for a `dispatch` error from `:error-fn` data
-- Expose `table->tree`: converts a `dispatch` table into the nested tree used internally
-- `dispatch` now includes `:dispatch` (the matched subcommand path) in flag-level error data
-- Fix `:restrict` rejecting shared/parent options in `dispatch`: options parsed at a parent level are no longer flagged unknown at child levels
-- Support `:inherit` in `dispatch`: a spec option marked `:inherit true` is accepted both before and after the subcommand; may also be set at the dispatch level (`true` or a coll of keys)
+- [#112](https://github.com/babashka/cli/issues/112): auto-generated help for `dispatch` CLIs. Pass `:help true` to add `--help`/`-h` to every (sub)command and print standard `Usage` / `Commands` / `Options` help - with per-command `:doc`/`:order`/`:epilog`, `:negatable` options shown as `--[no-]name`, and `(required)` / `(default: ...)` markers - plus terse errors on missing/unknown options. Customize via `:help-fn` / `:error-fn` / `:prog`, render the text yourself with `format-command-help` / `format-command-error`, and control process exit with `*exit-fn*`
+- `format-opts` now uses a conventional two-column layout (invocation column `-f, --foo <ref>`, with `:default` / `(required)` folded into the description) and wraps long descriptions to the terminal width (`:max-width-fn`; `:wrap false` to disable). `opts->table` is unchanged
+- Support `:inherit` in `dispatch`: a spec option marked `:inherit true` is accepted both before and after its subcommand, or set at the dispatch level
+- `:restrict` no longer flags keys from `:exec-args`, nor options parsed at a parent `dispatch` level
+- An option given without a value now reports `Missing value for option --foo`
 
 ## v0.9.68 (2026-05-23)
 
