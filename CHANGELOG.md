@@ -6,7 +6,7 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
-- `format-table` / `format-opts` wrap long descriptions to the terminal width (`:wrap false` to disable). Width via `:max-width-fn` (default detects node `stdout.columns`, `$COLUMNS`, JLine on the JVM, else 80)
+- `format-table` / `format-opts` wrap long descriptions to the terminal width (`:wrap false` to disable). Width via `:max-width-fn` (default: node `stdout.columns`; JVM `$COLUMNS` then JLine; else 80)
 - An option given without a value now reports `Missing value for option --foo` instead of `Invalid value for option --foo: cannot transform (implicit) true to ...`
 - `:restrict` no longer flags keys supplied via `:exec-args`
 - `format-opts` now uses the conventional two-column `option | description` layout (argparse/clap/click style): the alias, `--option` and `:ref` form one invocation column (`-f, --foo <ref>`), `:default` is folded into the description as `(default: ...)`, and there is a 2-space gap before the description. Replaces the previous separate `ref`/`default` columns (which left wide gaps when only some options had them). `opts->table` (for custom tables) is unchanged; `format-table` gained a `:divider` option (default `" "`)

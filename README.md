@@ -894,15 +894,16 @@ aligning continuation lines under the description column:
 On by default; `:wrap false` disables it.
 
 The width comes from `:max-width-fn`, a `(fn [cfg] -> width)` defaulting to
-`cli/default-width-fn` (node `process.stdout.columns`, else `$COLUMNS`, else a
-JLine probe on the JVM, else 80). Override per call:
+`cli/default-width-fn`: on node it reads `process.stdout.columns`; on the JVM it
+reads `$COLUMNS` then probes JLine (when on the classpath). Falls back to 80.
+Override per call:
 
 ``` clojure
 (cli/format-opts {:spec spec :max-width-fn (constantly 80)})
 ```
 
 On the JVM, `default-width-fn` reads the real width via JLine when it is on the
-classpath - **babashka bundles it, so bb scripts get it for free**. Other JVM
+classpath. babashka bundles it, so bb scripts get it for free. Other JVM
 programs add a provider (FFM is lightest):
 
 ``` clojure
