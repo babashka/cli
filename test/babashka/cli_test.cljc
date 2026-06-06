@@ -210,7 +210,7 @@
   -m, --multi          Custom multi-arg-val test.")
            (str/trim (cli/format-opts {:spec spec
                                        :order [:from :to :paths :pretty :multi]
-                                       :max-width 80}))))
+                                       :max-width-fn (constantly 80)}))))
     (is (= {:coerce {:from :keyword,
                      :to :keyword, :paths []},
             :alias {:i :from, :o :to, :p :pretty :m :multi},
@@ -850,24 +850,34 @@
              str/split-lines))))
 
 (deftest format-table-wrap-test
-  (testing "the last column wraps at word boundaries to :max-width, continuation aligned"
+  (testing "the last column wraps at word boundaries to :max-width-fn, continuation aligned"
     (is (= ["  --foo one two three"
             "        four five"]
            (-> (cli/format-table {:rows [["--foo" "one two three four five"]]
-                                  :max-width 22})
+                                  :max-width-fn (constantly 22)})
                str/split-lines))))
   (testing ":wrap false leaves long cells untouched"
     (is (= ["  --foo one two three four five"]
            (-> (cli/format-table {:rows [["--foo" "one two three four five"]]
-                                  :max-width 22 :wrap false})
+                                  :max-width-fn (constantly 22) :wrap false})
                str/split-lines))))
   (testing "existing newlines are preserved as hard breaks while long lines wrap"
     (is (= ["  --foo one two"
             "        three"
             "        four"]
            (-> (cli/format-table {:rows [["--foo" "one two three\nfour"]]
-                                  :max-width 17})
-               str/split-lines)))))
+                                  :max-width-fn (constantly 17)})
+               str/split-lines))))
+  (testing ":max-width-fn is called lazily (only when wrapping) with the cfg map"
+    (let [calls (atom 0)]
+      (cli/format-table {:rows [["--foo" "one two three four five"]]
+                         :wrap false
+                         :max-width-fn (fn [_] (swap! calls inc) 22)})
+      (is (zero? @calls) ":wrap false must not call max-width-fn"))
+    (let [seen (atom nil)]
+      (cli/format-table {:rows [["--foo" "one two three four five"]]
+                         :max-width-fn (fn [m] (reset! seen m) 22)})
+      (is (map? @seen) "max-width-fn receives the cfg map"))))
 
 (deftest require-test
   (is (thrown-with-msg?

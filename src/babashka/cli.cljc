@@ -693,16 +693,49 @@
                   (map pad widths row))]
     (map pad-row rows)))
 
-(defn- terminal-width
-  "Best-effort terminal width: node `stdout.columns`, else `$COLUMNS`, else 80.
-  Not-a-TTY yields 80, so non-interactive output (pipes, CI) stays deterministic."
-  []
-  (or #?(:clj (when-let [c (System/getenv "COLUMNS")]
+#?(:clj
+   (def ^:private jline-provider
+     ;; Cached: provider discovery/load is the only cost (a few ms, once); the
+     ;; width query itself is a cheap ioctl. Reflective - no compile-time dep on
+     ;; org.jline.*, so this is nil when JLine is not on the classpath.
+     (delay
+       (try
+         (let [tb (Class/forName "org.jline.terminal.TerminalBuilder")
+               b  (.invoke (.getMethod tb "builder" (into-array Class [])) nil (object-array []))
+               gp (.getMethod tb "getProviders"
+                              (into-array Class [String java.lang.IllegalStateException]))]
+           (first (.invoke gp b (object-array [nil (IllegalStateException.)]))))
+         (catch Throwable _ nil)))))
+
+#?(:clj
+   (defn- jline-width
+     "Terminal width via the JLine provider's `systemStreamWidth` (an `ioctl`, no
+     `Terminal` built - so no tty grab, no warnings). nil when JLine is absent or
+     stdout is not a terminal."
+     []
+     (try
+       (when-let [p @jline-provider]
+         (let [tp  (Class/forName "org.jline.terminal.spi.TerminalProvider")
+               ssc (Class/forName "org.jline.terminal.spi.SystemStream")
+               out (.get (.getField ssc "Output") nil)]
+           (when (.invoke (.getMethod tp "isSystemStream" (into-array Class [ssc])) p (object-array [out]))
+             (let [w (.invoke (.getMethod tp "systemStreamWidth" (into-array Class [ssc])) p (object-array [out]))]
+               (when (and (integer? w) (pos? w)) w)))))
+       (catch Throwable _ nil))))
+
+(defn default-width-fn
+  "The default `:max-width-fn` for [[format-table]]/[[format-opts]]. Receives the
+  table cfg map (currently unused, reserved for extension) and returns the terminal
+  width or nil: node `process.stdout.columns`, else `$COLUMNS`, else a JLine
+  provider probe (clj, when JLine is on the classpath, e.g. babashka), else nil
+  (the caller then falls back to 80)."
+  [_cfg]
+  #?(:cljs (when (and (exists? js/process) js/process.stdout
+                      (pos-int? (.-columns js/process.stdout)))
+             (.-columns js/process.stdout))
+     :clj (or (when-let [c (System/getenv "COLUMNS")]
                 (try (Long/parseLong c) (catch Exception _ nil)))
-         :cljs (when (and (exists? js/process) js/process.stdout
-                          (pos-int? (.-columns js/process.stdout)))
-                 (.-columns js/process.stdout)))
-      80))
+              (jline-width))))
 
 (defn- word-wrap
   "Wrap `s` to `width` columns at spaces, keeping existing newlines as hard breaks.
@@ -755,11 +788,13 @@
                        (range max-lines))))
               rows))))
 
-(defn format-table [{:keys [rows indent divider wrap max-width]
-                     :or {indent 2 divider " " wrap true}}]
+(defn format-table [{:keys [rows indent divider wrap max-width-fn]
+                     :or {indent 2 divider " " wrap true max-width-fn default-width-fn}
+                     :as cfg}]
   (let [rows (cond-> rows
                (and wrap (seq rows))
-               (wrap-last-column indent divider (or max-width (terminal-width))))
+               ;; max-width-fn is called only here (lazy): no detection when not wrapping
+               (wrap-last-column indent divider (or (max-width-fn cfg) 80)))
         rows (-> rows
                  expand-multiline-cells
                  pad-cells)
@@ -848,13 +883,13 @@
           entries (map short entries))))
 
 (defn format-opts [{:as cfg
-                    :keys [indent wrap max-width]
-                    :or {indent 2 wrap true}}]
+                    :keys [indent wrap max-width-fn]
+                    :or {indent 2 wrap true max-width-fn default-width-fn}}]
   (format-table {:rows (opts->help-rows cfg)
                  :indent indent
                  :divider "  "
                  :wrap wrap
-                 :max-width max-width}))
+                 :max-width-fn max-width-fn}))
 
 (defn- help-first-line [s]
   (when s (first (str/split-lines s))))
