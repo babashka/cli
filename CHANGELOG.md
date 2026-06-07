@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- [#24](https://github.com/babashka/cli/issues/24) / [#95](https://github.com/babashka/cli/pull/95): shell completions for `dispatch` CLIs (`bash`/`zsh`/`fish`). Dynamic (a small snippet calls back into the program), with subcommand/option descriptions and option-value completion via `:complete` or a set-valued `:validate`. See [Completions](https://github.com/babashka/cli#completions) ([@sohalt](https://github.com/sohalt))
+
 ## v0.10.69 (2026-06-06)
 
 - [#112](https://github.com/babashka/cli/issues/112): auto-generated `--help` for `dispatch` CLIs (`Usage` / `Commands` / `Options`, `--help`/`-h` on every (sub)command, terse errors). See [Help](https://github.com/babashka/cli#help)

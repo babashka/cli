@@ -70,6 +70,7 @@ See [clojure CLI](#clojure-cli) for how to turn your exec functions into CLIs.
 - [Options](#options)
 - [Arguments](#arguments)
 - [Subcommands](#subcommands)
+- [Completions](#completions)
 - [Adding Production Polish](#adding-production-polish)
 - [Babashka tasks](#babashka-tasks)
 - [Clojure CLI](#clojure-cli)
@@ -705,6 +706,64 @@ and exit afterwards:
                (println "See https://example.com/docs")
                (cli/*exit-fn* {:exit 1 :cause (:cause data)}))})
 ```
+
+## Completions
+
+`dispatch` can generate shell completions for `bash`, `zsh` and `fish`. They are
+dynamic: a small shell snippet calls back into your program on each TAB, so they
+stay in sync with your command table (no regeneration on change). Set `:prog` to
+the program name:
+
+``` clojure
+(cli/dispatch table args {:prog "mycli" :help true})
+```
+
+Install the completion snippet (it is printed to stdout):
+
+``` bash
+# bash (add to ~/.bashrc)
+source <(mycli --org.babashka.cli/completion-snippet bash)
+
+# zsh (after compinit; or save as _mycli on your $fpath)
+source <(mycli --org.babashka.cli/completion-snippet zsh)
+
+# fish
+mycli --org.babashka.cli/completion-snippet fish | source
+```
+
+Subcommands and options complete out of the box. Descriptions come from the same
+`:desc` (options) and `:doc` (subcommands) you already write for `--help`, and
+are shown by zsh and fish (bash completes values only). A `:no-doc` subcommand is
+hidden. Options already given drop out of later suggestions, except repeatable
+ones (a list-valued `:coerce`, e.g. `:coerce [:string]`, or a `:collect` option).
+
+### Completing option values
+
+Give an option a `:complete` to complete its value: a collection of values (or
+`{:value .. :description ..}` maps), or a function for dynamic completion. A
+set-valued `:validate` is used automatically when there is no `:complete`.
+
+``` clojure
+{:env   {:coerce :string
+         :complete ["dev" "staging" "prod"]}        ; static list
+ :level {:coerce :keyword
+         :validate #{:local :global :system}}       ; reused as completions
+ :branch {:coerce :string
+          :complete (fn [{:keys [to-complete opts]}] ; dynamic
+                      (git-branches to-complete))}}
+```
+
+The function receives `{:to-complete <partial> :opts <opts parsed so far>
+:option <key>}` and returns values (or `{:value .. :description ..}` maps); it
+owns its own filtering. A collection or `:validate` set is prefix-filtered for
+you.
+
+Completions also work when the program is invoked by path (`./mycli`,
+`/path/mycli`), not just by bare name.
+
+For lower-level use there are `complete` (a dispatch table + a vector of tokens
+-> a vector of completion strings), `complete-options` (an options map + tokens),
+`format-command-help` and friends. See the [API](API.md).
 
 ## Adding Production Polish
 Babashka cli lets you get up and running quickly.

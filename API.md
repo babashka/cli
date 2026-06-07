@@ -5,6 +5,9 @@
     -  [`auto-coerce`](#babashka.cli/auto-coerce) - Auto-coerces <code>s</code> to data.
     -  [`coerce`](#babashka.cli/coerce) - Coerce string <code>s</code> using <code>f</code>.
     -  [`coerce-opts`](#babashka.cli/coerce-opts) - Coerces values in the map <code>m</code> using the provided configuration.
+    -  [`complete`](#babashka.cli/complete) - Given a dispatch <code>cmd-table</code> and <code>input</code> (a vector of tokens), returns the tokens that can complete the final token.
+    -  [`complete-options`](#babashka.cli/complete-options) - Given an <code>opts</code> map (as for [<code>parse-opts</code>](#babashka.cli/parse-opts)) and <code>input</code> (a vector of tokens), returns the option tokens that can complete the final token.
+    -  [`complete-tree`](#babashka.cli/complete-tree) - Given a dispatch tree (see [<code>table-&gt;tree</code>](#babashka.cli/table->tree)) and <code>input</code> (a vector of tokens), returns the tokens that can complete the final token: matching subcommands of the node reached by the earlier tokens, plus that node's options.
     -  [`default-width-fn`](#babashka.cli/default-width-fn) - The default <code>:max-width-fn</code> for [<code>format-table</code>](#babashka.cli/format-table)/[<code>format-opts</code>](#babashka.cli/format-opts).
     -  [`dispatch`](#babashka.cli/dispatch) - Subcommand dispatcher.
     -  [`format-command-error`](#babashka.cli/format-command-error) - Render a terse, helpful message (a string) for a dispatch error, given the data <code>dispatch</code> passes to its <code>:error-fn</code>: * <code>:no-match</code> (unknown subcommand) -> message + commands + hint * <code>:input-exhausted</code> (group, no subcommand) -> message + commands + hint * flag error (<code>:restrict</code> / <code>:require</code> / <code>:validate</code> / <code>:coerce</code>) -> message + usage + hint Reads the command tree, <code>:prog</code>, <code>:inherit</code>, <code>:dispatch</code> (the path), and for flag errors <code>:msg</code> (and for <code>:no-match</code>, <code>:wrong-input</code>) from the data.
@@ -62,7 +65,7 @@ Terminates the process after `dispatch`'s `:help` option prints an *error*
   Must exit or throw.
 
   Default: `System/exit` (JVM), `js/process.exit` (Node), `throw` (browser).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1124-L1151">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1371-L1398">Source</a></sub></p>
 
 ## <a name="babashka.cli/apply-defaults">`apply-defaults`</a>
 ``` clojure
@@ -77,7 +80,7 @@ Fills missing keys in `m` from defaults. Existing keys in `m` win.
   Supported options:
   * `:exec-args` - map of defaults. Not subject to `:restrict`.
   * `:spec` - spec; `:default` entries become defaults via `spec->opts`.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L455-L471">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L456-L472">Source</a></sub></p>
 
 ## <a name="babashka.cli/auto-coerce">`auto-coerce`</a>
 ``` clojure
@@ -90,7 +93,7 @@ Auto-coerces `s` to data. Does not coerce when `s` is not a string.
   * is `true` or `false`, it is coerced as boolean
   * starts with number, it is coerced as a number (through Clojure's `edn/read-string`)
   * starts with `:`, it is coerced as a keyword (through [`parse-keyword`](#babashka.cli/parse-keyword))
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L77-L103">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L78-L104">Source</a></sub></p>
 
 ## <a name="babashka.cli/coerce">`coerce`</a>
 ``` clojure
@@ -102,7 +105,7 @@ Coerce string `s` using `f`. Does not coerce when `s` is not a string.
   `f` may be a keyword (`:boolean`, `:int`, `:double`, `:symbol`,
   `:keyword`) or a function. When `f` return `nil`, this is
   interpreted as a parse failure and throws.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L149-L155">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L150-L156">Source</a></sub></p>
 
 ## <a name="babashka.cli/coerce-opts">`coerce-opts`</a>
 ``` clojure
@@ -124,7 +127,40 @@ Coerces values in the map `m` using the provided configuration.
   `"--foo"`, `"-f"`, or `":foo"`), as opposed to `:option`, the normalized
   keyword (`:foo`). It lets a handler echo what the user actually typed rather
   than reconstruct it. It is omitted when no originating token is known.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L285-L360">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L286-L361">Source</a></sub></p>
+
+## <a name="babashka.cli/complete">`complete`</a>
+``` clojure
+(complete cmd-table input)
+```
+Function.
+
+Given a dispatch `cmd-table` and `input` (a vector of tokens), returns the
+  tokens that can complete the final token. See [`complete-tree`](#babashka.cli/complete-tree).
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1206-L1210">Source</a></sub></p>
+
+## <a name="babashka.cli/complete-options">`complete-options`</a>
+``` clojure
+(complete-options opts input)
+```
+Function.
+
+Given an `opts` map (as for [`parse-opts`](#babashka.cli/parse-opts)) and `input` (a vector of tokens),
+  returns the option tokens that can complete the final token. The final token is
+  the one being typed; the earlier tokens give context (which options are already
+  used, or whether the preceding option still wants a value).
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1153-L1159">Source</a></sub></p>
+
+## <a name="babashka.cli/complete-tree">`complete-tree`</a>
+``` clojure
+(complete-tree cmd-tree input)
+```
+Function.
+
+Given a dispatch tree (see [`table->tree`](#babashka.cli/table->tree)) and `input` (a vector of tokens),
+  returns the tokens that can complete the final token: matching subcommands of
+  the node reached by the earlier tokens, plus that node's options.
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1199-L1204">Source</a></sub></p>
 
 ## <a name="babashka.cli/default-width-fn">`default-width-fn`</a>
 ``` clojure
@@ -137,7 +173,7 @@ The default `:max-width-fn` for [`format-table`](#babashka.cli/format-table)/[`f
   width or nil: node `process.stdout.columns`, else `$COLUMNS`, else a JLine
   provider probe (clj, when JLine is on the classpath, e.g. babashka), else nil
   (the caller then falls back to 80).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L726-L738">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L727-L739">Source</a></sub></p>
 
 ## <a name="babashka.cli/dispatch">`dispatch`</a>
 ``` clojure
@@ -193,7 +229,7 @@ Subcommand dispatcher.
   Each entry in the table may have additional [`parse-args`](#babashka.cli/parse-args) options.
 
   For more information and examples, see [README.md](README.md#subcommands).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1381-L1445">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1628-L1709">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-command-error">`format-command-error`</a>
 ``` clojure
@@ -217,7 +253,7 @@ Render a terse, helpful message (a string) for a dispatch error, given the
   this, then calls [`*exit-fn*`](#babashka.cli/*exit-fn*)). Call it from a custom `:error-fn` to keep the
   standard message and add your own output. `--help`/`-h` is not an error - it
   goes to the `:help-fn`, rendered by [`format-command-help`](#babashka.cli/format-command-help).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1162-L1208">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1409-L1455">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-command-help">`format-command-help`</a>
 ``` clojure
@@ -261,14 +297,14 @@ Render conventional `--help` text (a string) for the command at path `cmds`
   This is the renderer the `:help` option uses; call it from a custom `:help-fn`
   to render the standard help and then add your own output. An entry may carry
   `:no-doc true` to be omitted from `Commands:`.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1082-L1122">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1329-L1369">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-opts">`format-opts`</a>
 ``` clojure
 (format-opts {:as cfg, :keys [indent wrap max-width-fn], :or {indent 2, wrap true, max-width-fn default-width-fn}})
 ```
 Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L893-L900">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L894-L901">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-table">`format-table`</a>
 ``` clojure
@@ -278,7 +314,7 @@ Function.
   :as cfg})
 ```
 Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L791-L810">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L792-L811">Source</a></sub></p>
 
 ## <a name="babashka.cli/merge-opts">`merge-opts`</a>
 ``` clojure
@@ -287,21 +323,21 @@ Function.
 Function.
 
 Merges babashka CLI options.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L12-L15">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L13-L16">Source</a></sub></p>
 
 ## <a name="babashka.cli/number-char?">`number-char?`</a>
 ``` clojure
 (number-char? c)
 ```
 Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L53-L55">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L54-L56">Source</a></sub></p>
 
 ## <a name="babashka.cli/opts->table">`opts->table`</a>
 ``` clojure
 (opts->table {:keys [spec order columns]})
 ```
 Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L840-L860">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L841-L861">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-args">`parse-args`</a>
 ``` clojure
@@ -315,7 +351,7 @@ Same as [`parse-opts`](#babashka.cli/parse-opts) with return data reshaped.
   Returns a map with:
   * `:opts` parsed opts
   * `:args` remaining unparsed `args`
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L667-L677">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L668-L678">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-cmds">`parse-cmds`</a>
 ``` clojure
@@ -327,7 +363,7 @@ Function.
 Parses sub-commands (arguments not starting with an option prefix). Returns a map with:
   * `:cmds` - The parsed subcommands
   * `:args` - The remaining (unparsed) arguments
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L200-L210">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L201-L211">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-keyword">`parse-keyword`</a>
 ``` clojure
@@ -336,7 +372,7 @@ Parses sub-commands (arguments not starting with an option prefix). Returns a ma
 Function.
 
 Parse keyword from `s`. Ignores leading `:`.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L65-L70">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L66-L71">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-opts">`parse-opts`</a>
 ``` clojure
@@ -375,7 +411,7 @@ Returns a map of options parsed from command line arguments `args`, a seq of str
   ;; => throws 'Unknown option --qux' exception b/c there is no :qux key in the spec
   ```
   See also: [`parse-args`](#babashka.cli/parse-args)
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L619-L665">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L620-L666">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-opts*">`parse-opts*`</a>
 ``` clojure
@@ -395,7 +431,7 @@ Parses CLI `args` into a raw opts map. Returns string values unchanged
 
   Supported options (subset of `parse-opts`): `:alias`/`:aliases`, `:coerce`,
   `:collect`, `:no-keyword-opts`, `:repeated-opts`, `:args->opts`, `:spec`.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L477-L617">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L478-L618">Source</a></sub></p>
 
 ## <a name="babashka.cli/spec->opts">`spec->opts`</a>
 ``` clojure
@@ -405,7 +441,7 @@ Parses CLI `args` into a raw opts map. Returns string values unchanged
 Function.
 
 Converts spec into opts format. Pass existing opts as optional second argument.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L177-L198">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L178-L199">Source</a></sub></p>
 
 ## <a name="babashka.cli/table->tree">`table->tree`</a>
 ``` clojure
@@ -421,7 +457,7 @@ Converts a `dispatch` table into a tree. Each `:cmds` becomes a path of
   (table->tree [{:cmds ["add"] :fn add} {:cmds [] :fn help}])
   ;; => {:fn help, :cmd {"add" {:fn add}}}
   ```
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L998-L1014">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L999-L1015">Source</a></sub></p>
 
 ## <a name="babashka.cli/validate-opts">`validate-opts`</a>
 ``` clojure
@@ -445,7 +481,7 @@ Validates the map `m` using the provided configuration. Returns `m`.
   keyword (`:foo`). It lets a handler echo what the user actually typed rather
   than reconstruct it. It is present for `:restrict` and `:validate`, and absent
   for `:require` (a missing required option was never typed, so it has no token).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L362-L453">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L363-L454">Source</a></sub></p>
 
 -----
 # <a name="babashka.cli.exec">babashka.cli.exec</a>
