@@ -4,6 +4,7 @@
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    [babashka.cli.internal :as internal]
+   [clojure.set :as set]
    [clojure.string :as str])
   #?(:clj (:import (clojure.lang ExceptionInfo))))
 
@@ -1017,6 +1018,162 @@
   (table->tree [{:cmds [] :fn identity}])
  )
 
+;;;; Shell completion
+
+(defn- format-long-opt [k] (str "--" (kw->str k)))
+(defn- format-short-opt [k] (str "-" (kw->str k)))
+
+(defn- true-prefix?
+  "True when `s` starts with `prefix` and is strictly longer (a real completion,
+  not the already-typed token itself)."
+  [prefix s]
+  (and (< (count prefix) (count s))
+       (str/starts-with? s prefix)))
+
+(defn- strip-prefix [prefix s]
+  (if (str/starts-with? s prefix) (subs s (count prefix)) s))
+
+(defn- gnu-option? [s]
+  (and s (str/starts-with? s "-")))
+
+(defn- bool-opt? [o opts]
+  (let [opt-kw (if (str/starts-with? o "--")
+                 (keyword (strip-prefix "--" o))
+                 (get-in opts [:alias (keyword (strip-prefix "-" o))]))]
+    (= :boolean (get-in opts [:coerce opt-kw]))))
+
+;; TODO: complete option values (see `:complete` / `:value-hint`, not yet wired)
+(def ^:private possible-values (constantly []))
+
+(defn- resolve-completion-opts
+  "Normalize an opts/spec map to a resolved opts map (with `:coerce`/`:alias`)
+  plus the set of known option keys. Returns `[opts aliases known-keys]`."
+  [opts]
+  (let [spec (:spec opts)
+        opts (if spec (merge-opts opts (spec->opts spec opts)) opts)
+        aliases (or (:alias opts) (:aliases opts))
+        known (set (concat (when (map? spec) (keys spec))
+                           (keys (:coerce opts))
+                           (vals aliases)))]
+    [opts aliases known]))
+
+(defn- option-completions
+  "Option tokens at one level completing `to-complete`, excluding options already
+  present in the completed tokens `done`."
+  [opts aliases known done to-complete]
+  (let [{parsed :opts} (try (parse-args done opts)
+                            (catch #?(:clj ExceptionInfo :cljs :default) _ nil))
+        possible (set/difference known (set (keys parsed)))
+        cands (concat (map format-long-opt possible)
+                      (keep (fn [k]
+                              (when-let [a (some (fn [[a l]] (when (= l k) a)) aliases)]
+                                (format-short-opt a)))
+                            possible))]
+    (filter (partial true-prefix? to-complete) cands)))
+
+(defn complete-options
+  "Given an `opts` map (as for [[parse-opts]]) and `input` (a vector of tokens),
+  returns the option tokens that can complete the final token. The final token is
+  the one being typed; the earlier tokens give context (which options are already
+  used, or whether the preceding option still wants a value)."
+  [opts input]
+  (let [[opts aliases known] (resolve-completion-opts opts)
+        done (vec (butlast input))
+        to-complete (or (last input) "")
+        previous (peek done)]
+    (if (and (gnu-option? previous) (not (bool-opt? previous opts)))
+      ;; preceding option awaits a value -> complete the value, not options
+      (possible-values previous to-complete opts)
+      (option-completions opts aliases known done to-complete))))
+
+(defn- descend
+  "Walk the completed prefix `tokens` down dispatch tree `node`, consuming
+  subcommands and this-level options (with their values). Returns
+  `[deepest-node tokens-at-deepest-level]`; the latter feeds option exclusion."
+  [node tokens]
+  (loop [node node, toks (seq tokens), level []]
+    (let [head (first toks)]
+      (cond
+        (nil? head) [node level]
+        (get-in node [:cmd head]) (recur (get-in node [:cmd head]) (next toks) [])
+        (gnu-option? head)
+        (let [n (if (bool-opt? head (spec->opts (:spec node)))
+                  1   ; boolean flag: no value
+                  2)] ; option plus its value
+          (recur node (drop n toks) (into level (take n toks))))
+        ;; stray positional (e.g. a leftover value) - keep at this level
+        :else (recur node (next toks) (conj level head))))))
+
+(defn complete-tree
+  "Given a dispatch tree (see [[table->tree]]) and `input` (a vector of tokens),
+  returns the tokens that can complete the final token: matching subcommands of
+  the node reached by the earlier tokens, plus that node's options."
+  [cmd-tree input]
+  (let [done (vec (butlast input))
+        to-complete (or (last input) "")
+        [node level] (descend cmd-tree done)
+        opts (spec->opts (:spec node))
+        previous (peek done)]
+    (if (and (gnu-option? previous) (not (bool-opt? previous opts)))
+      ;; preceding option awaits a value -> complete the value, not commands/options
+      (possible-values previous to-complete opts)
+      (let [cmds (when-not (gnu-option? to-complete)
+                   (filter (partial true-prefix? to-complete) (keys (:cmd node))))
+            [ropts aliases known] (resolve-completion-opts opts)
+            opt-cands (option-completions ropts aliases known level to-complete)]
+        (concat cmds opt-cands)))))
+
+(defn complete
+  "Given a dispatch `cmd-table` and `input` (a vector of tokens), returns the
+  tokens that can complete the final token. See [[complete-tree]]."
+  [cmd-table input]
+  (complete-tree (table->tree cmd-table) input))
+
+(defn- completion-shell-snippet
+  "The shell-side stub a user sources/installs. On each TAB it calls back into
+  the program with the `--org.babashka.cli/complete` token; the program prints
+  shell code (see [[format-completion]]) that the stub evaluates."
+  [shell program-name]
+  (case shell
+    :bash (format "_babashka_cli_dynamic_completion()
+{
+    source <( \"$1\" --org.babashka.cli/complete \"bash\" \"${COMP_WORDS[*]// / }\" )
+}
+complete -o nosort -F _babashka_cli_dynamic_completion %s
+" program-name)
+    :zsh (format "#compdef %s
+source <( \"${words[1]}\" --org.babashka.cli/complete \"zsh\" \"${words[*]// / }\" )
+" program-name)
+    :fish (format "function _babashka_cli_dynamic_completion
+    set --local COMP_LINE (commandline --cut-at-cursor)
+    %s --org.babashka.cli/complete fish $COMP_LINE
+end
+complete --command %s --no-files --arguments \"(_babashka_cli_dynamic_completion)\"
+" program-name program-name)))
+
+(defn- format-completion [shell {:keys [completion description]}]
+  (case shell
+    :bash (format "COMPREPLY+=( \"%s\" )" completion)
+    :zsh (str "compadd" (when description (str " -x \"" description "\"")) " -- " completion)
+    :fish completion))
+
+(defn- print-completions [shell completions]
+  (doseq [completion completions]
+    (println (format-completion shell {:completion completion}))))
+
+(defn- cmdline->tokens
+  "Split a raw completion command line into tokens, dropping the program name.
+  A trailing space yields a trailing empty token (the cursor sits on a fresh
+  word), so `\"prog foo \"` -> `[\"foo\" \"\"]`."
+  [cmdline]
+  (rest (str/split (str/triml cmdline) #" +" -1)))
+
+(defn- print-dispatch-completions [shell tree cmdline]
+  (print-completions shell (complete-tree tree (cmdline->tokens cmdline))))
+
+(defn- print-opts-completions [shell opts cmdline]
+  (print-completions shell (complete-options opts (cmdline->tokens cmdline))))
+
 (defn- deep-merge [a b]
   (reduce (fn [acc k] (update acc k (fn [v]
                                       (if (map? v)
@@ -1429,17 +1586,33 @@
   ([table args]
    (dispatch table args {}))
   ([table args opts]
-   (let [tree (-> table table->tree)]
-     (if (:help opts)
-       (dispatch-tree (inject-help tree) args
-                      (assoc opts ::help true
-                             ;; default :error-fn = print the message, then exit;
-                             ;; :cause is the dispatch cause as-is (:no-match /
-                             ;; :input-exhausted / a flag cause)
-                             :error-fn (or (:error-fn opts)
-                                           (fn [{:keys [cause dispatch] :as data}]
-                                             (print-command-error data)
-                                             (*exit-fn* {:exit 1 :cause cause
-                                                         :dispatch dispatch :data data})))
-                             ::help-fn (or (:help-fn opts) print-command-help)))
-       (dispatch-tree tree args opts)))))
+   (let [base-tree (table->tree table)
+         ;; complete against the same tree the user dispatches with, so
+         ;; `--help`/`-h` (injected by `:help`) also show up as completions
+         tree (cond-> base-tree (:help opts) inject-help)
+         [opt shell cmdline] args]
+     (case opt
+       ;; print the shell-side stub. A success path like `--help`: print and
+       ;; return (process ends 0), no `*exit-fn*`.
+       "--org.babashka.cli/completion-snippet"
+       (if-let [prog (:prog opts)]
+         (print (completion-shell-snippet (keyword shell) prog))
+         (binding [*out* *err*]
+           (println "babashka.cli: set :prog (program name) in opts to generate a completion snippet")))
+       ;; print completions for the current command line
+       "--org.babashka.cli/complete"
+       (print-dispatch-completions (keyword shell) tree cmdline)
+       ;; not a completion request: dispatch normally
+       (if (:help opts)
+         (dispatch-tree tree args
+                        (assoc opts ::help true
+                               ;; default :error-fn = print the message, then exit;
+                               ;; :cause is the dispatch cause as-is (:no-match /
+                               ;; :input-exhausted / a flag cause)
+                               :error-fn (or (:error-fn opts)
+                                             (fn [{:keys [cause dispatch] :as data}]
+                                               (print-command-error data)
+                                               (*exit-fn* {:exit 1 :cause cause
+                                                           :dispatch dispatch :data data})))
+                               ::help-fn (or (:help-fn opts) print-command-help)))
+         (dispatch-tree tree args opts))))))
