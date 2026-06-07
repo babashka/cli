@@ -1042,8 +1042,40 @@
                  (get-in opts [:alias (keyword (strip-prefix "-" o))]))]
     (= :boolean (get-in opts [:coerce opt-kw]))))
 
-;; TODO: complete option values (see `:complete` / `:value-hint`, not yet wired)
-(def ^:private possible-values (constantly []))
+(defn- option-key
+  "Resolve an option token (long `--foo` or short `-f`) to its keyword, given a
+  resolved `opts` (with `:alias`)."
+  [token opts]
+  (if (str/starts-with? token "--")
+    (keyword (strip-prefix "--" token))
+    (get-in opts [:alias (keyword (strip-prefix "-" token))])))
+
+(defn- normalize-value-candidate [c]
+  (cond
+    (map? c) (update c :value (fn [v] (if (keyword? v) (name v) (str v))))
+    (keyword? c) {:value (name c)}
+    :else {:value (str c)}))
+
+(defn- value-candidates
+  "Candidates for the value of option token `prev` (the token before the cursor),
+  from the option's `:complete` - a coll of values/maps, or a fn of a context map
+  `{:to-complete :opts :option}` - or, failing that, a set-valued `:validate`.
+  `spec` is the raw spec (carries `:complete`/`:validate`); `parsed` are the opts
+  parsed from the completed prefix (for dependent completion). A fn owns its own
+  filtering; a coll / validate-set is prefix-filtered against `to-complete`."
+  [spec opts prev to-complete parsed]
+  (let [entry (get (->spec-map spec) (option-key prev opts))
+        complete (:complete entry)
+        validate (:validate entry)
+        prefixed (fn [coll]
+                   (->> coll (map normalize-value-candidate)
+                        (filter #(str/starts-with? (:value %) to-complete))))]
+    (cond
+      (fn? complete) (map normalize-value-candidate
+                          (complete {:to-complete to-complete :opts parsed
+                                     :option (option-key prev opts)}))
+      (coll? complete) (prefixed complete)
+      (set? validate) (prefixed validate))))
 
 ;; A completion candidate is a map `{:value "--foo" :description "..."}` (the
 ;; description, from `:desc`/`:doc`, may be nil). The public `complete*` fns
@@ -1102,8 +1134,11 @@
         to-complete (or (last input) "")
         previous (peek done)]
     (if (and (gnu-option? previous) (not (bool-opt? previous ropts)))
-      ;; preceding option awaits a value -> complete the value, not options
-      (map (fn [v] {:value v}) (possible-values previous to-complete ropts))
+      ;; preceding option awaits a value -> complete the value, not options. Parse
+      ;; the tokens before that option (it has no value yet) for dependent completion.
+      (let [{parsed :opts} (try (parse-args (vec (butlast done)) ropts)
+                                (catch #?(:clj ExceptionInfo :cljs :default) _ nil))]
+        (value-candidates spec ropts previous to-complete parsed))
       (option-candidates spec ropts aliases known done to-complete))))
 
 (defn complete-options
@@ -1142,8 +1177,11 @@
         opts (spec->opts spec)
         previous (peek done)]
     (if (and (gnu-option? previous) (not (bool-opt? previous opts)))
-      ;; preceding option awaits a value -> complete the value, not commands/options
-      (map (fn [v] {:value v}) (possible-values previous to-complete opts))
+      ;; preceding option awaits a value -> complete the value, not commands/options.
+      ;; Parse the tokens before that option (no value yet) for dependent completion.
+      (let [{parsed :opts} (try (parse-args (vec (butlast level)) opts)
+                                (catch #?(:clj ExceptionInfo :cljs :default) _ nil))]
+        (value-candidates spec opts previous to-complete parsed))
       (let [cmds (when-not (gnu-option? to-complete)
                    (command-candidates node to-complete))
             [ropts aliases known] (resolve-completion-opts {:spec spec})]

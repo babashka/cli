@@ -147,3 +147,33 @@
     (testing "options with no :desc come out as a bare value (no trailing tab)"
       ;; --foo-opt2 above appears as bare \"--foo-opt2\", proving the no-desc case
       (is (contains? (complete-out "myprogram foo --foo") "--foo-opt2")))))
+
+(deftest value-completion-test
+  (testing ":complete as a static coll of strings"
+    (let [o {:spec {:env {:coerce :string :complete ["dev" "prod"]}}}]
+      (is (= #{"dev" "prod"} (set (complete-options o ["--env" ""]))))
+      (testing "prefix-filtered against the partial value"
+        (is (= #{"prod"} (set (complete-options o ["--env" "pr"])))))))
+  (testing ":complete coll of {:value :description} maps surfaces descriptions"
+    (let [t [{:cmds []
+              :spec {:env {:coerce :string
+                           :complete [{:value "dev" :description "Development"}
+                                      {:value "prod" :description "Production"}]}}}]]
+      (is (= #{"dev\tDevelopment" "prod\tProduction"}
+             (->> (with-out-str (cli/dispatch t ["--org.babashka.cli/complete" "zsh" "deploy --env "]
+                                              {:prog "deploy"}))
+                  clojure.string/split-lines (remove clojure.string/blank?) set)))))
+  (testing "set-valued :validate auto-completes its values (keywords -> names)"
+    (is (= #{"a" "b"}
+           (set (complete-options {:spec {:mode {:coerce :keyword :validate #{:a :b}}}}
+                                  ["--mode" ""])))))
+  (testing ":complete fn receives :to-complete and parsed :opts (dependent completion)"
+    (let [spec {:from {:coerce :string :complete ["x" "y"]}
+                :to {:coerce :string
+                     :complete (fn [{:keys [opts]}]
+                                 (when (= "x" (:from opts)) ["x1" "x2"]))}}]
+      (is (= #{"x1" "x2"} (set (complete-options {:spec spec} ["--from" "x" "--to" ""]))))
+      (testing "fn returns nothing when its dependency is absent"
+        (is (= #{} (set (complete-options {:spec spec} ["--to" ""])))))))
+  (testing "no :complete/:validate -> no value candidates"
+    (is (= #{} (set (complete-options {:spec {:env {:coerce :string}}} ["--env" ""]))))))
