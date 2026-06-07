@@ -177,3 +177,14 @@
         (is (= #{} (set (complete-options {:spec spec} ["--to" ""])))))))
   (testing "no :complete/:validate -> no value candidates"
     (is (= #{} (set (complete-options {:spec {:env {:coerce :string}}} ["--env" ""]))))))
+
+(deftest repeatable-option-test
+  (testing "a single-value option drops out once used"
+    (let [o {:spec {:env {:coerce :string} :verbose {:coerce :boolean}}}]
+      (is (= #{"--verbose"} (set (complete-options o ["--env" "x" ""]))))))
+  (testing "a list option (:coerce [...]) stays suggestable after use"
+    (let [o {:spec {:file {:coerce [:string]} :verbose {:coerce :boolean}}}]
+      (is (= #{"--file" "--verbose"} (set (complete-options o ["--file" "a" ""]))))))
+  (testing "a :collect option stays suggestable after use"
+    (let [o {:spec {:tag {:collect [] :coerce :string} :x {:coerce :boolean}}}]
+      (is (= #{"--tag" "--x"} (set (complete-options o ["--tag" "a" ""])))))))

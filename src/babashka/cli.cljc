@@ -1094,14 +1094,23 @@
                            (vals aliases)))]
     [opts aliases known]))
 
+(defn- repeatable-opt?
+  "True when option `k` may appear more than once: a collection-valued `:coerce`
+  (`[:string]`, `#{:string}`) or a `:collect` fn. Such options stay suggestable
+  after they have been used."
+  [opts k]
+  (or (coll? (get-in opts [:coerce k]))
+      (contains? (:collect opts) k)))
+
 (defn- option-candidates
-  "Option candidates at one level completing `to-complete`, excluding options
-  already present in the completed tokens `done`. `spec` (raw, for `:desc`) may
-  be a map, a vec-of-pairs, or nil. Returns candidate maps."
+  "Option candidates at one level completing `to-complete`, excluding the
+  single-value options already present in the completed tokens `done` (repeatable
+  options stay). `spec` (raw, for `:desc`) may be a map, a vec-of-pairs, or nil.
+  Returns candidate maps."
   [spec opts aliases known done to-complete]
   (let [{parsed :opts} (try (parse-args done opts)
                             (catch #?(:clj ExceptionInfo :cljs :default) _ nil))
-        used (set (keys parsed))
+        used (set (remove #(repeatable-opt? opts %) (keys parsed)))
         smap (->spec-map spec)
         desc (fn [k] (help-first-line (:desc (get smap k))))
         long-cands (keep (fn [k]
