@@ -1,5 +1,9 @@
 _babashka_cli_dynamic_completion()
 {
-    source <( "$1" --org.babashka.cli/complete "bash" "${COMP_WORDS[*]// / }" )
+    local line="${COMP_LINE:0:$COMP_POINT}"
+    local IFS=$'\n'
+    local values
+    values=$("${COMP_WORDS[0]}" --org.babashka.cli/complete bash "$line" | cut -f1)
+    COMPREPLY=( $(compgen -W "$values" -- "${COMP_WORDS[COMP_CWORD]}") )
 }
-complete -o nosort -F _babashka_cli_dynamic_completion myprogram
+complete -F _babashka_cli_dynamic_completion myprogram

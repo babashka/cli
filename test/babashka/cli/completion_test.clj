@@ -6,13 +6,15 @@
 
 (def cmd-table
   [{:cmds ["foo"] :spec {:foo-opt {:coerce :string
-                                   :alias :f}
+                                   :alias :f
+                                   :desc "The foo option"}
                          :foo-opt2 {:coerce :string}
                          :foo-flag {:coerce :boolean
-                                    :alias :l}}}
+                                    :alias :l
+                                    :desc "Enable foo"}}}
    {:cmds ["foo" "bar"] :spec {:bar-opt {:coerce :keyword}
                                :bar-flag {:coerce :boolean}}}
-   {:cmds ["bar"]}
+   {:cmds ["bar"] :doc "The bar command"}
    {:cmds ["bar-baz"]}])
 
 (def opts {:spec {:aopt {:alias :a
@@ -113,12 +115,35 @@
     (is (= #{"--bar-flag"} (set (complete cmd-table ["foo" "--foo-flag" "bar" "--bar-opt" "bar-val" ""]))))))
 
 
-(deftest dispatch-completion-test
+(deftest dispatch-completion-snippet-test
   (when-not (fs/windows?)
-    (is (= (slurp (io/resource "resources/completion/completion.zsh")) (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/completion-snippet" "zsh"] {:prog "myprogram"})))) ;
-    (is (= (slurp (io/resource "resources/completion/completion.bash")) (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/completion-snippet" "bash"] {:prog "myprogram"}))))
-    (is (= (slurp (io/resource "resources/completion/completion.fish")) (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/completion-snippet" "fish"] {:prog "myprogram"}))))
+    (doseq [shell ["bash" "zsh" "fish"]]
+      (is (= (slurp (io/resource (str "resources/completion/completion." shell)))
+             (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/completion-snippet" shell]
+                                         {:prog "myprogram"})))
+          shell))))
 
-    (is (= "compadd -- foo\n" (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/complete" "zsh" "myprogram f"] {:prog "myprogram"}))))
-    (is (= "COMPREPLY+=( \"foo\" )\n" (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/complete" "bash" "myprogram f"] {:prog "myprogram"}))))
-    (is (= "foo\n" (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/complete" "fish" "myprogram f"] {:prog "myprogram"}))))))
+(defn- complete-out
+  "Run the dispatch completion handler for `cmdline` and return its emitted
+  `value\\tdescription` lines as a set of strings."
+  [cmdline]
+  (->> (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/complete" "zsh" cmdline]
+                                   {:prog "myprogram"}))
+       clojure.string/split-lines
+       (remove clojure.string/blank?)
+       set))
+
+(deftest dispatch-completion-test
+  (testing "output is shell-agnostic value<TAB>description data"
+    (is (= #{"foo"} (complete-out "myprogram f"))))
+  (testing "descriptions: subcommand :doc and option :desc are surfaced"
+    (is (= #{"bar\tThe bar command" "bar-baz"} (complete-out "myprogram ba")))
+    (is (= #{"--foo-opt\tThe foo option" "--foo-opt2" "--foo-flag\tEnable foo"}
+           (complete-out "myprogram foo --foo")))
+    (testing "short-option aliases carry the long option's description"
+      (is (= #{"--foo-opt\tThe foo option" "--foo-opt2" "--foo-flag\tEnable foo"
+               "-f\tThe foo option" "-l\tEnable foo"}
+             (complete-out "myprogram foo -"))))
+    (testing "options with no :desc come out as a bare value (no trailing tab)"
+      ;; --foo-opt2 above appears as bare \"--foo-opt2\", proving the no-desc case
+      (is (contains? (complete-out "myprogram foo --foo") "--foo-opt2")))))
