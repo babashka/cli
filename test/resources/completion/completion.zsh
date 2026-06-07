@@ -8,4 +8,5 @@ _babashka_cli_dynamic_completion() {
     for c in $completions; do described+=("${c//$'\t'/:}"); done
     _describe -t commands myprogram described
 }
-compdef _babashka_cli_dynamic_completion myprogram
+# register for the bare name and for path invocations (./prog, /abs/prog)
+compdef _babashka_cli_dynamic_completion '*/myprogram' myprogram

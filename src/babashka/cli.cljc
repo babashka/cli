@@ -1227,8 +1227,9 @@ _babashka_cli_dynamic_completion() {
     for c in $completions; do described+=(\"${c//$'\\t'/:}\"); done
     _describe -t commands %s described
 }
-compdef _babashka_cli_dynamic_completion %s
-" program-name program-name program-name)
+# register for the bare name and for path invocations (./prog, /abs/prog)
+compdef _babashka_cli_dynamic_completion '*/%s' %s
+" program-name program-name program-name program-name)
     :fish (format "function _babashka_cli_dynamic_completion
     %s --org.babashka.cli/complete fish (commandline --cut-at-cursor)
 end
