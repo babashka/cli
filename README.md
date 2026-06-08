@@ -758,8 +758,20 @@ rewrites or reorders its own argv before calling `dispatch`.
 `babashka.cli` only prints the snippet to stdout. It does not write files or edit
 your shell config for you.
 
-The completion is registered for the command name `:prog`. For a dev entry or a
-renamed binary that differs from `:prog`, symlink it to `:prog` or change `:prog`.
+The completion is registered for the command name `:prog`. During development you
+usually invoke the build directly, e.g. `./run.clj`, under a name that differs
+from `:prog`. Symlink the dev build to `:prog` and put it on your `PATH` so it is
+reachable under the name completion registered:
+
+``` bash
+ln -sf "$PWD/run.clj" /tmp/mycli && export PATH="/tmp:$PATH"   # :prog is "mycli"
+source <(BABASHKA_CLI_COMPLETE=zsh mycli)
+mycli <TAB>             # completes commands
+mycli sub --<TAB>       # completes sub's options
+```
+
+In a shipped build the installed name is already `:prog`, so users just type it.
+
 This is shell completion attached to a command name. It does not apply when the
 program is run through a wrapper such as `npx mycli` or `bun mycli`, where the
 shell completes the wrapper, not `mycli`.
