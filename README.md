@@ -473,7 +473,8 @@ Building on the [simple example](#simple-example): there, the single entry used
     :spec {:dry-run {:coerce :boolean :desc "Do a dry run"}}}
    {:cmds ["delete"] :fn delete :doc "Delete a file" :args->opts [:file]
     :spec {:recursive {:coerce :boolean :desc "Recurse"}
-           :depth     {:coerce :long    :desc "Max depth"}}}])
+           :depth     {:coerce :long    :desc "Max depth"}}}
+   {:cmds ["debug"]  :fn prn    :doc "Dump internal state" :no-doc true}])
 
 (defn -main [& args]
   (cli/dispatch table args {:prog "example" :help true}))
@@ -500,8 +501,10 @@ Run "example <command> --help" for more information on a command.
 
 The `Commands:` summaries above come from each entry's `:doc`, a string
 documenting that (sub)command. Its first line is shown in the parent's command
-list. The full text is shown as the description on the
-command's own `--help` output, between the usage line and `Options:`:
+list. The `debug` command is absent from that list because `:no-doc true` hides a
+command from `--help` and from completions. The full text of `:doc` is shown as
+the description on the command's own `--help` output, between the usage line and
+`Options:`:
 
 ```
 $ example copy --help
@@ -722,7 +725,7 @@ and exit afterwards:
 ## Completions
 
 The `dispatch` function can generate shell completions for `bash`, `zsh`, `fish` and
-`powershell`. This can be used dynamically by shells by calling back into your program on each TAB.
+`powershell`. This is used dynamically by shells as they call back into your program on each TAB.
 Set `:prog` to the program name.
 
 ``` clojure
@@ -748,9 +751,9 @@ mycli --org.babashka.cli/completion-snippet powershell | Out-String | Invoke-Exp
 Currently, `babashka.cli` only prints the snippet to stdout. It does not write
 files or edit your shell config for you.
 
-Subcommands and options complete out of the box. Descriptions come from the same
-`:desc` (options) and `:doc` (subcommands) you already write for `--help`, and
-are shown by zsh, fish and powershell (bash completes values only). A `:no-doc`
+Subcommands and options have completion support out of the box. Descriptions come from the same
+`:desc` (options) and `:doc` (subcommands) you've already written for `--help`, and
+are shown by `zsh`, `fish` and `powershell`. Currently bash integration completes values only. A `:no-doc`
 subcommand is hidden. Options already given drop out of later suggestions, except repeatable
 ones (a list-valued `:coerce`, e.g. `:coerce [:string]`, or a `:collect` option).
 
@@ -773,12 +776,10 @@ To complete an option's value, give it one of:
                          (git-branches to-complete))}}
 ```
 
-`:complete-fn` receives `{:to-complete <partial> :opts <opts parsed so far>
-:option <key>}` and returns values (or `{:value .. :description ..}` maps). All
-three sources are prefix-filtered against the partial value for you (the shell
-does not filter on powershell), so a `:complete-fn` may return everything; it
-also gets `:to-complete` if it prefers to filter at the source (e.g. to avoid a
-large query).
+The `:complete-fn` is called with `{:to-complete <partial> :opts <opts parsed so
+far> :option <key>}` and returns values (strings) (or `{:value .. :description
+..}` maps). All three sources are prefix-filtered against the partial value for
+you.
 
 Completions also work when the program is invoked by path (`./mycli`,
 `/path/mycli`), not just by bare name.
