@@ -117,7 +117,7 @@
 
 (deftest dispatch-completion-snippet-test
   (when-not (fs/windows?)
-    (doseq [shell ["bash" "zsh" "fish"]]
+    (doseq [shell ["bash" "zsh" "fish" "powershell"]]
       (is (= (slurp (io/resource (str "resources/completion/completion." shell)))
              (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/completion-snippet" shell]
                                          {:prog "myprogram"})))

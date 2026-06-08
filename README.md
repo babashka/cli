@@ -709,10 +709,10 @@ and exit afterwards:
 
 ## Completions
 
-`dispatch` can generate shell completions for `bash`, `zsh` and `fish`. They are
-dynamic: a small shell snippet calls back into your program on each TAB, so they
-stay in sync with your command table (no regeneration on change). Set `:prog` to
-the program name:
+`dispatch` can generate shell completions for `bash`, `zsh`, `fish` and
+`powershell`. They are dynamic: a small shell snippet calls back into your
+program on each TAB, so they stay in sync with your command table (no
+regeneration on change). Set `:prog` to the program name:
 
 ``` clojure
 (cli/dispatch table args {:prog "mycli" :help true})
@@ -729,12 +729,15 @@ source <(mycli --org.babashka.cli/completion-snippet zsh)
 
 # fish
 mycli --org.babashka.cli/completion-snippet fish | source
+
+# powershell (add to $PROFILE)
+mycli --org.babashka.cli/completion-snippet powershell | Out-String | Invoke-Expression
 ```
 
 Subcommands and options complete out of the box. Descriptions come from the same
 `:desc` (options) and `:doc` (subcommands) you already write for `--help`, and
-are shown by zsh and fish (bash completes values only). A `:no-doc` subcommand is
-hidden. Options already given drop out of later suggestions, except repeatable
+are shown by zsh, fish and powershell (bash completes values only). A `:no-doc`
+subcommand is hidden. Options already given drop out of later suggestions, except repeatable
 ones (a list-valued `:coerce`, e.g. `:coerce [:string]`, or a `:collect` option).
 
 ### Completing option values

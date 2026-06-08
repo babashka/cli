@@ -1213,7 +1213,8 @@
   "The shell-side stub a user installs. On each TAB it calls back into the program
   with the `--org.babashka.cli/complete` token, passing the command line up to the
   cursor; the program prints one `value<TAB>description` line per candidate, which
-  the stub renders (zsh/fish show descriptions; bash completes values only)."
+  the stub renders (zsh/fish/powershell show descriptions; bash completes values
+  only)."
   [shell program-name]
   (case shell
     :bash (format "_babashka_cli_dynamic_completion()
@@ -1243,7 +1244,20 @@ compdef _babashka_cli_dynamic_completion '*/%s' %s
     %s --org.babashka.cli/complete fish (commandline --cut-at-cursor)
 end
 complete --command %s --no-files --arguments \"(_babashka_cli_dynamic_completion)\"
-" program-name program-name)))
+" program-name program-name)
+    :powershell (format "Register-ArgumentCompleter -Native -CommandName %s -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
+    $line = $commandAst.ToString()
+    if ($cursorPosition -le $line.Length) { $line = $line.Substring(0, $cursorPosition) }
+    else { $line = $line.PadRight($cursorPosition) }
+    $exe = $commandAst.CommandElements[0].Value
+    & $exe '--org.babashka.cli/complete' powershell $line 2>$null | ForEach-Object {
+        $parts = $_ -split \"`t\", 2
+        $tip = if ($parts.Length -gt 1) { $parts[1] } else { $parts[0] }
+        [System.Management.Automation.CompletionResult]::new($parts[0], $parts[0], 'ParameterValue', $tip)
+    }
+}
+" program-name)))
 
 (defn- cmdline->tokens
   "Split a raw completion command line into tokens, dropping the program name.
