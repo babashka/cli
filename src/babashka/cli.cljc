@@ -1672,13 +1672,19 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
        ;; print the shell-side stub. A success path like `--help`: print and
        ;; return (process ends 0), no `*exit-fn*`.
        "--org.babashka.cli/completion-snippet"
-       (cond
-         (not (:prog opts))
-         (eprintln "babashka.cli: set :prog (program name) in opts to generate a completion snippet")
-         (not (#{:bash :zsh :fish :powershell} (keyword shell)))
-         (eprintln (str "babashka.cli: unknown shell " (pr-str shell)
-                        ", expected one of: bash zsh fish powershell"))
-         :else (print (completion-shell-snippet (keyword shell) (:prog opts))))
+       ;; the registered command name is `:prog`, overridable on the command line
+       ;; with `--org.babashka.cli/completion-prog <name>` (for dev or a renamed
+       ;; binary)
+       (let [prog (or (second (drop-while #(not= "--org.babashka.cli/completion-prog" %) args))
+                      (:prog opts))]
+         (cond
+           (not prog)
+           (eprintln (str "babashka.cli: set :prog in opts, or pass "
+                          "--org.babashka.cli/completion-prog <name>, to generate a completion snippet"))
+           (not (#{:bash :zsh :fish :powershell} (keyword shell)))
+           (eprintln (str "babashka.cli: unknown shell " (pr-str shell)
+                          ", expected one of: bash zsh fish powershell"))
+           :else (print (completion-shell-snippet (keyword shell) prog))))
        ;; print completions for the current command line. The shell arg (args[1])
        ;; is reserved for future per-shell quoting; output is shell-agnostic data.
        "--org.babashka.cli/complete"

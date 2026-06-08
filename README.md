@@ -751,6 +751,18 @@ mycli --org.babashka.cli/completion-snippet powershell | Out-String | Invoke-Exp
 Currently, `babashka.cli` only prints the snippet to stdout. It does not write
 files or edit your shell config for you.
 
+The completion is registered for the command name `:prog`. To register a different
+name, e.g. during dev or for a renamed binary, pass
+`--org.babashka.cli/completion-prog <name>`:
+
+``` bash
+mycli --org.babashka.cli/completion-snippet zsh --org.babashka.cli/completion-prog ./mycli-dev
+```
+
+This is shell completion attached to a command name. It does not apply when the
+program is run through a wrapper such as `npx mycli` or `bun mycli`, where the
+shell completes the wrapper, not `mycli`.
+
 Subcommands and options have completion support out of the box. Descriptions come from the same
 `:desc` (options) and `:doc` (subcommands) you've already written for `--help`, and
 are shown by `zsh`, `fish` and `powershell`. Currently bash integration completes values only. A `:no-doc`

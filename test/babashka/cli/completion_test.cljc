@@ -259,3 +259,18 @@
       (is (= #{"dev" "prod"} (set (complete t ["deploy" "--env="])))))
     (testing "a completed --opt=val does not consume the next token"
       (is (= #{"--force"} (set (complete t ["deploy" "--env=dev" ""])))))))
+
+(deftest completion-prog-override-test
+  (let [snippet (fn [opts extra]
+                  (with-out-str
+                    (cli/dispatch [{:cmds ["x"] :fn identity}]
+                                  (into ["--org.babashka.cli/completion-snippet" "bash"] extra)
+                                  opts)))
+        registers? (fn [s nm] (str/includes? s (str "complete -F _babashka_cli_dynamic_completion " nm)))]
+    (testing ":prog is the default registered command name"
+      (is (registers? (snippet {:prog "squint"} []) "squint")))
+    (testing "--org.babashka.cli/completion-prog overrides :prog"
+      (is (registers? (snippet {:prog "squint"} ["--org.babashka.cli/completion-prog" "node_cli.js"])
+                      "node_cli.js")))
+    (testing "override works with no :prog set"
+      (is (registers? (snippet {} ["--org.babashka.cli/completion-prog" "foo"]) "foo")))))
