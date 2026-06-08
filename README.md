@@ -502,7 +502,23 @@ Options:
 Run "example <command> --help" for more information on a command.
 ```
 
-`example copy the-file --dry-run` calls `copy`, which prints:
+The `Commands:` summaries above come from each entry's `:doc`, a string
+documenting that (sub)command. Its first line is shown in the parent's command
+list. The full text is shown as the description on the
+command's own `--help` output, between the usage line and `Options:`:
+
+```
+$ example copy --help
+Usage: example copy [options] <file>
+
+Copy a file
+
+Options:
+      --dry-run  Do a dry run
+  -h, --help     Show this help
+```
+
+Running `example copy the-file --dry-run` calls `copy`, which prints:
 
 ``` clojure
 :copy {:file "the-file", :dry-run true}
@@ -709,16 +725,15 @@ and exit afterwards:
 
 ## Completions
 
-`dispatch` can generate shell completions for `bash`, `zsh`, `fish` and
-`powershell`. They are dynamic: a small shell snippet calls back into your
-program on each TAB, so they stay in sync with your command table (no
-regeneration on change). Set `:prog` to the program name:
+The `dispatch` function can generate shell completions for `bash`, `zsh`, `fish` and
+`powershell`. This can be used dynamically by shells by calling back into your program on each TAB.
+Set `:prog` to the program name.
 
 ``` clojure
 (cli/dispatch table args {:prog "mycli" :help true})
 ```
 
-Install the completion snippet (it is printed to stdout):
+Install the completion snippet like this. It is printed to stdout so you can execute it within your shell.
 
 ``` bash
 # bash (add to ~/.bashrc)
