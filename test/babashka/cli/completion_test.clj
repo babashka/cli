@@ -199,3 +199,22 @@
   (testing "a :collect option stays suggestable after use"
     (let [o {:spec {:tag {:collect [] :coerce :string} :x {:coerce :boolean}}}]
       (is (= #{"--tag" "--x"} (set (complete-options o ["--tag" "a" ""])))))))
+
+(deftest restrict-completion-test
+  ;; completion works under :restrict: the magic tokens are intercepted before
+  ;; parse, and the internal completion parse does not inherit :restrict, so
+  ;; partial/in-progress input never throws on "unknown option"
+  (let [t [{:cmds ["deploy"] :fn identity
+            :spec {:env {:coerce :string} :force {:coerce :boolean}}}]
+        vals (fn [cmdline]
+               (->> (with-out-str
+                      (cli/dispatch t ["--org.babashka.cli/complete" "zsh" cmdline]
+                                    {:prog "p" :restrict true}))
+                    clojure.string/split-lines
+                    (remove clojure.string/blank?)
+                    (map #(first (clojure.string/split % #"\t")))
+                    set))]
+    (is (= #{"deploy"} (vals "p de")))
+    (is (= #{"--env" "--force"} (vals "p deploy --")))
+    (testing "a consumed option drops out, no throw despite :restrict"
+      (is (= #{"--force"} (vals "p deploy --env x --"))))))
