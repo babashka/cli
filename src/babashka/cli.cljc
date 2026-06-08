@@ -1052,8 +1052,8 @@
 
 (defn- normalize-value-candidate [c]
   (cond
-    (map? c) (update c :value (fn [v] (if (keyword? v) (name v) (str v))))
-    (keyword? c) {:value (name c)}
+    (map? c) (update c :value (fn [v] (if (keyword? v) (kw->str v) (str v))))
+    (keyword? c) {:value (kw->str c)}
     :else {:value (str c)}))
 
 (defn- value-candidates

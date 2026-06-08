@@ -218,3 +218,9 @@
     (is (= #{"--env" "--force"} (vals "p deploy --")))
     (testing "a consumed option drops out, no throw despite :restrict"
       (is (= #{"--force"} (vals "p deploy --env x --"))))))
+
+(deftest namespaced-keyword-value-test
+  ;; kw->str keeps the namespace; name would drop it
+  (let [o {:spec {:k {:coerce :keyword :validate #{:a.b/local :a.b/global}}}}]
+    (is (= #{"a.b/local" "a.b/global"} (set (complete-options o ["--k" ""]))))
+    (is (= #{"a.b/local"} (set (complete-options o ["--k" "a.b/lo"]))))))
