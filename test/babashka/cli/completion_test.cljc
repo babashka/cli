@@ -248,3 +248,14 @@
                                             {:prog "p"}))
                 str/split-lines (remove str/blank?)
                 (map #(first (str/split % #"\t"))) set)))))
+
+(deftest equals-form-test
+  ;; babashka.cli parses --opt=val, so completion handles it too
+  (let [t [{:cmds ["deploy"]
+            :spec {:env   {:coerce :string :complete ["dev" "prod"]}
+                   :force {:coerce :boolean}}}]]
+    (testing "value completion within the = token"
+      (is (= #{"dev"} (set (complete t ["deploy" "--env=d"]))))
+      (is (= #{"dev" "prod"} (set (complete t ["deploy" "--env="])))))
+    (testing "a completed --opt=val does not consume the next token"
+      (is (= #{"--force"} (set (complete t ["deploy" "--env=dev" ""])))))))

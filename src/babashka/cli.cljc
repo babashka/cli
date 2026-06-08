@@ -1149,13 +1149,22 @@
         ;; stray positional (e.g. a leftover value) - keep at this level
         :else (recur node (next toks) (conj level head))))))
 
+(defn- split-eq
+  "Split a long `--opt=val` token into `[\"--opt\" \"val\"]` so the inline value is
+  treated like a separate token; other tokens pass through unchanged."
+  [token]
+  (if (and (str/starts-with? token "--") (str/includes? token "="))
+    (str/split token #"=" 2)
+    [token]))
+
 (defn- complete-tree*
   "Returns completion candidate maps (`{:value :description}`) for dispatch tree
   `cmd-tree` and `args` (a vector of tokens, last = the token being completed):
   matching subcommands of the node reached by the earlier tokens, plus that
   node's options."
   [cmd-tree args]
-  (let [done (vec (butlast args))
+  (let [args (vec (mapcat split-eq args))
+        done (vec (butlast args))
         to-complete (or (last args) "")
         [node level] (descend cmd-tree done)
         spec (:spec node)
