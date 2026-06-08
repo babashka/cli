@@ -1,0 +1,18 @@
+#!/usr/bin/env bb
+;; Fixture CLI for the shell-completion integration smoke tests
+;; (script/completion-smoke.*). Run via a wrapper that puts the local
+;; babashka.cli src on the classpath; (require ... :reload) overrides the bb
+;; built-in. See script/completion-smoke.bash etc.
+(require '[babashka.cli :as cli] :reload)
+
+(defn- run [m] (prn m))
+
+(def table
+  [{:cmds ["deploy"] :fn run
+    :doc "Deploy the app"
+    :spec {:env   {:coerce :string :alias :e :desc "Target environment"
+                   :complete ["dev" "staging" "prod"]}
+           :force {:coerce :boolean :desc "Skip confirmation"}}}
+   {:cmds ["status"] :fn run :doc "Show status"}])
+
+(cli/dispatch table *command-line-args* {:prog "bbtest" :help true})
