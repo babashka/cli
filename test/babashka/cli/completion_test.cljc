@@ -15,12 +15,20 @@
      :cljs (.readFileSync (js/require "fs")
                           (str "test/resources/completion/completion." shell) "utf8")))
 
-;; test helpers over the private completion fns (the public completion interface
-;; is `dispatch`'s tokens): return the candidate value strings
+;; test helpers over the private completion fns: return the candidate value strings
 (defn complete [table args]
   (mapv :value (#'cli/complete-tree* (cli/table->tree table) args)))
 (defn complete-options [opts args]
   (mapv :value (#'cli/complete-tree* (cli/table->tree [(assoc opts :cmds [])]) args)))
+
+;; drive the env-var completion protocol: BABASHKA_CLI_COMPLETE=<shell> triggers,
+;; COMP_LINE carries the line (its presence = complete, absence = print snippet)
+(defn- complete-via-env [table opts cmdline]
+  (binding [cli/*getenv* {"BABASHKA_CLI_COMPLETE" "zsh" "COMP_LINE" cmdline}]
+    (with-out-str (cli/dispatch table [] opts))))
+(defn- snippet-via-env [table opts shell]
+  (binding [cli/*getenv* {"BABASHKA_CLI_COMPLETE" shell}]
+    (with-out-str (cli/dispatch table [] opts))))
 
 (def cmd-table
   [{:cmds ["foo"] :spec {:foo-opt {:coerce :string
@@ -137,16 +145,14 @@
   (when-not (windows?)
     (doseq [shell ["bash" "zsh" "fish" "powershell"]]
       (is (= (read-snippet shell)
-             (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/completion-snippet" shell]
-                                         {:prog "myprogram"})))
+             (snippet-via-env cmd-table {:prog "myprogram"} shell))
           shell))))
 
 (defn- complete-out
-  "Run the dispatch completion handler for `cmdline` and return its emitted
+  "Run the env-var completion handler for `cmdline` and return its emitted
   `value\\tdescription` lines as a set of strings."
   [cmdline]
-  (->> (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/complete" "zsh" cmdline]
-                                   {:prog "myprogram"}))
+  (->> (complete-via-env cmd-table {:prog "myprogram"} cmdline)
        str/split-lines
        (remove str/blank?)
        set))
@@ -178,8 +184,7 @@
                            :complete [{:value "dev" :description "Development"}
                                       {:value "prod" :description "Production"}]}}}]]
       (is (= #{"dev\tDevelopment" "prod\tProduction"}
-             (->> (with-out-str (cli/dispatch t ["--org.babashka.cli/complete" "zsh" "deploy --env "]
-                                              {:prog "deploy"}))
+             (->> (complete-via-env t {:prog "deploy"} "deploy --env ")
                   str/split-lines (remove str/blank?) set)))))
   (testing "set-valued :validate auto-completes its values (keywords -> names)"
     (is (= #{"a" "b"}
@@ -214,15 +219,13 @@
       (is (= #{"--tag" "--x"} (set (complete-options o ["--tag" "a" ""])))))))
 
 (deftest restrict-completion-test
-  ;; completion works under :restrict: the magic tokens are intercepted before
-  ;; parse, and the internal completion parse does not inherit :restrict, so
-  ;; partial/in-progress input never throws on "unknown option"
+  ;; completion works under :restrict: it is env-driven and ignores args, and the
+  ;; internal completion parse does not inherit :restrict, so partial/in-progress
+  ;; input never throws on "unknown option"
   (let [t [{:cmds ["deploy"] :fn identity
             :spec {:env {:coerce :string} :force {:coerce :boolean}}}]
         vals (fn [cmdline]
-               (->> (with-out-str
-                      (cli/dispatch t ["--org.babashka.cli/complete" "zsh" cmdline]
-                                    {:prog "p" :restrict true}))
+               (->> (complete-via-env t {:prog "p" :restrict true} cmdline)
                     str/split-lines
                     (remove str/blank?)
                     (map #(first (str/split % #"\t")))
@@ -239,13 +242,12 @@
     (is (= #{"a.b/local"} (set (complete-options o ["--k" "a.b/lo"]))))))
 
 (deftest completion-robustness-test
-  (testing "unknown shell to completion-snippet: no crash (message goes to stderr)"
-    (is (nil? (cli/dispatch cmd-table ["--org.babashka.cli/completion-snippet" "bogus"]
-                            {:prog "p"}))))
-  (testing "missing command line to complete: no NPE, completes the top level"
+  (testing "unknown shell for the snippet: no crash (message goes to stderr)"
+    (is (nil? (binding [cli/*getenv* {"BABASHKA_CLI_COMPLETE" "bogus"}]
+                (cli/dispatch cmd-table [] {:prog "p"})))))
+  (testing "empty COMP_LINE completes the top level, no NPE"
     (is (= #{"foo" "bar" "bar-baz"}
-           (->> (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/complete" "zsh"]
-                                            {:prog "p"}))
+           (->> (complete-via-env cmd-table {:prog "p"} "")
                 str/split-lines (remove str/blank?)
                 (map #(first (str/split % #"\t"))) set)))))
 
@@ -259,18 +261,3 @@
       (is (= #{"dev" "prod"} (set (complete t ["deploy" "--env="])))))
     (testing "a completed --opt=val does not consume the next token"
       (is (= #{"--force"} (set (complete t ["deploy" "--env=dev" ""])))))))
-
-(deftest completion-prog-override-test
-  (let [snippet (fn [opts extra]
-                  (with-out-str
-                    (cli/dispatch [{:cmds ["x"] :fn identity}]
-                                  (into ["--org.babashka.cli/completion-snippet" "bash"] extra)
-                                  opts)))
-        registers? (fn [s nm] (str/includes? s (str "complete -F _babashka_cli_dynamic_completion " nm)))]
-    (testing ":prog is the default registered command name"
-      (is (registers? (snippet {:prog "squint"} []) "squint")))
-    (testing "--org.babashka.cli/completion-prog overrides :prog"
-      (is (registers? (snippet {:prog "squint"} ["--org.babashka.cli/completion-prog" "node_cli.js"])
-                      "node_cli.js")))
-    (testing "override works with no :prog set"
-      (is (registers? (snippet {} ["--org.babashka.cli/completion-prog" "foo"]) "foo")))))

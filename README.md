@@ -732,33 +732,34 @@ Set `:prog` to the program name.
 (cli/dispatch table args {:prog "mycli" :help true})
 ```
 
-Install the completion snippet like this. It is printed to stdout so you can execute it within your shell.
+Completion is driven by the `BABASHKA_CLI_COMPLETE` environment variable. Running
+the program with `BABASHKA_CLI_COMPLETE=<shell>` set (and no `COMP_LINE`) prints
+the install snippet for that shell. Install it like this.
 
 ``` bash
 # bash (add to ~/.bashrc)
-source <(mycli --org.babashka.cli/completion-snippet bash)
+source <(BABASHKA_CLI_COMPLETE=bash mycli)
 
 # zsh (after compinit; or save as _mycli on your $fpath)
-source <(mycli --org.babashka.cli/completion-snippet zsh)
+source <(BABASHKA_CLI_COMPLETE=zsh mycli)
 
 # fish
-mycli --org.babashka.cli/completion-snippet fish | source
+BABASHKA_CLI_COMPLETE=fish mycli | source
 
 # powershell (add to $PROFILE)
-mycli --org.babashka.cli/completion-snippet powershell | Out-String | Invoke-Expression
+$env:BABASHKA_CLI_COMPLETE="powershell"; mycli | Out-String | Invoke-Expression; Remove-Item Env:\BABASHKA_CLI_COMPLETE
 ```
 
-Currently, `babashka.cli` only prints the snippet to stdout. It does not write
-files or edit your shell config for you.
+The installed snippet calls the program back on each TAB, again through the
+environment (`BABASHKA_CLI_COMPLETE` plus the line in `COMP_LINE`), never through
+the command-line arguments. So completion keeps working even when a program
+rewrites or reorders its own argv before calling `dispatch`.
 
-The completion is registered for the command name `:prog`. To register a different
-name, e.g. during dev or for a renamed binary, pass
-`--org.babashka.cli/completion-prog <name>`:
+`babashka.cli` only prints the snippet to stdout. It does not write files or edit
+your shell config for you.
 
-``` bash
-mycli --org.babashka.cli/completion-snippet zsh --org.babashka.cli/completion-prog ./mycli-dev
-```
-
+The completion is registered for the command name `:prog`. For a dev entry or a
+renamed binary that differs from `:prog`, symlink it to `:prog` or change `:prog`.
 This is shell completion attached to a command name. It does not apply when the
 program is run through a wrapper such as `npx mycli` or `bun mycli`, where the
 shell completes the wrapper, not `mycli`.

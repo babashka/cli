@@ -9,7 +9,7 @@ printf '#!/usr/bin/env bash\nexec bb --classpath "%s/src" "%s/test-resources/com
 chmod +x $tmp/bbtest
 set -gx PATH $tmp $PATH
 
-bbtest --org.babashka.cli/completion-snippet fish > $tmp/comp.fish
+env BABASHKA_CLI_COMPLETE=fish bbtest > $tmp/comp.fish
 source $tmp/comp.fish
 
 set -g fail 0
