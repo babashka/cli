@@ -237,3 +237,14 @@
   (let [o {:spec {:k {:coerce :keyword :validate #{:a.b/local :a.b/global}}}}]
     (is (= #{"a.b/local" "a.b/global"} (set (complete-options o ["--k" ""]))))
     (is (= #{"a.b/local"} (set (complete-options o ["--k" "a.b/lo"]))))))
+
+(deftest completion-robustness-test
+  (testing "unknown shell to completion-snippet: no crash (message goes to stderr)"
+    (is (nil? (cli/dispatch cmd-table ["--org.babashka.cli/completion-snippet" "bogus"]
+                            {:prog "p"}))))
+  (testing "missing command line to complete: no NPE, completes the top level"
+    (is (= #{"foo" "bar" "bar-baz"}
+           (->> (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/complete" "zsh"]
+                                            {:prog "p"}))
+                str/split-lines (remove str/blank?)
+                (map #(first (str/split % #"\t"))) set)))))

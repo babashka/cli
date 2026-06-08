@@ -1226,7 +1226,7 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
   A trailing space yields a trailing empty token (the cursor sits on a fresh
   word), so `\"prog foo \"` -> `[\"foo\" \"\"]`."
   [cmdline]
-  (rest (str/split (str/triml cmdline) #" +" -1)))
+  (rest (str/split (str/triml (or cmdline "")) #" +" -1)))
 
 (defn- print-completions
   "Print one line per candidate: `value`, or `value<TAB>description` when the
@@ -1239,6 +1239,10 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
 
 (defn- print-dispatch-completions [tree cmdline]
   (print-completions (complete-tree* tree (cmdline->tokens cmdline))))
+
+(defn- eprintln [s]
+  #?(:clj (binding [*out* *err*] (println s))
+     :cljs (binding [*print-fn* *print-err-fn*] (println s))))
 
 (defn- deep-merge [a b]
   (reduce (fn [acc k] (update acc k (fn [v]
@@ -1436,9 +1440,7 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
   stdout). Only prints - does not exit (the default `:error-fn` prints, then
   calls [[*exit-fn*]] itself)."
   [data]
-  (let [s (format-command-error data)]
-    #?(:clj  (binding [*out* *err*] (println s))
-       :cljs (binding [*print-fn* *print-err-fn*] (println s)))))
+  (eprintln (format-command-error data)))
 
 (defn- thread-dispatch-context
   "Add the dispatch-level `:prog` and `:inherit` (when set) to error/help `data`,
@@ -1661,11 +1663,13 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
        ;; print the shell-side stub. A success path like `--help`: print and
        ;; return (process ends 0), no `*exit-fn*`.
        "--org.babashka.cli/completion-snippet"
-       (if-let [prog (:prog opts)]
-         (print (completion-shell-snippet (keyword shell) prog))
-         (let [msg "babashka.cli: set :prog (program name) in opts to generate a completion snippet"]
-           #?(:clj  (binding [*out* *err*] (println msg))
-              :cljs (binding [*print-fn* *print-err-fn*] (println msg)))))
+       (cond
+         (not (:prog opts))
+         (eprintln "babashka.cli: set :prog (program name) in opts to generate a completion snippet")
+         (not (#{:bash :zsh :fish :powershell} (keyword shell)))
+         (eprintln (str "babashka.cli: unknown shell " (pr-str shell)
+                        ", expected one of: bash zsh fish powershell"))
+         :else (print (completion-shell-snippet (keyword shell) (:prog opts))))
        ;; print completions for the current command line. The shell arg (args[1])
        ;; is reserved for future per-shell quoting; output is shell-agnostic data.
        "--org.babashka.cli/complete"
