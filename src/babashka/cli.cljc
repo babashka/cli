@@ -4,7 +4,6 @@
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    [babashka.cli.internal :as internal]
-   [clojure.set :as set]
    [clojure.string :as str])
   #?(:clj (:import (clojure.lang ExceptionInfo))))
 
@@ -1140,31 +1139,6 @@
             {:value cmd :description (help-first-line (:doc subnode))}))
         (:cmd node)))
 
-(defn- complete-options*
-  "Internal: like [[complete-options]] but returns candidate maps."
-  [opts args]
-  (let [spec (:spec opts)
-        [ropts aliases known] (resolve-completion-opts opts)
-        done (vec (butlast args))
-        to-complete (or (last args) "")
-        previous (peek done)]
-    (if (and (gnu-option? previous) (not (bool-opt? previous ropts)))
-      ;; preceding option awaits a value -> complete the value, not options. Parse
-      ;; the tokens before that option (it has no value yet) for dependent completion.
-      (let [{parsed :opts} (try (parse-args (vec (butlast done)) ropts)
-                                (catch #?(:clj ExceptionInfo :cljs :default) _ nil))]
-        (value-candidates spec ropts previous to-complete parsed))
-      (option-candidates spec ropts aliases known done to-complete))))
-
-(defn- complete-options
-  "Given an `opts` map (as for [[parse-opts]]) and `args` (a vector of tokens),
-  returns the option strings that can complete the final token. The final token
-  is the one being typed; the earlier tokens give context (which options are
-  already used, or whether the preceding option still wants a value). Private;
-  reached in tests via `#'`."
-  [opts args]
-  (mapv :value (complete-options* opts args)))
-
 (defn- descend
   "Walk the completed prefix `tokens` down dispatch tree `node`, consuming
   subcommands and this-level options (with their values). Returns
@@ -1206,13 +1180,6 @@
             [ropts aliases known] (resolve-completion-opts {:spec spec})]
         (concat cmds (option-candidates spec ropts aliases known level to-complete))))))
 
-(defn- complete
-  "Given a dispatch `cmd-table` and `args` (a vector of tokens), returns the
-  strings that can complete the final token. Private (the public completion
-  interface is `dispatch`'s tokens); reached in tests via `#'`."
-  [cmd-table args]
-  (mapv :value (complete-tree* (table->tree cmd-table) args)))
-
 (defn- completion-shell-snippet
   "The shell-side stub a user installs. On each TAB it calls back into the program
   with the `--org.babashka.cli/complete` token, passing the command line up to the
@@ -1221,7 +1188,7 @@
   only)."
   [shell program-name]
   (case shell
-    :bash (format "_babashka_cli_dynamic_completion()
+    :bash (str "_babashka_cli_dynamic_completion()
 {
     local line=\"${COMP_LINE:0:$COMP_POINT}\"
     local IFS=$'\\n'
@@ -1229,9 +1196,9 @@
     values=$(\"${COMP_WORDS[0]}\" --org.babashka.cli/complete bash \"$line\" | cut -f1)
     COMPREPLY=( $(compgen -W \"$values\" -- \"${COMP_WORDS[COMP_CWORD]}\") )
 }
-complete -F _babashka_cli_dynamic_completion %s
-" program-name)
-    :zsh (format "#compdef %s
+complete -F _babashka_cli_dynamic_completion " program-name "
+")
+    :zsh (str "#compdef " program-name "
 _babashka_cli_dynamic_completion() {
     local line=\"${(j: :)words[1,CURRENT]}\"
     local -a completions
@@ -1239,17 +1206,17 @@ _babashka_cli_dynamic_completion() {
     local -a described
     local c
     for c in $completions; do described+=(\"${c//$'\\t'/:}\"); done
-    _describe -t commands %s described
+    _describe -t commands " program-name " described
 }
 # register for the bare name and for path invocations (./prog, /abs/prog)
-compdef _babashka_cli_dynamic_completion '*/%s' %s
-" program-name program-name program-name program-name)
-    :fish (format "function _babashka_cli_dynamic_completion
-    %s --org.babashka.cli/complete fish (commandline --cut-at-cursor)
+compdef _babashka_cli_dynamic_completion '*/" program-name "' " program-name "
+")
+    :fish (str "function _babashka_cli_dynamic_completion
+    " program-name " --org.babashka.cli/complete fish (commandline --cut-at-cursor)
 end
-complete --command %s --no-files --arguments \"(_babashka_cli_dynamic_completion)\"
-" program-name program-name)
-    :powershell (format "Register-ArgumentCompleter -Native -CommandName %s -ScriptBlock {
+complete --command " program-name " --no-files --arguments \"(_babashka_cli_dynamic_completion)\"
+")
+    :powershell (str "Register-ArgumentCompleter -Native -CommandName " program-name " -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
     $line = $commandAst.ToString()
     if ($cursorPosition -le $line.Length) { $line = $line.Substring(0, $cursorPosition) }
@@ -1261,7 +1228,7 @@ complete --command %s --no-files --arguments \"(_babashka_cli_dynamic_completion
         [System.Management.Automation.CompletionResult]::new($parts[0], $parts[0], 'ParameterValue', $tip)
     }
 }
-" program-name)))
+")))
 
 (defn- cmdline->tokens
   "Split a raw completion command line into tokens, dropping the program name.
@@ -1705,8 +1672,9 @@ complete --command %s --no-files --arguments \"(_babashka_cli_dynamic_completion
        "--org.babashka.cli/completion-snippet"
        (if-let [prog (:prog opts)]
          (print (completion-shell-snippet (keyword shell) prog))
-         (binding [*out* *err*]
-           (println "babashka.cli: set :prog (program name) in opts to generate a completion snippet")))
+         (let [msg "babashka.cli: set :prog (program name) in opts to generate a completion snippet"]
+           #?(:clj  (binding [*out* *err*] (println msg))
+              :cljs (binding [*print-fn* *print-err-fn*] (println msg)))))
        ;; print completions for the current command line. The shell arg (args[1])
        ;; is reserved for future per-shell quoting; output is shell-agnostic data.
        "--org.babashka.cli/complete"

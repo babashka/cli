@@ -1,13 +1,26 @@
 (ns babashka.cli.completion-test
-  (:require [babashka.cli :as cli]
-            [babashka.fs :as fs]
-            [clojure.java.io :as io]
-            [clojure.test :refer :all]))
+  (:require
+   [babashka.cli :as cli]
+   [clojure.string :as str]
+   [clojure.test :refer [deftest is testing]]
+   #?@(:clj [[babashka.fs :as fs]
+             [clojure.java.io :as io]])))
 
-;; complete / complete-options are private (the public completion interface is
-;; `dispatch`'s tokens); reach them here via their vars
-(def complete #'cli/complete)
-(def complete-options #'cli/complete-options)
+(defn- windows? []
+  #?(:clj (fs/windows?)
+     :cljs (= "win32" (.-platform js/process))))
+
+(defn- read-snippet [shell]
+  #?(:clj (slurp (io/resource (str "resources/completion/completion." shell)))
+     :cljs (.readFileSync (js/require "fs")
+                          (str "test/resources/completion/completion." shell) "utf8")))
+
+;; test helpers over the private completion fns (the public completion interface
+;; is `dispatch`'s tokens): return the candidate value strings
+(defn complete [table args]
+  (mapv :value (#'cli/complete-tree* (cli/table->tree table) args)))
+(defn complete-options [opts args]
+  (mapv :value (#'cli/complete-tree* (cli/table->tree [(assoc opts :cmds [])]) args)))
 
 (def cmd-table
   [{:cmds ["foo"] :spec {:foo-opt {:coerce :string
@@ -121,9 +134,9 @@
 
 
 (deftest dispatch-completion-snippet-test
-  (when-not (fs/windows?)
+  (when-not (windows?)
     (doseq [shell ["bash" "zsh" "fish" "powershell"]]
-      (is (= (slurp (io/resource (str "resources/completion/completion." shell)))
+      (is (= (read-snippet shell)
              (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/completion-snippet" shell]
                                          {:prog "myprogram"})))
           shell))))
@@ -134,8 +147,8 @@
   [cmdline]
   (->> (with-out-str (cli/dispatch cmd-table ["--org.babashka.cli/complete" "zsh" cmdline]
                                    {:prog "myprogram"}))
-       clojure.string/split-lines
-       (remove clojure.string/blank?)
+       str/split-lines
+       (remove str/blank?)
        set))
 
 (deftest dispatch-completion-test
@@ -167,7 +180,7 @@
       (is (= #{"dev\tDevelopment" "prod\tProduction"}
              (->> (with-out-str (cli/dispatch t ["--org.babashka.cli/complete" "zsh" "deploy --env "]
                                               {:prog "deploy"}))
-                  clojure.string/split-lines (remove clojure.string/blank?) set)))))
+                  str/split-lines (remove str/blank?) set)))))
   (testing "set-valued :validate auto-completes its values (keywords -> names)"
     (is (= #{"a" "b"}
            (set (complete-options {:spec {:mode {:coerce :keyword :validate #{:a :b}}}}
@@ -210,9 +223,9 @@
                (->> (with-out-str
                       (cli/dispatch t ["--org.babashka.cli/complete" "zsh" cmdline]
                                     {:prog "p" :restrict true}))
-                    clojure.string/split-lines
-                    (remove clojure.string/blank?)
-                    (map #(first (clojure.string/split % #"\t")))
+                    str/split-lines
+                    (remove str/blank?)
+                    (map #(first (str/split % #"\t")))
                     set))]
     (is (= #{"deploy"} (vals "p de")))
     (is (= #{"--env" "--force"} (vals "p deploy --")))
