@@ -1,8 +1,13 @@
 (ns babashka.cli.completion-test
-  (:require [babashka.cli :as cli :refer [complete-options complete]]
+  (:require [babashka.cli :as cli]
             [babashka.fs :as fs]
             [clojure.java.io :as io]
             [clojure.test :refer :all]))
+
+;; complete / complete-options are private (the public completion interface is
+;; `dispatch`'s tokens); reach them here via their vars
+(def complete #'cli/complete)
+(def complete-options #'cli/complete-options)
 
 (def cmd-table
   [{:cmds ["foo"] :spec {:foo-opt {:coerce :string

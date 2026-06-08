@@ -787,10 +787,6 @@ large query).
 Completions also work when the program is invoked by path (`./mycli`,
 `/path/mycli`), not just by bare name.
 
-For lower-level use there are `complete` (a dispatch table + a vector of tokens
--> a vector of completion strings), `complete-options` (an options map + tokens),
-`format-command-help` and friends. See the [API](API.md).
-
 ## Adding Production Polish
 Babashka cli lets you get up and running quickly.
 As you move toward production quality, it's helpful to let users know when their inputs are invalid.

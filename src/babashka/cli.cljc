@@ -1156,11 +1156,12 @@
         (value-candidates spec ropts previous to-complete parsed))
       (option-candidates spec ropts aliases known done to-complete))))
 
-(defn complete-options
+(defn- complete-options
   "Given an `opts` map (as for [[parse-opts]]) and `args` (a vector of tokens),
-  returns the option tokens that can complete the final token. The final token is
-  the one being typed; the earlier tokens give context (which options are already
-  used, or whether the preceding option still wants a value)."
+  returns the option strings that can complete the final token. The final token
+  is the one being typed; the earlier tokens give context (which options are
+  already used, or whether the preceding option still wants a value). Private;
+  reached in tests via `#'`."
   [opts args]
   (mapv :value (complete-options* opts args)))
 
@@ -1183,7 +1184,10 @@
         :else (recur node (next toks) (conj level head))))))
 
 (defn- complete-tree*
-  "Internal: like [[complete-tree]] but returns candidate maps."
+  "Returns completion candidate maps (`{:value :description}`) for dispatch tree
+  `cmd-tree` and `args` (a vector of tokens, last = the token being completed):
+  matching subcommands of the node reached by the earlier tokens, plus that
+  node's options."
   [cmd-tree args]
   (let [done (vec (butlast args))
         to-complete (or (last args) "")
@@ -1202,18 +1206,12 @@
             [ropts aliases known] (resolve-completion-opts {:spec spec})]
         (concat cmds (option-candidates spec ropts aliases known level to-complete))))))
 
-(defn complete-tree
-  "Given a dispatch tree (see [[table->tree]]) and `args` (a vector of tokens),
-  returns the tokens that can complete the final token: matching subcommands of
-  the node reached by the earlier tokens, plus that node's options."
-  [cmd-tree args]
-  (mapv :value (complete-tree* cmd-tree args)))
-
-(defn complete
+(defn- complete
   "Given a dispatch `cmd-table` and `args` (a vector of tokens), returns the
-  tokens that can complete the final token. See [[complete-tree]]."
+  strings that can complete the final token. Private (the public completion
+  interface is `dispatch`'s tokens); reached in tests via `#'`."
   [cmd-table args]
-  (complete-tree (table->tree cmd-table) args))
+  (mapv :value (complete-tree* (table->tree cmd-table) args)))
 
 (defn- completion-shell-snippet
   "The shell-side stub a user installs. On each TAB it calls back into the program
