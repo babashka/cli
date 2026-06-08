@@ -749,6 +749,9 @@ mycli --org.babashka.cli/completion-snippet fish | source
 mycli --org.babashka.cli/completion-snippet powershell | Out-String | Invoke-Expression
 ```
 
+Currently, `babashka.cli` only prints the snippet to stdout. It does not write
+files or edit your shell config for you.
+
 Subcommands and options complete out of the box. Descriptions come from the same
 `:desc` (options) and `:doc` (subcommands) you already write for `--help`, and
 are shown by zsh, fish and powershell (bash completes values only). A `:no-doc`
