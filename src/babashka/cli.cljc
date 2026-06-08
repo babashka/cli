@@ -1035,12 +1035,6 @@
 (defn- gnu-option? [s]
   (and s (str/starts-with? s "-")))
 
-(defn- bool-opt? [o opts]
-  (let [opt-kw (if (str/starts-with? o "--")
-                 (keyword (strip-prefix "--" o))
-                 (get-in opts [:alias (keyword (strip-prefix "-" o))]))]
-    (= :boolean (get-in opts [:coerce opt-kw]))))
-
 (defn- option-key
   "Resolve an option token (long `--foo` or short `-f`) to its keyword, given a
   resolved `opts` (with `:alias`)."
@@ -1048,6 +1042,9 @@
   (if (str/starts-with? token "--")
     (keyword (strip-prefix "--" token))
     (get-in opts [:alias (keyword (strip-prefix "-" token))])))
+
+(defn- bool-opt? [o opts]
+  (= :boolean (get-in opts [:coerce (option-key o opts)])))
 
 (defn- normalize-value-candidate [c]
   (cond
@@ -1081,11 +1078,6 @@
     (->> candidates
          (map normalize-value-candidate)
          (filter #(str/starts-with? (:value %) to-complete)))))
-
-;; A completion candidate is a map `{:value "--foo" :description "..."}` (the
-;; description, from `:desc`/`:doc`, may be nil). The public `complete*` fns
-;; return just the `:value` strings; the dispatch completion handler emits
-;; `value\tdescription` lines for the shell stub to render.
 
 (defn- resolve-completion-opts
   "Normalize an opts/spec map to a resolved opts map (with `:coerce`/`:alias`)
@@ -1167,7 +1159,7 @@
         to-complete (or (last args) "")
         [node level] (descend cmd-tree done)
         spec (:spec node)
-        opts (spec->opts spec)
+        [opts aliases known] (resolve-completion-opts {:spec spec})
         previous (peek done)]
     (if (and (gnu-option? previous) (not (bool-opt? previous opts)))
       ;; preceding option awaits a value -> complete the value, not commands/options.
@@ -1175,10 +1167,9 @@
       (let [{parsed :opts} (try (parse-args (vec (butlast level)) opts)
                                 (catch #?(:clj ExceptionInfo :cljs :default) _ nil))]
         (value-candidates spec opts previous to-complete parsed))
-      (let [cmds (when-not (gnu-option? to-complete)
-                   (command-candidates node to-complete))
-            [ropts aliases known] (resolve-completion-opts {:spec spec})]
-        (concat cmds (option-candidates spec ropts aliases known level to-complete))))))
+      (concat (when-not (gnu-option? to-complete)
+                (command-candidates node to-complete))
+              (option-candidates spec opts aliases known level to-complete)))))
 
 (defn- completion-shell-snippet
   "The shell-side stub a user installs. On each TAB it calls back into the program
