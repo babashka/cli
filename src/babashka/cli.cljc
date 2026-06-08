@@ -1142,11 +1142,11 @@
 
 (defn- complete-options*
   "Internal: like [[complete-options]] but returns candidate maps."
-  [opts input]
+  [opts args]
   (let [spec (:spec opts)
         [ropts aliases known] (resolve-completion-opts opts)
-        done (vec (butlast input))
-        to-complete (or (last input) "")
+        done (vec (butlast args))
+        to-complete (or (last args) "")
         previous (peek done)]
     (if (and (gnu-option? previous) (not (bool-opt? previous ropts)))
       ;; preceding option awaits a value -> complete the value, not options. Parse
@@ -1157,12 +1157,12 @@
       (option-candidates spec ropts aliases known done to-complete))))
 
 (defn complete-options
-  "Given an `opts` map (as for [[parse-opts]]) and `input` (a vector of tokens),
+  "Given an `opts` map (as for [[parse-opts]]) and `args` (a vector of tokens),
   returns the option tokens that can complete the final token. The final token is
   the one being typed; the earlier tokens give context (which options are already
   used, or whether the preceding option still wants a value)."
-  [opts input]
-  (mapv :value (complete-options* opts input)))
+  [opts args]
+  (mapv :value (complete-options* opts args)))
 
 (defn- descend
   "Walk the completed prefix `tokens` down dispatch tree `node`, consuming
@@ -1184,9 +1184,9 @@
 
 (defn- complete-tree*
   "Internal: like [[complete-tree]] but returns candidate maps."
-  [cmd-tree input]
-  (let [done (vec (butlast input))
-        to-complete (or (last input) "")
+  [cmd-tree args]
+  (let [done (vec (butlast args))
+        to-complete (or (last args) "")
         [node level] (descend cmd-tree done)
         spec (:spec node)
         opts (spec->opts spec)
@@ -1203,17 +1203,17 @@
         (concat cmds (option-candidates spec ropts aliases known level to-complete))))))
 
 (defn complete-tree
-  "Given a dispatch tree (see [[table->tree]]) and `input` (a vector of tokens),
+  "Given a dispatch tree (see [[table->tree]]) and `args` (a vector of tokens),
   returns the tokens that can complete the final token: matching subcommands of
   the node reached by the earlier tokens, plus that node's options."
-  [cmd-tree input]
-  (mapv :value (complete-tree* cmd-tree input)))
+  [cmd-tree args]
+  (mapv :value (complete-tree* cmd-tree args)))
 
 (defn complete
-  "Given a dispatch `cmd-table` and `input` (a vector of tokens), returns the
+  "Given a dispatch `cmd-table` and `args` (a vector of tokens), returns the
   tokens that can complete the final token. See [[complete-tree]]."
-  [cmd-table input]
-  (complete-tree (table->tree cmd-table) input))
+  [cmd-table args]
+  (complete-tree (table->tree cmd-table) args))
 
 (defn- completion-shell-snippet
   "The shell-side stub a user installs. On each TAB it calls back into the program
