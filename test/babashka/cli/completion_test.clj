@@ -167,15 +167,21 @@
     (is (= #{"a" "b"}
            (set (complete-options {:spec {:mode {:coerce :keyword :validate #{:a :b}}}}
                                   ["--mode" ""])))))
-  (testing ":complete fn receives :to-complete and parsed :opts (dependent completion)"
+  (testing ":complete-fn receives :to-complete and parsed :opts (dependent completion)"
     (let [spec {:from {:coerce :string :complete ["x" "y"]}
                 :to {:coerce :string
-                     :complete (fn [{:keys [opts]}]
-                                 (when (= "x" (:from opts)) ["x1" "x2"]))}}]
+                     :complete-fn (fn [{:keys [opts]}]
+                                    (when (= "x" (:from opts)) ["x1" "x2"]))}}]
       (is (= #{"x1" "x2"} (set (complete-options {:spec spec} ["--from" "x" "--to" ""]))))
       (testing "fn returns nothing when its dependency is absent"
         (is (= #{} (set (complete-options {:spec spec} ["--to" ""])))))))
-  (testing "no :complete/:validate -> no value candidates"
+  (testing ":complete-fn output is prefix-filtered by the lib (powershell has no shell-side filter)"
+    ;; the fn returns an UNFILTERED list; the lib must filter it against the partial
+    (let [o {:spec {:env {:coerce :string
+                          :complete-fn (constantly ["dev" "staging" "prod"])}}}]
+      (is (= #{"dev" "staging" "prod"} (set (complete-options o ["--env" ""]))))
+      (is (= #{"staging"} (set (complete-options o ["--env" "st"]))))))
+  (testing "no :complete/:complete-fn/:validate -> no value candidates"
     (is (= #{} (set (complete-options {:spec {:env {:coerce :string}}} ["--env" ""]))))))
 
 (deftest repeatable-option-test

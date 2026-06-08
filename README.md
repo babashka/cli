@@ -760,24 +760,29 @@ ones (a list-valued `:coerce`, e.g. `:coerce [:string]`, or a `:collect` option)
 
 ### Completing option values
 
-Give an option a `:complete` to complete its value: a collection of values (or
-`{:value .. :description ..}` maps), or a function for dynamic completion. A
-set-valued `:validate` is used automatically when there is no `:complete`.
+To complete an option's value, give it one of:
+
+- `:complete` - a static collection of values (or `{:value .. :description ..}`
+  maps),
+- `:complete-fn` - a function for dynamic completion, or
+- nothing, but a set-valued `:validate`, whose members double as completions.
 
 ``` clojure
 {:env   {:coerce :string
-         :complete ["dev" "staging" "prod"]}        ; static list
+         :complete ["dev" "staging" "prod"]}         ; static list
  :level {:coerce :keyword
-         :validate #{:local :global :system}}       ; reused as completions
+         :validate #{:local :global :system}}        ; reused as completions
  :branch {:coerce :string
-          :complete (fn [{:keys [to-complete opts]}] ; dynamic
-                      (git-branches to-complete))}}
+          :complete-fn (fn [{:keys [to-complete opts]}] ; dynamic
+                         (git-branches to-complete))}}
 ```
 
-The function receives `{:to-complete <partial> :opts <opts parsed so far>
-:option <key>}` and returns values (or `{:value .. :description ..}` maps); it
-owns its own filtering. A collection or `:validate` set is prefix-filtered for
-you.
+`:complete-fn` receives `{:to-complete <partial> :opts <opts parsed so far>
+:option <key>}` and returns values (or `{:value .. :description ..}` maps). All
+three sources are prefix-filtered against the partial value for you (the shell
+does not filter on powershell), so a `:complete-fn` may return everything; it
+also gets `:to-complete` if it prefers to filter at the source (e.g. to avoid a
+large query).
 
 Completions also work when the program is invoked by path (`./mycli`,
 `/path/mycli`), not just by bare name.

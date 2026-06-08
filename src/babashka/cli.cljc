@@ -1058,24 +1058,30 @@
 
 (defn- value-candidates
   "Candidates for the value of option token `prev` (the token before the cursor),
-  from the option's `:complete` - a coll of values/maps, or a fn of a context map
-  `{:to-complete :opts :option}` - or, failing that, a set-valued `:validate`.
-  `spec` is the raw spec (carries `:complete`/`:validate`); `parsed` are the opts
-  parsed from the completed prefix (for dependent completion). A fn owns its own
-  filtering; a coll / validate-set is prefix-filtered against `to-complete`."
+  from the option's:
+  * `:complete-fn` - a fn of a context map `{:to-complete :opts :option}` for
+    dynamic/dependent completion (gets `:to-complete` so it may filter at the
+    source), or
+  * `:complete` - a coll of values (or `{:value .. :description ..}` maps), or,
+  * failing both, a set-valued `:validate` (its members double as completions).
+
+  All sources are normalized to `{:value :description}` maps and prefix-filtered
+  against `to-complete` (uniform - the shell does not filter for us on
+  powershell). `spec` is the raw spec; `parsed` are the opts parsed from the
+  completed prefix (for dependent completion)."
   [spec opts prev to-complete parsed]
-  (let [entry (get (->spec-map spec) (option-key prev opts))
+  (let [k (option-key prev opts)
+        entry (get (->spec-map spec) k)
+        complete-fn (:complete-fn entry)
         complete (:complete entry)
         validate (:validate entry)
-        prefixed (fn [coll]
-                   (->> coll (map normalize-value-candidate)
-                        (filter #(str/starts-with? (:value %) to-complete))))]
-    (cond
-      (fn? complete) (map normalize-value-candidate
-                          (complete {:to-complete to-complete :opts parsed
-                                     :option (option-key prev opts)}))
-      (coll? complete) (prefixed complete)
-      (set? validate) (prefixed validate))))
+        candidates (cond
+                     complete-fn (complete-fn {:to-complete to-complete :opts parsed :option k})
+                     complete complete
+                     (set? validate) validate)]
+    (->> candidates
+         (map normalize-value-candidate)
+         (filter #(str/starts-with? (:value %) to-complete)))))
 
 ;; A completion candidate is a map `{:value "--foo" :description "..."}` (the
 ;; description, from `:desc`/`:doc`, may be nil). The public `complete*` fns
