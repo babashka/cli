@@ -25,13 +25,7 @@ org.babashka/cli {:mvn/version "<latest-version>"}
 
 ## Intro
 
-Command line arguments in clojure and babashka CLIs are often in the form:
-
-``` clojure
-$ cli command :opt1 v1 :opt2 v2
-```
-
-or the more Unixy:
+Turn a Clojure function into a CLI that takes Unix-style command line arguments:
 
 ``` clojure
 $ cli command --long-opt1 v1 -o v2
@@ -44,14 +38,11 @@ The main ideas:
   familiar with `clj -X`, read the docs
   [here](https://clojure.org/reference/clojure_cli#use_fn).
 - But with a better UX by not having to use quotes on the command line as a
-  result of having to pass EDN directly: `:dir foo` instead of `:dir '"foo"'` or
-  who knows how to write the latter in `cmd.exe` or Powershell.
+  result of having to pass EDN directly: `--dir foo` instead of `:dir '"foo"'` (or
+  who knows how to write the latter in `cmd.exe` or Powershell?).
 - By default, employ an open world assumption: passing extra arguments does not break and arguments
   can be re-used in multiple contexts.
 - But also support incremental restrictions and validations as a form of polishing a CLI for production use.
-
-Both `:` and `--` are supported as the initial characters of a named option, but
-cannot be mixed. See [options](#options) for more details.
 
 See [clojure CLI](#clojure-cli) for how to turn your exec functions into CLIs.
 
@@ -184,6 +175,11 @@ help customization.
 ## Options
 
 For parsing options, use either [`parse-opts`](/API.md#parse-opts) or [`parse-args`](/API.md#parse-args).
+
+On the command line, a named option is written `--opt val`, or `-o val` using an
+[alias](#aliases). Babashka CLI also accepts a `:`-prefixed form, `:opt val`, to
+match the Clojure CLI `-X` invocation style. The two cannot be mixed in a single
+invocation. Use `--`/`-` or `:`, not both.
 
 Options are configured with a [spec](#spec) (short for "options spec", not
 `clojure.spec`): a map keyed by option name, each value a map of `:coerce`,
