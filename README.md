@@ -736,32 +736,60 @@ must match the command you type.
 (cli/dispatch table args {:prog "mycli" :help true})
 ```
 
-Completion goes through a hidden `org.babashka.cli/completions` subcommand group that
-`dispatch` adds for you. `mycli org.babashka.cli/completions snippet --shell <shell>`
-prints the install snippet for that shell. Install it like this.
+Completion goes through a hidden `org.babashka.cli/completions` subcommand group
+that `dispatch` adds for you. `mycli org.babashka.cli/completions snippet --shell
+<shell>` prints the install snippet for that shell. `babashka.cli` only prints it to
+stdout. It does not write files or edit your shell config for you.
+
+Subcommands and options get completion out of the box. Descriptions come from the
+same `:desc` (options) and `:doc` (subcommands) you already write for `--help`. A
+`:no-doc` subcommand or option is hidden. Options that already appeared are filtered
+out of later suggestions, except repeatable options, e.g. `:coerce [:string]`.
+
+Install it for your shell.
+
+### bash
 
 ``` bash
-# bash (add to ~/.bashrc)
-source <(mycli org.babashka.cli/completions snippet --shell bash)
+source <(mycli org.babashka.cli/completions snippet --shell bash)   # add to ~/.bashrc
+```
 
-# zsh (after compinit, or save as _mycli on your $fpath)
-source <(mycli org.babashka.cli/completions snippet --shell zsh)
+bash completes values only and does not show descriptions. For correct handling of
+`=` and `:` inside values, install the bash-completion package, which needs bash 4.1
+or newer. The macOS system bash 3.2 still works for the common cases.
 
-# fish
+### zsh
+
+``` bash
+source <(mycli org.babashka.cli/completions snippet --shell zsh)   # after compinit
+```
+
+Or save the output as `_mycli` on your `$fpath`. Descriptions show inline.
+Completion also fires when the program is invoked by path, such as `./mycli`.
+
+### fish
+
+``` fish
 mycli org.babashka.cli/completions snippet --shell fish | source
+```
 
-# powershell (add to $PROFILE)
+Descriptions show inline. Completion also fires on a path invocation.
+
+### powershell
+
+``` powershell
 mycli org.babashka.cli/completions snippet --shell powershell | Out-String | Invoke-Expression
 ```
 
-On each TAB the snippet calls your program and prints the candidates. Note that `babashka.cli`
-only prints the snippet to stdout. It does not write files or edit your shell config
-for you.
+Add this to your `$PROFILE`. Descriptions show in menu-completion mode, which you
+enable with `Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete`.
 
-The completion is registered for the command name `:prog`. During development you
-usually invoke the build directly, e.g. `./run.clj`, under a name that differs
-from `:prog`. Symlink the dev build to `:prog` and put it on your `PATH` so it is
-callable under that name:
+### Developing completions
+
+Completion is registered for the command name `:prog`, so the command you type must
+match it. During development you usually invoke the build directly, e.g.
+`./run.clj`, under a different name. Symlink the dev build to `:prog`, put it on your
+`PATH`, then source the snippet for your shell:
 
 ``` bash
 ln -sf "$PWD/run.clj" /tmp/mycli && export PATH="/tmp:$PATH"   # :prog is "mycli"
@@ -772,15 +800,6 @@ mycli sub --<TAB>       # completes sub's options
 
 For a renamed binary whose name differs from `:prog`, pass `--prog <name>`, e.g.
 `mycli org.babashka.cli/completions snippet --shell zsh --prog sq`.
-
-In babashka CLI, subcommands and options get completion support out of the
-box. Descriptions come from the same `:desc` (options) and `:doc` (subcommands)
-you're already using for `--help`. `zsh` and `fish` show them inline. `powershell`
-shows them in menu-completion mode, which you enable with `Set-PSReadLineKeyHandler
--Key Tab -Function MenuComplete`. Currently bash completes values but does not show
-descriptions. A `:no-doc` subcommand or option is hidden. Options that already
-appeared are filtered out of suggestions, except repeatable options
-(e.g. `:coerce [:string]`).
 
 ### Completing option values
 
