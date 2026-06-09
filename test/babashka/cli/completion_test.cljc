@@ -352,7 +352,7 @@
                     (cli/dispatch t (into ["org.babashka.cli/completions" "complete"
                                            "--shell" "bash" "--" "deploy"] toks)
                                   {:prog "p"})))]
-        (is (= "dev\n" (out "--env" "=" "d")))
+        (is (= ["dev"] (str/split-lines (out "--env" "=" "d"))))
         (is (= #{"dev" "prod"} (set (str/split-lines (out "--env" "=")))))))))
 
 (deftest default-option-test
@@ -425,7 +425,7 @@
                 (cli/dispatch t ["org.babashka.cli/completions" "complete"
                                  "--shell" "powershell" "--fresh" fresh "--" "deploy"]
                               {:prog "p"})))]
-    (is (= "--env\n" (out "true")))
+    (is (= ["--env"] (str/split-lines (out "true"))))
     (testing "without a fresh word, deploy itself is the token being completed"
       (is (= "" (out "false"))))))
 
