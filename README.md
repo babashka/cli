@@ -809,10 +809,12 @@ options show up.
 
 Now `mycli <TAB>` completes commands and `mycli sub --<TAB>` its options. To see the
 completer's raw output directly, without a shell, call the hidden subcommand
-yourself:
+yourself. The tokens after `--` are what the shell would pass on TAB, here the
+subcommand `sub` and a `--` to complete its options. It prints one candidate per
+line, as the value, a tab, then the description:
 
 ``` bash
-mycli org.babashka.cli/completions complete --shell zsh -- sub --   # value<TAB>description lines
+mycli org.babashka.cli/completions complete --shell zsh -- sub --
 ```
 
 ### Completing option values
