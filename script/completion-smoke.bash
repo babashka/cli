@@ -16,7 +16,7 @@ EOF
 chmod +x "$tmp/bbtest"
 export PATH="$tmp:$PATH"
 
-bbtest org.babashka.cli/completions --shell bash --print-snippet > "$tmp/comp.bash"
+bbtest org.babashka.cli/completions snippet --shell bash > "$tmp/comp.bash"
 source "$tmp/comp.bash"
 
 fail=0

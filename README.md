@@ -732,28 +732,28 @@ Set `:prog` to the program name.
 (cli/dispatch table args {:prog "mycli" :help true})
 ```
 
-Completion rides a hidden `org.babashka.cli/completions` subcommand that `dispatch`
-adds for you. Running `mycli org.babashka.cli/completions --shell <shell> --print-snippet`
+Completion rides a hidden `org.babashka.cli/completions` subcommand group that
+`dispatch` adds for you. `mycli org.babashka.cli/completions snippet --shell <shell>`
 prints the install snippet for that shell. Install it like this.
 
 ``` bash
 # bash (add to ~/.bashrc)
-source <(mycli org.babashka.cli/completions --shell bash --print-snippet)
+source <(mycli org.babashka.cli/completions snippet --shell bash)
 
 # zsh (after compinit; or save as _mycli on your $fpath)
-source <(mycli org.babashka.cli/completions --shell zsh --print-snippet)
+source <(mycli org.babashka.cli/completions snippet --shell zsh)
 
 # fish
-mycli org.babashka.cli/completions --shell fish --print-snippet | source
+mycli org.babashka.cli/completions snippet --shell fish | source
 
 # powershell (add to $PROFILE)
-mycli org.babashka.cli/completions --shell powershell --print-snippet | Out-String | Invoke-Expression
+mycli org.babashka.cli/completions snippet --shell powershell | Out-String | Invoke-Expression
 ```
 
 The installed snippet calls the program back on each TAB as `mycli
-org.babashka.cli/completions --shell <shell> --line <line>`, and the program prints
-the candidates. `babashka.cli` only prints the snippet to stdout. It does not write
-files or edit your shell config for you.
+org.babashka.cli/completions complete --shell <shell> --line <line>`, and the program
+prints the candidates. `babashka.cli` only prints the snippet to stdout. It does not
+write files or edit your shell config for you.
 
 If your program rewrites or reorders argv before calling `dispatch`, e.g. to inject
 a default subcommand, pass the `org.babashka.cli/completions` command through
@@ -766,14 +766,14 @@ reachable under the name completion registered:
 
 ``` bash
 ln -sf "$PWD/run.clj" /tmp/mycli && export PATH="/tmp:$PATH"   # :prog is "mycli"
-source <(mycli org.babashka.cli/completions --shell zsh --print-snippet)
+source <(mycli org.babashka.cli/completions snippet --shell zsh)
 mycli <TAB>             # completes commands
 mycli sub --<TAB>       # completes sub's options
 ```
 
-For a renamed binary whose name differs from `:prog`, pass `--prog <name>` when
-generating the snippet, e.g. `mycli org.babashka.cli/completions --shell zsh --print-snippet --prog sq`.
-In a shipped build the installed name is usually `:prog`, so users just type it.
+For a renamed binary whose name differs from `:prog`, pass `--prog <name>`, e.g.
+`mycli org.babashka.cli/completions snippet --shell zsh --prog sq`. In a shipped
+build the installed name is usually `:prog`, so users just type it.
 
 This is shell completion attached to a command name. It does not apply when the
 program is run through a wrapper such as `npx mycli` or `bun mycli`, where the

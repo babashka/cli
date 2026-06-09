@@ -1191,7 +1191,7 @@
     local line=\"${COMP_LINE:0:$COMP_POINT}\"
     local IFS=$'\\n'
     local values
-    values=$(\"${COMP_WORDS[0]}\" org.babashka.cli/completions --shell bash --line \"$line\" | cut -f1)
+    values=$(\"${COMP_WORDS[0]}\" org.babashka.cli/completions complete --shell bash --line \"$line\" | cut -f1)
     COMPREPLY=( $(compgen -W \"$values\" -- \"${COMP_WORDS[COMP_CWORD]}\") )
 }
 complete -F _babashka_cli_dynamic_completion " program-name "
@@ -1200,7 +1200,7 @@ complete -F _babashka_cli_dynamic_completion " program-name "
 _babashka_cli_dynamic_completion() {
     local line=\"${(j: :)words[1,CURRENT]}\"
     local -a completions
-    completions=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions --shell zsh --line \"$line\")}\")
+    completions=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions complete --shell zsh --line \"$line\")}\")
     local -a described
     local c
     for c in $completions; do described+=(\"${c//$'\\t'/:}\"); done
@@ -1210,7 +1210,7 @@ _babashka_cli_dynamic_completion() {
 compdef _babashka_cli_dynamic_completion '*/" program-name "' " program-name "
 ")
     :fish (str "function _babashka_cli_dynamic_completion
-    " program-name " org.babashka.cli/completions --shell fish --line (commandline --cut-at-cursor)
+    " program-name " org.babashka.cli/completions complete --shell fish --line (commandline --cut-at-cursor)
 end
 complete --command " program-name " --no-files --arguments \"(_babashka_cli_dynamic_completion)\"
 ")
@@ -1220,7 +1220,7 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
     if ($cursorPosition -le $line.Length) { $line = $line.Substring(0, $cursorPosition) }
     else { $line = $line.PadRight($cursorPosition) }
     $exe = $commandAst.CommandElements[0].Value
-    & $exe org.babashka.cli/completions --shell powershell --line $line 2>$null | ForEach-Object {
+    & $exe org.babashka.cli/completions complete --shell powershell --line $line 2>$null | ForEach-Object {
         $parts = $_ -split \"`t\", 2
         $tip = if ($parts.Length -gt 1) { $parts[1] } else { $parts[0] }
         [System.Management.Automation.CompletionResult]::new($parts[0], $parts[0], 'ParameterValue', $tip)
@@ -1616,28 +1616,32 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
                                (reduce-kv (fn [acc k v] (assoc acc k (inject-help v))) {} m)))))
 
 (defn- inject-completion
-  "Add the hidden `org.babashka.cli/completions` subcommand to the tree root. With
-  `--print-snippet` its `:fn` prints the install snippet for `--shell`; otherwise it
-  prints completions for `--line` (the line up to the cursor). `--prog` overrides the
-  registered name for a renamed binary. It completes against `tree` (captured before
-  this injection, so the hidden command never appears as a candidate)."
+  "Add the hidden `org.babashka.cli/completions` subcommand group to the tree root.
+  `--shell` is shared (`:inherit`) by its two leaves: `snippet` prints the install
+  snippet for `--shell` (`--prog` overrides the registered name for a renamed
+  binary), `complete` prints completions for `--line` (the line up to the cursor).
+  Both complete against `tree`, captured before this injection, so the hidden
+  command never appears as a candidate."
   [tree opts]
   (assoc-in tree [:cmd "org.babashka.cli/completions"]
             {:no-doc true
-             :spec {:shell {:coerce :keyword} :line {} :prog {} :print-snippet {:coerce :boolean}}
-             :fn (fn [{copts :opts}]
-                   (let [{:keys [shell line prog print-snippet]} copts]
-                     (if print-snippet
-                       (let [prog (or prog (:prog opts))]
-                         (cond
-                           (not prog)
-                           (eprintln (str "babashka.cli: set :prog in opts, or pass --prog,"
-                                          " to generate a completion snippet"))
-                           (not (#{:bash :zsh :fish :powershell} shell))
-                           (eprintln (str "babashka.cli: unknown --shell " (pr-str shell)
-                                          ", expected one of: bash zsh fish powershell"))
-                           :else (print (completion-shell-snippet shell prog))))
-                       (print-dispatch-completions tree (or line "")))))}))
+             :spec {:shell {:coerce :keyword :inherit true}}
+             :cmd {"snippet"
+                   {:spec {:prog {}}
+                    :fn (fn [{{:keys [shell prog]} :opts}]
+                          (let [prog (or prog (:prog opts))]
+                            (cond
+                              (not prog)
+                              (eprintln (str "babashka.cli: set :prog in opts, or pass --prog,"
+                                             " to generate a completion snippet"))
+                              (not (#{:bash :zsh :fish :powershell} shell))
+                              (eprintln (str "babashka.cli: unknown --shell " (pr-str shell)
+                                             ", expected one of: bash zsh fish powershell"))
+                              :else (print (completion-shell-snippet shell prog)))))}
+                   "complete"
+                   {:spec {:line {}}
+                    :fn (fn [{{:keys [line]} :opts}]
+                          (print-dispatch-completions tree (or line "")))}}}))
 
 (defn dispatch
   "Subcommand dispatcher.
