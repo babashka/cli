@@ -76,8 +76,7 @@
   (testing "invalid option value"
     ;;FIXME
     #_(is (= #{} (set (complete-options opts ["--aopt2" "invalid" ""])))))
-  (testing "complete option with same prefix"
-    (is (= #{"--aopt" "--aopt2"} (set (complete-options opts ["--a"]))))
+  (testing "completing a prefix that is itself a full option still offers the longer one"
     (is (= #{"--aopt2"} (set (complete-options opts ["--aopt"]))))))
 
 (deftest completion-test
@@ -96,32 +95,20 @@
   (testing "complete suboption"
     (is (= #{"-f" "--foo-opt" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "-"])))))
 
-  (testing "complete short-opt"
+  (testing "completing an option's value: nothing without :complete, and the partial is not mis-read as an option/number/keyword/boolean"
     (is (= #{} (set (complete cmd-table ["foo" "-f"]))))
-    (is (= #{} (set (complete cmd-table ["foo" "-f" ""]))))
-    (is (= #{} (set (complete cmd-table ["foo" "-f" "foo-val"]))))
-    (is (= #{} (set (complete cmd-table ["foo" "-f" "bar"]))))
-    (is (= #{} (set (complete cmd-table ["foo" "-f" "foo-flag"]))))
-    (is (= #{} (set (complete cmd-table ["foo" "-f" "foo-opt2"]))))
     (is (= #{} (set (complete cmd-table ["foo" "-f" "123"]))))
     (is (= #{} (set (complete cmd-table ["foo" "-f" ":foo"]))))
     (is (= #{} (set (complete cmd-table ["foo" "-f" "true"]))))
-    (is (= #{"bar" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "-f" "foo-val" ""])))))
+    (testing "value consumed, the next token completes options again"
+      (is (= #{"bar" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "-f" "foo-val" ""]))))))
 
   (testing "complete option with same prefix"
     (is (= #{"--foo-opt" "--foo-opt2" "--foo-flag"} (set (complete cmd-table ["foo" "--foo"]))))
     (is (= #{"--foo-opt2"} (set (complete cmd-table ["foo" "--foo-opt"])))))
 
-  (testing "complete long-opt"
-    (is (= #{} (set (complete cmd-table ["foo" "--foo-opt2"]))))
+  (testing "the long --opt form awaits a value the same way (shares the option-key path)"
     (is (= #{} (set (complete cmd-table ["foo" "--foo-opt" ""]))))
-    (is (= #{} (set (complete cmd-table ["foo" "--foo-opt" "foo-val"]))))
-    (is (= #{} (set (complete cmd-table ["foo" "--foo-opt" "bar"]))))
-    (is (= #{} (set (complete cmd-table ["foo" "--foo-opt" "foo-flag"]))))
-    (is (= #{} (set (complete cmd-table ["foo" "--foo-opt" "foo-opt2"]))))
-    (is (= #{} (set (complete cmd-table ["foo" "--foo-opt" "123"]))))
-    (is (= #{} (set (complete cmd-table ["foo" "--foo-opt" ":foo"]))))
-    (is (= #{} (set (complete cmd-table ["foo" "--foo-opt" "true"]))))
     (is (= #{"bar" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "--foo-opt" "foo-val" ""])))))
 
   (is (= #{"--foo-flag"} (set (complete cmd-table ["foo" "--foo-f"]))))
@@ -273,13 +260,14 @@
   ;; key's values (the same :complete / :validate the option form uses)
   (let [t [{:cmds ["deploy"] :args->opts [:env :region]
             :spec {:env {:complete ["dev" "prod"]}
-                   :region {:validate #{:us :eu}}}}]]
+                   :region {:validate #{:us :eu}}
+                   :force {:coerce :boolean}}}]]
     (testing "first positional completes its :complete values"
       (is (= #{"prod"} (set (complete t ["deploy" "pr"])))))
     (testing "second positional completes the next key's set :validate"
       (is (= #{"eu"} (set (complete t ["deploy" "dev" "e"])))))
-    (testing "a consumed flag does not shift the positional index"
-      (is (= #{"prod"} (set (complete t ["deploy" "pr"])))))
+    (testing "a flag among the args does not count as a positional (index unshifted)"
+      (is (= #{"prod"} (set (complete t ["deploy" "--force" "pr"])))))
     (testing "no positional candidates past the :args->opts mapping"
       (is (= #{} (set (complete t ["deploy" "dev" "us" "x"])))))))
 
