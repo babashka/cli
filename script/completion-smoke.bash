@@ -52,6 +52,9 @@ assert "bbtest deploy --env=st"  staging
 mkdir "$tmp/fc"; : > "$tmp/fc/zzsmoke.txt"
 pushd "$tmp/fc" >/dev/null
 assert "bbtest cat zz"           zzsmoke.txt
+# glob candidates stay literal (%q-escaped), not expanded against the cwd:
+# zzsmoke.txt exists here, so an unquoted loop would turn *.txt into it
+assert "bbtest deploy --glob "   '\*.txt' '\*.md'
 popd >/dev/null
 
 [[ $fail == 0 ]] && echo "bash: PASS" || echo "bash: FAIL"

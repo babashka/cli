@@ -1328,20 +1328,24 @@
     [[ $_babashka_cli_compopt_t == builtin ]] && compopt -o nosort 2>/dev/null
     local out
     out=$(\"${words[0]}\" org.babashka.cli/completions complete --shell bash -- \"${words[@]:1:cword}\" 2>/dev/null)
-    local IFS=$'\\n'
     # candidates come back already prefix-filtered; insert them verbatim.
-    # printf %q escapes spaces/quotes (compgen -W would word-split and expand them)
+    # read -r keeps them out of word splitting and pathname expansion (an
+    # unquoted loop would glob a '*.txt' candidate against the cwd), printf %q
+    # escapes spaces/quotes for insertion
     local line v
-    for line in $out; do
+    while IFS= read -r line; do
+        [[ -n $line ]] || continue
         if [[ $line == org.babashka.cli/file-completion ]]; then
             compopt -o filenames 2>/dev/null
-            COMPREPLY+=( $(compgen -f -- \"$cur\") )
+            while IFS= read -r v; do
+                [[ -n $v ]] && COMPREPLY+=( \"$v\" )
+            done < <(compgen -f -- \"$cur\")
         else
             v=${line%%$'\\t'*}
             printf -v v '%q' \"$v\"
             COMPREPLY+=( \"$v\" )
         fi
-    done
+    done <<< \"$out\"
     # bash re-inserts from the last COMP_WORDBREAKS char (e.g. : or =); strip that
     # prefix from each candidate so colon/equals values complete without duplication
     local wb pre i
