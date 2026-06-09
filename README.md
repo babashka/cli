@@ -737,7 +737,7 @@ consisting of only alphanumeric characters, `.`, `_` or `-`.
 (cli/dispatch table args {:prog "mycli" :help true})
 ```
 
-If the installed command has a different name, e.g. a distro renames it, pass
+If the installed command has a different name, e.g. when a distro renames it, pass
 `--prog <name>` when generating the snippet to register that name instead:
 
 ``` bash
