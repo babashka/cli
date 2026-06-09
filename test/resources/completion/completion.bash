@@ -21,5 +21,14 @@ _babashka_cli_complete_myprogram()
     local values
     values=$(grep -v '^org.babashka.cli/file-completion$' <<< "$out" | cut -f1)
     COMPREPLY+=( $(compgen -W "$values" -- "$cur") )
+    # bash re-inserts from the last COMP_WORDBREAKS char (e.g. : or =); strip that
+    # prefix from each candidate so colon/equals values complete without duplication
+    local wb pre i
+    for wb in : = ; do
+        if [[ "$cur" == *"$wb"* && "$COMP_WORDBREAKS" == *"$wb"* ]]; then
+            pre="${cur%"${cur##*$wb}"}"
+            for ((i=0; i<${#COMPREPLY[@]}; i++)); do COMPREPLY[$i]="${COMPREPLY[$i]#"$pre"}"; done
+        fi
+    done
 }
 complete -F _babashka_cli_complete_myprogram myprogram

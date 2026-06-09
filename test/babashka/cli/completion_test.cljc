@@ -300,7 +300,9 @@
     (testing "variadic :args->opts does not hang and emits the marker"
       (let [v [{:cmds ["x"] :args->opts (cons :a (repeat :b))}]]
         (is (contains? (set (str/split-lines (complete-via-cmd v {:prog "p"} "p x one two ")))
-                       marker))))))
+                       marker))))
+    (testing "after a literal -- only positionals complete (no options, no commands)"
+      (is (= #{marker} (lines "p cat -- "))))))
 
 (deftest description-sanitize-test
   ;; a newline/tab in a description must not break the value<TAB>desc wire protocol

@@ -1156,20 +1156,25 @@
 (defn- descend
   "Walk the completed prefix `tokens` down dispatch tree `node`, consuming
   subcommands and this-level options (with their values). Returns
-  `[deepest-node tokens-at-deepest-level]`; the latter feeds option exclusion."
+  `[deepest-node tokens-at-deepest-level end-of-options?]`. `level` feeds option
+  exclusion; `end-of-options?` is true once a literal `--` has been seen, after
+  which only positionals are completed."
   [node tokens]
-  (loop [node node, toks (seq tokens), level []]
+  (loop [node node, toks (seq tokens), level [], eoo? false]
     (let [head (first toks)]
       (cond
-        (nil? head) [node level]
-        (get-in node [:cmd head]) (recur (get-in node [:cmd head]) (next toks) [])
-        (gnu-option? head)
+        (nil? head) [node level eoo?]
+        ;; literal `--`: end of options. Everything after is positional; stop
+        ;; matching subcommands and options
+        (= "--" head) (recur node (next toks) (conj level head) true)
+        (and (not eoo?) (get-in node [:cmd head])) (recur (get-in node [:cmd head]) (next toks) [] false)
+        (and (not eoo?) (gnu-option? head))
         (let [n (if (bool-opt? head (spec->opts (:spec node)))
                   1   ; boolean flag: no value
                   2)] ; option plus its value
-          (recur node (drop n toks) (into level (take n toks))))
+          (recur node (drop n toks) (into level (take n toks)) eoo?))
         ;; stray positional (e.g. a leftover value) - keep at this level
-        :else (recur node (next toks) (conj level head))))))
+        :else (recur node (next toks) (conj level head) eoo?)))))
 
 (defn- split-eq
   "Split a long `--opt=val` token into `[\"--opt\" \"val\"]` so the inline value is
@@ -1188,16 +1193,21 @@
   (let [args (vec (mapcat split-eq args))
         done (vec (butlast args))
         to-complete (or (last args) "")
-        [node level] (descend cmd-tree done)
+        [node level eoo?] (descend cmd-tree done)
         spec (:spec node)
         [opts aliases known] (resolve-completion-opts {:spec spec})
         previous (peek done)]
-    (if (and (gnu-option? previous) (not (bool-opt? previous opts)))
+    (cond
+      ;; past a literal `--`: only positionals (values or file completion), never
+      ;; commands or options
+      eoo? (positional-candidates node spec opts level to-complete)
       ;; preceding option awaits a value -> complete the value, not commands/options.
       ;; Parse the tokens before that option (no value yet) for dependent completion.
+      (and (gnu-option? previous) (not (bool-opt? previous opts)))
       (let [{parsed :opts} (try (parse-args (vec (butlast level)) opts)
                                 (catch #?(:clj ExceptionInfo :cljs :default) _ nil))]
         (value-candidates spec opts previous to-complete parsed))
+      :else
       (concat (when-not (gnu-option? to-complete)
                 (command-candidates node to-complete))
               (option-candidates spec opts aliases known level to-complete)
@@ -1237,6 +1247,15 @@
     local values
     values=$(grep -v '^org.babashka.cli/file-completion$' <<< \"$out\" | cut -f1)
     COMPREPLY+=( $(compgen -W \"$values\" -- \"$cur\") )
+    # bash re-inserts from the last COMP_WORDBREAKS char (e.g. : or =); strip that
+    # prefix from each candidate so colon/equals values complete without duplication
+    local wb pre i
+    for wb in : = ; do
+        if [[ \"$cur\" == *\"$wb\"* && \"$COMP_WORDBREAKS\" == *\"$wb\"* ]]; then
+            pre=\"${cur%\"${cur##*$wb}\"}\"
+            for ((i=0; i<${#COMPREPLY[@]}; i++)); do COMPREPLY[$i]=\"${COMPREPLY[$i]#\"$pre\"}\"; done
+        fi
+    done
 }
 complete -F " fn " " program-name "
 ")
@@ -1257,9 +1276,10 @@ compdef " fn " '*/" program-name "' " program-name "
 ")
     :fish (str "function " fn "
     set -l toks (commandline --tokenize --cut-at-cursor)
+    set -l prog $toks[1]
     set -e toks[1]
     set -l cur (commandline --current-token)
-    for line in (" program-name " org.babashka.cli/completions complete --shell fish -- $toks \"$cur\" 2>/dev/null)
+    for line in ($prog org.babashka.cli/completions complete --shell fish -- $toks \"$cur\" 2>/dev/null)
         if test \"$line\" = org.babashka.cli/file-completion
             __fish_complete_path \"$cur\"
         else

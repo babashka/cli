@@ -6,7 +6,7 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
-- [#24](https://github.com/babashka/cli/issues/24) / [#95](https://github.com/babashka/cli/pull/95): shell completions for `dispatch` CLIs (`bash`/`zsh`/`fish`/`powershell`). Dynamic (a small snippet calls back into the program), with subcommand/option descriptions and option-value completion via `:complete` (static) / `:complete-fn` (dynamic) or a set-valued `:validate`. See [Completions](https://github.com/babashka/cli#completions) ([@sohalt](https://github.com/sohalt))
+- [#24](https://github.com/babashka/cli/issues/24) / [#95](https://github.com/babashka/cli/pull/95): shell completions for `dispatch` CLIs (`bash`/`zsh`/`fish`/`powershell`). Dynamic (a small snippet calls back into the program), with subcommand and option completion, descriptions from `:desc`/`:doc`, option-value completion via `:complete` (static) / `:complete-fn` (dynamic) or a set-valued `:validate`, the same value completion for `:args->opts` positionals, and shell file completion for positional file arguments. See [Completions](https://github.com/babashka/cli#completions) ([@sohalt](https://github.com/sohalt))
 
 ## v0.10.69 (2026-06-06)
 
