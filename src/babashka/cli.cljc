@@ -1391,7 +1391,8 @@ compdef " fn " '*/" program-name "' " program-name "
         if test \"$line\" = org.babashka.cli/file-completion
             __fish_complete_path \"$cur\"
         else
-            echo $line
+            # printf, not echo: echo eats a bare -n/-e candidate as its own flag
+            printf '%s\\n' $line
         end
     end
 end

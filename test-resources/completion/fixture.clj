@@ -15,6 +15,9 @@
            ;; glob chars stay literal: a careless stub would expand them in cwd
            :glob  {:coerce :string :desc "File pattern"
                    :complete ["*.txt" "*.md"]}
+           ;; no :desc on purpose: the bare "-n" line is what fish's echo would
+           ;; swallow as a flag
+           :dry-run {:coerce :boolean :alias :n}
            :force {:coerce :boolean :desc "Skip confirmation"}}}
    {:cmds ["status"] :fn run :doc "Show status"}
    ;; a positional file arg with no value completion -> shell file completion

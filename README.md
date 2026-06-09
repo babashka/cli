@@ -727,11 +727,11 @@ and exit afterwards:
 ## Completions
 
 The `dispatch` function can generate dynamic shell completions for `bash`,
-`zsh`, `fish`, `powershell` and `nushell`. Shells call back into your program on each TAB
-to generate completions. The `:prog` (program name) value is essential in the
-`dispatch` call. The generated snippet registers completion for that name, so it
-must match the command you type, and it must be a plain command name (letters,
-digits, `.`, `_` or `-`).
+`zsh`, `fish`, `powershell` and `nushell`. Shells call back into your program on
+each TAB to generate completions. The `:prog` (program name) value is essential
+in the `dispatch` call. The generated snippet registers completion for that
+name, so it must match the command you type, and it must be a plain command name
+consisting of only alphanumerical characters, `.`, `_` or `-`.
 
 ``` clojure
 (cli/dispatch table args {:prog "mycli" :help true})
@@ -739,21 +739,27 @@ digits, `.`, `_` or `-`).
 
 If the installed command has a different name, e.g. a distro renames it, pass
 `--prog <name>` when generating the snippet to register that name instead:
-`mycli org.babashka.cli/completions snippet --shell zsh --prog sq`.
 
-Completion goes through a hidden `org.babashka.cli/completions` subcommand group
-that `dispatch` adds for you. `mycli org.babashka.cli/completions snippet --shell
-<shell>` prints the install snippet for that shell. `babashka.cli` only prints it to
-stdout. It does not write files or edit your shell config for you.
+``` bash
+mycli org.babashka.cli/completions snippet --shell zsh --prog sq
+```
 
-Subcommands and options get completion out of the box. Descriptions come from the
+The completions call goes through a hidden `org.babashka.cli/completions`
+subcommand group that `dispatch` adds for you. Running `mycli
+org.babashka.cli/completions snippet --shell <shell>` prints the install snippet
+for that specific shell to stdout. It does not write files or edit your shell
+config for you.
+
+Subcommands and options come with completion support out of the box. Descriptions come from the
 same `:desc` (options) and `:doc` (subcommands) you already write for `--help`. A
 `:no-doc` subcommand or option is hidden. Options that already appeared are filtered
-out of later suggestions, except repeatable options, e.g. `:coerce [:string]`.
+out of later suggestions, except repeatable options (e.g. `:coerce [:string]`).
 
-Now the instructions to enable auto-completions in your shell.
+Here follow the instructions to enable auto-completions in your shell.
 
 ### Bash
+
+Add this code to your bash init file:
 
 ``` bash
 source <(mycli org.babashka.cli/completions snippet --shell bash)   # add to ~/.bashrc
@@ -765,12 +771,14 @@ or newer. The macOS system bash 3.2 still works for the common cases.
 
 ### Zsh
 
+Run this in your zsh init file after `compinit`:
+
 ``` bash
 source <(mycli org.babashka.cli/completions snippet --shell zsh)   # after compinit
 ```
 
-or save the output as `_mycli` on your `$fpath`. Descriptions show inline.
-Completion also fires when the program is invoked by path, such as `./mycli`.
+or save the output as `_mycli` on your `$fpath`. Option descriptions show inline.
+Completions also fire when the program is invoked by path, such as `./mycli`.
 
 ### Fish
 
@@ -778,15 +786,17 @@ Completion also fires when the program is invoked by path, such as `./mycli`.
 mycli org.babashka.cli/completions snippet --shell fish | source
 ```
 
-Descriptions show inline. Completion also fires on a path invocation.
+Option descriptions show inline. Completion also fires on a path invocation.
 
-### powershell
+### Powershell
+
+Add this to your `$PROFILE`:
 
 ``` powershell
 mycli org.babashka.cli/completions snippet --shell powershell | Out-String | Invoke-Expression
 ```
 
-Add this to your `$PROFILE`. Descriptions show in menu-completion mode, which you
+Option descriptions show in menu-completion mode, which you
 can enable with `Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete`.
 
 ### Nushell
@@ -800,21 +810,19 @@ mycli org.babashka.cli/completions snippet --shell nushell | save -f (($nu.user-
 ```
 
 On nushell versions without autoload dirs, save it anywhere and add
-`source <literal path>` to your `config.nu`. Descriptions show in the completion
-menu. Nushell completes external commands through one global external completer;
-the snippet chains any completer you already configured, so several CLIs (and
-e.g. carapace) can install side by side.
+`source <literal path>` to your `config.nu`. Option descriptions are shown in the completion
+menu.
 
 ### Developing completions
 
-Completion is registered for the command name `:prog`, so the command you type must
+Completions are registered for the command name `:prog`, so the command you type must
 match it. During development you usually invoke the build directly, e.g.
 `./run.clj`, under a different name. Make the dev build callable under your `:prog`
 name on `PATH`. On unix shells, symlink it and prepend its directory:
 
 ``` bash
 ln -sf "$PWD/run.clj" /tmp/mycli                   # name the link :prog
-export PATH="/tmp:$PATH"                            # bash and zsh
+export PATH="/tmp:$PATH"                           # bash and zsh
 ```
 
 In fish use `set -gx PATH /tmp $PATH`, in nushell
@@ -860,10 +868,10 @@ far> :option <key>}` and returns values (strings) (or `{:value .. :description
 you.
 
 An option value with none of these defaults to the shell's own file completion.
-For a value where file suggestions are noise (`--message`), opt out with
+For a value where file suggestions are not appropriate, you can opt out with
 `:complete false`.
 
-Positional arguments mapped with [`:args->opts`](#args-opts) complete the same
+Positional arguments mapped with [`:args->opts`](#args-opts) complete in the same
 way. A positional resolves to its spec key by position, so the same `:complete`,
 `:complete-fn` or set `:validate` on that key completes the positional too. With
 `:args->opts [:env]` and `:env {:complete ["dev" "prod"]}`, `mycli deploy <TAB>`
@@ -871,8 +879,8 @@ completes `dev`/`prod`.
 
 A positional declared in `:args->opts` with no value completion defaults to the
 shell's own file completion the same way. So `:args->opts [:file]` with a bare
-`:file` makes `mycli cat <TAB>` complete filenames. `:complete false` opts out
-here too.
+`:file` makes `mycli cat <TAB>` complete filenames and `:complete false` opts
+out here too.
 
 ## Adding Production Polish
 Babashka cli lets you get up and running quickly.
