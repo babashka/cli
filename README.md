@@ -731,7 +731,7 @@ The `dispatch` function can generate dynamic shell completions for `bash`,
 each TAB to generate completions. The `:prog` (program name) value is essential
 in the `dispatch` call. The generated snippet registers completion for that
 name, so it must match the command you type, and it must be a plain command name
-consisting of only alphanumerical characters, `.`, `_` or `-`.
+consisting of only alphanumeric characters, `.`, `_` or `-`.
 
 ``` clojure
 (cli/dispatch table args {:prog "mycli" :help true})
@@ -762,7 +762,7 @@ Here follow the instructions to enable auto-completions in your shell.
 Add this code to your bash init file:
 
 ``` bash
-source <(mycli org.babashka.cli/completions snippet --shell bash)   # add to ~/.bashrc
+source <(mycli org.babashka.cli/completions snippet --shell bash)
 ```
 
 Bash completes values only and does not show descriptions. For correct handling of
@@ -771,14 +771,15 @@ or newer. The macOS system bash 3.2 still works for the common cases.
 
 ### Zsh
 
-Run this in your zsh init file after `compinit`:
+Add this to your zsh init file, after `compinit`:
 
 ``` bash
-source <(mycli org.babashka.cli/completions snippet --shell zsh)   # after compinit
+source <(mycli org.babashka.cli/completions snippet --shell zsh)
 ```
 
-or save the output as `_mycli` on your `$fpath`. Option descriptions show inline.
-Completions also fire when the program is invoked by path, such as `./mycli`.
+or save the output as `_mycli` on your `$fpath`. Option and subcommand
+descriptions show inline. Completions also fire when the program is invoked by
+path, such as `./mycli`.
 
 ### Fish
 
@@ -786,7 +787,8 @@ Completions also fire when the program is invoked by path, such as `./mycli`.
 mycli org.babashka.cli/completions snippet --shell fish | source
 ```
 
-Option descriptions show inline. Completion also fires on a path invocation.
+Option and subcommand descriptions show inline. Completion also fires on a path
+invocation.
 
 ### Powershell
 
@@ -796,8 +798,8 @@ Add this to your `$PROFILE`:
 mycli org.babashka.cli/completions snippet --shell powershell | Out-String | Invoke-Expression
 ```
 
-Option descriptions show in menu-completion mode, which you
-can enable with `Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete`.
+Descriptions show in menu-completion mode, which you can enable with
+`Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete`.
 
 ### Nushell
 
@@ -810,8 +812,14 @@ mycli org.babashka.cli/completions snippet --shell nushell | save -f (($nu.user-
 ```
 
 On nushell versions without autoload dirs, save it anywhere and add
-`source <literal path>` to your `config.nu`. Option descriptions are shown in the completion
+`source <literal path>` to your `config.nu`. Descriptions show in the completion
 menu.
+
+Unlike the other shells, nushell has no per-command completion registration: one
+global hook (`$env.config.completions.external.completer`) handles TAB for all
+external commands. The snippet does not overwrite a completer you already have
+there: it saves the previous one and falls back to it for every command other
+than `mycli`, so several tools can install side by side.
 
 ### Developing completions
 
