@@ -1845,13 +1845,13 @@ $env.config.completions.external.completer = {|spans|
       (let [prog (or prog (:prog opts))]
         (cond
           (not prog)
-          (eprintln (str "babashka.cli: set :prog in opts, or pass --prog,"
+          (eprintln (str "[babashka.cli] Set :prog in opts, or pass --prog,"
                          " to generate a completion snippet"))
           (not (re-matches #"[A-Za-z0-9_.-]+" prog))
-          (eprintln (str "babashka.cli: cannot register completions for program name "
+          (eprintln (str "[babashka.cli] Cannot register completions for program name "
                          (pr-str prog) ", expected letters, digits, '.', '_' or '-'"))
           (not (#{:bash :zsh :fish :powershell :nushell} shell))
-          (eprintln (str "babashka.cli: unknown --shell " (pr-str shell)
+          (eprintln (str "[babashka.cli] Unknown --shell " (pr-str shell)
                          ", expected one of: bash zsh fish powershell nushell"))
           :else (print (completion-shell-snippet shell prog))))
       "complete"
@@ -1866,7 +1866,7 @@ $env.config.completions.external.completer = {|spans|
         ;; file completer for this position
         (when (some :file-completion cands)
           (println "org.babashka.cli/file-completion")))
-      (eprintln (str "babashka.cli: expected completions command snippet or complete, got "
+      (eprintln (str "[babashka.cli] Expected completions command snippet or complete, got "
                      (pr-str sub))))))
 
 (defn dispatch
