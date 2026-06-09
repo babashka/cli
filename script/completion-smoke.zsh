@@ -94,5 +94,17 @@ check "bbtest deploy --env st" staging
 # positional file arg (cat <file>) -> shell file completion (_files), pty cwd is $tmp/fc
 check "bbtest cat zz" zzsmoke.txt
 
+# return-code regression: the completer must return 0 when it completes, else zsh
+# falls through to its other completers and re-lists (3x, detached descriptions).
+# Call the function directly with the completion builtins stubbed and check $?.
+rc=$(zsh -f -c "
+  _describe() { return 0 }; _files() { return 0 }; compadd() { return 0 }; compdef() { return 0 }
+  PATH=$tmp:\$PATH
+  source $tmp/comp.zsh
+  words=(bbtest); CURRENT=1
+  _babashka_cli_complete_bbtest >/dev/null 2>&1
+  echo \$?" 2>/dev/null)
+if [[ "$rc" == 0 ]]; then print "ok   [return code 0]"; else print "FAIL [return code]: got '$rc'"; fail=1; fi
+
 (( fail == 0 )) && print "zsh: PASS" || print "zsh: FAIL"
 exit $fail
