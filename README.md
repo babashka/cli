@@ -788,12 +788,16 @@ can enable with `Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete`.
 
 Completion is registered for the command name `:prog`, so the command you type must
 match it. During development you usually invoke the build directly, e.g.
-`./run.clj`, under a different name. Symlink the dev build to `:prog` and put it on
-your `PATH`:
+`./run.clj`, under a different name. Make the dev build callable under your `:prog`
+name on `PATH`. On unix shells, symlink it and prepend its directory:
 
 ``` bash
-ln -sf "$PWD/run.clj" /tmp/mycli && export PATH="/tmp:$PATH"   # :prog is "mycli"
+ln -sf "$PWD/run.clj" /tmp/mycli                   # name the link :prog
+export PATH="/tmp:$PATH"                            # bash and zsh
 ```
+
+In fish use `set -gx PATH /tmp $PATH`. On Windows, put a `mycli` wrapper script on
+your `PATH` instead of a symlink.
 
 Then source the snippet in the shell you are testing. Re-source it after each change
 to your CLI so new commands and options show up.
