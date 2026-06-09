@@ -41,7 +41,7 @@
                                    :alias :f
                                    :desc "The foo option"}
                          :foo-opt2 {:coerce :string}
-                         :foo-flag {:coerce :boolean
+                         :foo-flag {:coerce :bool ; :bool and :boolean both accepted
                                     :alias :l
                                     :desc "Enable foo"}}}
    {:cmds ["foo" "bar"] :spec {:bar-opt {:coerce :keyword}

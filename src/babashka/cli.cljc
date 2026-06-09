@@ -1047,7 +1047,8 @@
     (get-in opts [:alias (keyword (strip-prefix "-" token))])))
 
 (defn- bool-opt? [o opts]
-  (= :boolean (get-in opts [:coerce (option-key o opts)])))
+  ;; `:coerce` accepts both `:boolean` and `:bool`, matching the parser's own check
+  (#{:boolean :bool} (get-in opts [:coerce (option-key o opts)])))
 
 (defn- normalize-value-candidate [c]
   (cond
