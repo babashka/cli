@@ -22,10 +22,16 @@
   (mapv :value (#'cli/complete-tree* (cli/table->tree [(assoc opts :cmds [])]) args)))
 
 ;; drive the hidden `org.babashka.cli/completions` group: `snippet` prints the
-;; install snippet, `complete` completes the `--line`
-(defn- complete-via-cmd [table opts cmdline]
+;; install snippet, `complete` completes the shell-tokenized words after `--`. The
+;; stub passes tokens; here we stand in for the shell by splitting the test line
+;; (dropping the program name, keeping a trailing empty for a fresh word).
+(defn- line->tokens [line]
+  (vec (rest (str/split (str/triml line) #" +" -1))))
+(defn- complete-via-cmd [table opts line]
   (with-out-str
-    (cli/dispatch table ["org.babashka.cli/completions" "complete" "--shell" "zsh" "--line" cmdline] opts)))
+    (cli/dispatch table (into ["org.babashka.cli/completions" "complete" "--shell" "zsh" "--"]
+                              (line->tokens line))
+                  opts)))
 (defn- snippet-via-cmd [table opts shell & extra]
   (with-out-str
     (cli/dispatch table (into ["org.babashka.cli/completions" "snippet" "--shell" shell] extra) opts)))

@@ -1181,27 +1181,31 @@
               (option-candidates spec opts aliases known level to-complete)))))
 
 ;; The stub a user installs. On each TAB it calls the program back with the hidden
-;; `org.babashka.cli/completions` subcommand, passing the line up to the cursor as
-;; `--line`. The program prints `value<TAB>description` lines, which the stub
-;; renders (zsh/fish/powershell show descriptions; bash completes values only).
+;; `org.babashka.cli/completions complete` subcommand, passing the shell-tokenized
+;; words up to the cursor (after `--`), so quoting is handled by the shell, not us.
+;; The program prints `value<TAB>description` lines, which the stub renders
+;; (zsh/fish/powershell show descriptions; bash completes values only).
 (defn- completion-shell-snippet [shell program-name]
   (case shell
     :bash (str "_babashka_cli_dynamic_completion()
 {
-    local line=\"${COMP_LINE:0:$COMP_POINT}\"
-    local IFS=$'\\n'
+    local cur words cword
+    if declare -F _init_completion >/dev/null 2>&1; then
+        _init_completion -n = || return
+    else
+        words=(\"${COMP_WORDS[@]}\"); cword=$COMP_CWORD; cur=\"${COMP_WORDS[COMP_CWORD]}\"
+    fi
     local values
-    values=$(\"${COMP_WORDS[0]}\" org.babashka.cli/completions complete --shell bash --line \"$line\" | cut -f1)
-    COMPREPLY=( $(compgen -W \"$values\" -- \"${COMP_WORDS[COMP_CWORD]}\") )
+    values=$(\"${words[0]}\" org.babashka.cli/completions complete --shell bash -- \"${words[@]:1:cword}\" | cut -f1)
+    local IFS=$'\\n'
+    COMPREPLY=( $(compgen -W \"$values\" -- \"$cur\") )
 }
 complete -F _babashka_cli_dynamic_completion " program-name "
 ")
     :zsh (str "#compdef " program-name "
 _babashka_cli_dynamic_completion() {
-    local line=\"${(j: :)words[1,CURRENT]}\"
-    local -a completions
-    completions=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions complete --shell zsh --line \"$line\")}\")
-    local -a described
+    local -a completions described
+    completions=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions complete --shell zsh -- \"${(@)words[2,CURRENT]}\")}\")
     local c
     for c in $completions; do described+=(\"${c//$'\\t'/:}\"); done
     _describe -t commands " program-name " described
@@ -1210,30 +1214,30 @@ _babashka_cli_dynamic_completion() {
 compdef _babashka_cli_dynamic_completion '*/" program-name "' " program-name "
 ")
     :fish (str "function _babashka_cli_dynamic_completion
-    " program-name " org.babashka.cli/completions complete --shell fish --line (commandline --cut-at-cursor)
+    set -l toks (commandline --tokenize --cut-at-cursor)
+    set -e toks[1]
+    set -l cur (commandline --current-token)
+    " program-name " org.babashka.cli/completions complete --shell fish -- $toks \"$cur\"
 end
 complete --command " program-name " --no-files --arguments \"(_babashka_cli_dynamic_completion)\"
 ")
     :powershell (str "Register-ArgumentCompleter -Native -CommandName " program-name " -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
-    $line = $commandAst.ToString()
-    if ($cursorPosition -le $line.Length) { $line = $line.Substring(0, $cursorPosition) }
-    else { $line = $line.PadRight($cursorPosition) }
     $exe = $commandAst.CommandElements[0].Value
-    & $exe org.babashka.cli/completions complete --shell powershell --line $line 2>$null | ForEach-Object {
+    $toks = @()
+    for ($i = 1; $i -lt $commandAst.CommandElements.Count; $i++) {
+        $el = $commandAst.CommandElements[$i]
+        if ($el.Extent.StartOffset -ge $cursorPosition) { break }
+        $toks += $el.Extent.Text
+    }
+    if (-not $wordToComplete) { $toks += '' }
+    & $exe org.babashka.cli/completions complete --shell powershell -- $toks 2>$null | ForEach-Object {
         $parts = $_ -split \"`t\", 2
         $tip = if ($parts.Length -gt 1) { $parts[1] } else { $parts[0] }
         [System.Management.Automation.CompletionResult]::new($parts[0], $parts[0], 'ParameterValue', $tip)
     }
 }
 ")))
-
-(defn- cmdline->tokens
-  "Split a raw completion command line into tokens, dropping the program name.
-  A trailing space yields a trailing empty token (the cursor sits on a fresh
-  word), so `\"prog foo \"` -> `[\"foo\" \"\"]`."
-  [cmdline]
-  (rest (str/split (str/triml (or cmdline "")) #" +" -1)))
 
 (defn- print-completions
   "Print one line per candidate: `value`, or `value<TAB>description` when the
@@ -1243,9 +1247,6 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
     (println (if (str/blank? description)
                value
                (str value \tab description)))))
-
-(defn- print-dispatch-completions [tree cmdline]
-  (print-completions (complete-tree* tree (cmdline->tokens cmdline))))
 
 (defn- eprintln [s]
   #?(:clj (binding [*out* *err*] (println s))
@@ -1617,11 +1618,12 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
 
 (defn- inject-completion
   "Add the hidden `org.babashka.cli/completions` subcommand group to the tree root.
-  `--shell` is shared (`:inherit`) by its two leaves: `snippet` prints the install
-  snippet for `--shell` (`--prog` overrides the registered name for a renamed
-  binary), `complete` prints completions for `--line` (the line up to the cursor).
-  Both complete against `tree`, captured before this injection, so the hidden
-  command never appears as a candidate."
+  `--shell` is shared (`:inherit`) by its two leaves. `snippet` prints the install
+  snippet for `--shell`, with `--prog` overriding the registered name for a renamed
+  binary. `complete` completes the tokens after `--`: the stub passes the
+  shell-tokenized words up to the cursor, so quoting is the shell's job. Both
+  complete against `tree`, captured before this injection, so the hidden command
+  never appears as a candidate."
   [tree opts]
   (assoc-in tree [:cmd "org.babashka.cli/completions"]
             {:no-doc true
@@ -1639,9 +1641,8 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
                                              ", expected one of: bash zsh fish powershell"))
                               :else (print (completion-shell-snippet shell prog)))))}
                    "complete"
-                   {:spec {:line {}}
-                    :fn (fn [{{:keys [line]} :opts}]
-                          (print-dispatch-completions tree (or line "")))}}}))
+                   {:fn (fn [{:keys [args]}]
+                          (print-completions (complete-tree* tree (vec args))))}}}))
 
 (defn dispatch
   "Subcommand dispatcher.
