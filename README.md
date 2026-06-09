@@ -751,9 +751,11 @@ mycli org.babashka.cli/completions snippet --shell powershell | Out-String | Inv
 ```
 
 The installed snippet calls the program back on each TAB as `mycli
-org.babashka.cli/completions complete --shell <shell> --line <line>`, and the program
-prints the candidates. `babashka.cli` only prints the snippet to stdout. It does not
-write files or edit your shell config for you.
+org.babashka.cli/completions complete --shell <shell> -- <words>`, passing the
+shell-tokenized words up to the cursor, and the program prints the candidates. The
+shell does the tokenizing, so quoted arguments are handled correctly. `babashka.cli`
+only prints the snippet to stdout. It does not write files or edit your shell config
+for you.
 
 If your program rewrites or reorders argv before calling `dispatch`, e.g. to inject
 a default subcommand, pass the `org.babashka.cli/completions` command through
