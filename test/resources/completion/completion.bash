@@ -11,19 +11,25 @@ _babashka_cli_complete_myprogram()
     fi
     # keep our candidate order. Only on the real compopt builtin (bash 4.4+): on
     # bash 3.2 with bash-completion, compopt is a shim that forwards to `complete`,
-    # which rejects -o nosort
-    [[ $(type -t compopt) == builtin ]] && compopt -o nosort 2>/dev/null
+    # which rejects -o nosort. The probe is cached: its answer never changes
+    if [[ -z ${_babashka_cli_compopt_t+x} ]]; then _babashka_cli_compopt_t=$(type -t compopt); fi
+    [[ $_babashka_cli_compopt_t == builtin ]] && compopt -o nosort 2>/dev/null
     local out
     out=$("${words[0]}" org.babashka.cli/completions complete --shell bash -- "${words[@]:1:cword}" 2>/dev/null)
     local IFS=$'\n'
-    case "$out" in
-        *org.babashka.cli/file-completion*)
+    # candidates come back already prefix-filtered; insert them verbatim.
+    # printf %q escapes spaces/quotes (compgen -W would word-split and expand them)
+    local line v
+    for line in $out; do
+        if [[ $line == org.babashka.cli/file-completion ]]; then
             compopt -o filenames 2>/dev/null
-            COMPREPLY+=( $(compgen -f -- "$cur") ) ;;
-    esac
-    local values
-    values=$(grep -v '^org.babashka.cli/file-completion$' <<< "$out" | cut -f1)
-    COMPREPLY+=( $(compgen -W "$values" -- "$cur") )
+            COMPREPLY+=( $(compgen -f -- "$cur") )
+        else
+            v=${line%%$'\t'*}
+            printf -v v '%q' "$v"
+            COMPREPLY+=( "$v" )
+        fi
+    done
     # bash re-inserts from the last COMP_WORDBREAKS char (e.g. : or =); strip that
     # prefix from each candidate so colon/equals values complete without duplication
     local wb pre i

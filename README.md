@@ -730,7 +730,8 @@ The `dispatch` function can generate dynamic shell completions for `bash`,
 `zsh`, `fish` and `powershell`. Shells call back into your program on each TAB
 to generate completions. The `:prog` (program name) value is essential in the
 `dispatch` call. The generated snippet registers completion for that name, so it
-must match the command you type.
+must match the command you type, and it must be a plain command name (letters,
+digits, `.`, `_` or `-`).
 
 ``` clojure
 (cli/dispatch table args {:prog "mycli" :help true})
@@ -750,7 +751,7 @@ same `:desc` (options) and `:doc` (subcommands) you already write for `--help`. 
 `:no-doc` subcommand or option is hidden. Options that already appeared are filtered
 out of later suggestions, except repeatable options, e.g. `:coerce [:string]`.
 
-Now the istructions to enable auto-completions in your shell.
+Now the instructions to enable auto-completions in your shell.
 
 ### Bash
 

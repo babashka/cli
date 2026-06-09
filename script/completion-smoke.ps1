@@ -31,6 +31,7 @@ try {
   Check 'bbtest deploy --'       @('--env','--force')
   Check 'bbtest deploy --env '   @('dev','staging','prod')
   Check 'bbtest deploy --env st' @('staging')
+  Check 'bbtest deploy --env=st' @('--env=staging')
 
   # positional file arg (cat <file>) -> shell file completion (./ vs .\ varies by OS)
   New-Item -ItemType Directory (Join-Path $tmp 'fc') | Out-Null

@@ -319,12 +319,115 @@
              (->> (complete-via-cmd t {:prog "p"} "p deploy --e") str/split-lines (remove str/blank?) set))))))
 
 (deftest equals-form-test
-  ;; babashka.cli parses --opt=val, so completion handles it too
+  ;; babashka.cli parses --opt=val, so completion handles it too. Candidates are
+  ;; emitted as the full --opt=val token: zsh/fish/powershell match and replace
+  ;; the whole current word (bash strips the wordbreak prefix in the stub)
   (let [t [{:cmds ["deploy"]
             :spec {:env   {:coerce :string :complete ["dev" "prod"]}
                    :force {:coerce :boolean}}}]]
     (testing "value completion within the = token"
-      (is (= #{"dev"} (set (complete t ["deploy" "--env=d"]))))
-      (is (= #{"dev" "prod"} (set (complete t ["deploy" "--env="])))))
+      (is (= #{"--env=dev"} (set (complete t ["deploy" "--env=d"]))))
+      (is (= #{"--env=dev" "--env=prod"} (set (complete t ["deploy" "--env="])))))
     (testing "a completed --opt=val does not consume the next token"
-      (is (= #{"--force"} (set (complete t ["deploy" "--env=dev" ""])))))))
+      (is (= #{"--force"} (set (complete t ["deploy" "--env=dev" ""])))))
+    (testing "bash wordbreak splitting (--opt = val arrives as three tokens)"
+      (let [out (fn [& toks]
+                  (with-out-str
+                    (cli/dispatch t (into ["org.babashka.cli/completions" "complete"
+                                           "--shell" "bash" "--" "deploy"] toks)
+                                  {:prog "p"})))]
+        (is (= "dev\n" (out "--env" "=" "d")))
+        (is (= #{"dev" "prod"} (set (str/split-lines (out "--env" "=")))))))))
+
+(deftest default-option-test
+  ;; a :default value must not mark the option as already used
+  (let [o {:spec {:port {:default 8080} :host {}}}]
+    (is (= #{"--port" "--host"} (set (complete-options o ["--"]))))))
+
+(deftest require-completion-test
+  (testing "a :require'd option does not disable used-option filtering"
+    (let [o {:spec {:level {:require true} :host {}}}]
+      (is (= #{"--level"} (set (complete-options o ["--host" "h" "--"]))))))
+  (testing "dispatch-level :require does not kill the completion callback"
+    (is (= #{"sub" "--env"}
+           (->> (complete-via-cmd [{:cmds ["sub"] :fn identity}]
+                                  {:require [:env] :spec {:env {}}}
+                                  "p ")
+                str/split-lines (remove str/blank?) set)))))
+
+(deftest negation-completion-test
+  ;; the parser accepts --no-foo as {:foo false}, consuming no value; completion
+  ;; must not treat it as an option awaiting a value
+  (let [o {:spec {:verbose {:coerce :boolean} :host {}}}]
+    (is (= #{"--host"} (set (complete-options o ["--no-verbose" ""]))))))
+
+(deftest coerce-vector-boolean-test
+  ;; :coerce [:boolean] is a (repeatable) flag for the parser, so for completion too
+  (let [o {:spec {:verbose {:coerce [:boolean] :alias :v} :host {}}}]
+    (is (= #{"--verbose" "-v" "--host"} (set (complete-options o ["--verbose" ""]))))))
+
+(deftest inherit-completion-test
+  (let [t [{:cmds [] :fn identity :spec {:verbose {:coerce :boolean :inherit true}}}
+           {:cmds ["sub"] :fn identity :spec {:opt {}}}]]
+    (testing "inherited options are offered at subcommand levels"
+      (is (= #{"--opt" "--verbose"} (set (complete t ["sub" "--"])))))
+    (testing "a typed inherited flag is recognized as a flag"
+      (is (= #{"--opt"} (set (complete t ["sub" "--verbose" "--"]))))))
+  (testing "dispatch-level :inherit true"
+    (is (= ["--env"]
+           (mapv :value (#'cli/complete-tree*
+                         (cli/table->tree [{:cmds [] :spec {:env {}}}
+                                           {:cmds ["sub"] :fn identity}])
+                         ["sub" "--"]
+                         {:inherit true}))))))
+
+(deftest spec-shapes-test
+  (testing "vec-of-pairs spec: options without :coerce/:alias still complete"
+    (let [o {:spec [[:plain {:desc "No coerce"}] [:other {:coerce :string}]]}]
+      (is (= #{"--plain" "--other"} (set (complete-options o ["--"]))))))
+  (testing "entry-level :coerce/:alias (no :spec) completes and detects flags"
+    (let [t [{:cmds ["deploy"] :fn identity
+              :coerce {:force :boolean :env :string} :alias {:f :force}}]]
+      (is (= #{"--force" "--env" "-f"} (set (complete t ["deploy" "-"]))))
+      ;; --force is a flag: it must not swallow the next position
+      (is (= #{"--env"} (set (complete t ["deploy" "--force" ""])))))))
+
+(deftest dispatch-level-spec-test
+  ;; dispatch-level :spec options parse at every level, so they complete there too
+  (is (= #{"--local" "--glob"}
+         (set (mapv :value (#'cli/complete-tree*
+                            (cli/table->tree [{:cmds ["sub"] :fn identity :spec {:local {}}}])
+                            ["sub" "--"]
+                            {:spec {:glob {}}}))))))
+
+(deftest fresh-word-flag-test
+  ;; powershell signals a fresh word via --fresh true (it cannot pass an empty
+  ;; token: PS 5.1 / legacy argument passing drops empty-string args)
+  (let [t [{:cmds ["deploy"] :fn identity :spec {:env {}}}]
+        out (fn [fresh]
+              (with-out-str
+                (cli/dispatch t ["org.babashka.cli/completions" "complete"
+                                 "--shell" "powershell" "--fresh" fresh "--" "deploy"]
+                              {:prog "p"})))]
+    (is (= "--env\n" (out "true")))
+    (testing "without a fresh word, deploy itself is the token being completed"
+      (is (= "" (out "false"))))))
+
+(deftest value-sanitize-test
+  ;; tabs/newlines in a candidate value would corrupt the line/field wire protocol
+  (let [t [{:cmds ["deploy"] :fn identity :spec {:env {:complete ["a\tb\nc"]}}}]]
+    (is (= #{"a b c"}
+           (->> (complete-via-cmd t {:prog "p"} "p deploy --env ")
+                str/split-lines (remove str/blank?) set)))))
+
+(deftest prog-validation-test
+  ;; :prog is embedded in the snippet's registration lines; a multi-word or
+  ;; metachar name would register completions for the wrong command (or inject)
+  (is (= "" (snippet-via-cmd cmd-table {:prog "bb tasks"} "bash")))
+  (is (= "" (snippet-via-cmd cmd-table {:prog "x$(rm -rf .)"} "bash"))))
+
+(deftest all-no-doc-help-test
+  ;; an all-:no-doc spec must not render a dangling empty Options: header
+  (is (= "Usage: x"
+         (cli/format-command-help {:table [{:cmds [] :fn identity :spec {:secret {:no-doc true}}}]
+                                   :prog "x"}))))

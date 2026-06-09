@@ -32,6 +32,7 @@ check "bbtest de" deploy
 check "bbtest deploy --" --env --force
 check "bbtest deploy --env " dev staging prod
 check "bbtest deploy --env st" staging
+check "bbtest deploy --env=st" --env=staging
 
 # positional file arg (cat <file>) -> shell file completion
 mkdir $tmp/fc; touch $tmp/fc/zzsmoke.txt; cd $tmp/fc

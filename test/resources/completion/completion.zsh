@@ -7,7 +7,8 @@ _babashka_cli_complete_myprogram() {
         if [[ $l == org.babashka.cli/file-completion ]]; then do_files=1; continue; fi
         v="${l%%$'\t'*}"; d=
         [[ $l == *$'\t'* ]] && d="${l#*$'\t'}"
-        # _describe splits on ':', so escape any colon in the value or description
+        # _describe eats backslashes and splits on ':', so escape both
+        v="${v//\\/\\\\}"; d="${d//\\/\\\\}"
         v="${v//:/\\:}"; d="${d//:/\\:}"
         described+=("$v${d:+:$d}")
     done

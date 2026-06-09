@@ -20,6 +20,9 @@ bbtest org.babashka.cli/completions snippet --shell bash > "$tmp/comp.bash"
 source "$tmp/comp.bash"
 
 fail=0
+# readline's default wordbreaks; unset in non-interactive bash, but the stub's
+# prefix-strip loop reads it when the current word contains = or :
+COMP_WORDBREAKS=${COMP_WORDBREAKS-$' \t\n"\'><=;|&(:'}
 assert() { # <command line> <expected candidate>...
   local line="$1"; shift
   COMP_LINE="$line"; COMP_POINT=${#line}
@@ -41,6 +44,9 @@ assert "bbtest de"               deploy
 assert "bbtest deploy --"        --env --force
 assert "bbtest deploy --env "    dev staging prod
 assert "bbtest deploy --env st"  staging
+# --opt=val: the callback emits the full token, the stub strips the wordbreak
+# prefix (--env=) so bash re-inserts just the value
+assert "bbtest deploy --env=st"  staging
 
 # positional file arg (cat <file>) -> shell file completion
 mkdir "$tmp/fc"; : > "$tmp/fc/zzsmoke.txt"
