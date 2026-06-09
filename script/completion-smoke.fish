@@ -33,5 +33,9 @@ check "bbtest deploy --" --env --force
 check "bbtest deploy --env " dev staging prod
 check "bbtest deploy --env st" staging
 
+# positional file arg (cat <file>) -> shell file completion
+mkdir $tmp/fc; touch $tmp/fc/zzsmoke.txt; cd $tmp/fc
+check "bbtest cat zz" zzsmoke.txt
+
 test $fail -eq 0; and echo "fish: PASS"; or echo "fish: FAIL"
 exit $fail

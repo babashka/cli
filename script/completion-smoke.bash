@@ -42,5 +42,11 @@ assert "bbtest deploy --"        --env --force
 assert "bbtest deploy --env "    dev staging prod
 assert "bbtest deploy --env st"  staging
 
+# positional file arg (cat <file>) -> shell file completion
+mkdir "$tmp/fc"; : > "$tmp/fc/zzsmoke.txt"
+pushd "$tmp/fc" >/dev/null
+assert "bbtest cat zz"           zzsmoke.txt
+popd >/dev/null
+
 [[ $fail == 0 ]] && echo "bash: PASS" || echo "bash: FAIL"
 exit $fail

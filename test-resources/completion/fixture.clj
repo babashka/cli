@@ -13,6 +13,8 @@
     :spec {:env   {:coerce :string :alias :e :desc "Target environment"
                    :complete ["dev" "staging" "prod"]}
            :force {:coerce :boolean :desc "Skip confirmation"}}}
-   {:cmds ["status"] :fn run :doc "Show status"}])
+   {:cmds ["status"] :fn run :doc "Show status"}
+   ;; a positional file arg with no value completion -> shell file completion
+   {:cmds ["cat"] :fn run :doc "Print a file" :args->opts [:file]}])
 
 (cli/dispatch table *command-line-args* {:prog "bbtest" :help true})

@@ -50,9 +50,11 @@ compadd () {
         else echo -E - "\$__hits[\$i]"; fi
     done
 }
+cd $tmp/fc
 source $tmp/comp.zsh
 echo READYOK
 SETUP
+mkdir -p $tmp/fc; : > $tmp/fc/zzsmoke.txt
 
 # Sets global CAP to the captured candidate lines. NOT run in a $(...) subshell -
 # zsh/zpty does not work inside command substitution.
@@ -89,6 +91,8 @@ check "bbtest de" deploy
 check "bbtest deploy --" --env --force
 check "bbtest deploy --env " dev staging prod
 check "bbtest deploy --env st" staging
+# positional file arg (cat <file>) -> shell file completion (_files), pty cwd is $tmp/fc
+check "bbtest cat zz" zzsmoke.txt
 
 (( fail == 0 )) && print "zsh: PASS" || print "zsh: FAIL"
 exit $fail

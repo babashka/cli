@@ -817,6 +817,10 @@ way. A positional resolves to its spec key by position, so the same `:complete`,
 `:args->opts [:env]` and `:env {:complete ["dev" "prod"]}`, `mycli deploy <TAB>`
 completes `dev`/`prod`.
 
+A positional declared in `:args->opts` with no value completion defaults to the
+shell's own file completion. So `:args->opts [:file]` with a bare `:file` makes
+`mycli cat <TAB>` complete filenames, like other CLIs do for path arguments.
+
 Completions also work when the program is invoked by path (`./mycli`,
 `/path/mycli`), not just by bare name.
 

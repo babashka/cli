@@ -283,6 +283,25 @@
     (testing "no positional candidates past the :args->opts mapping"
       (is (= #{} (set (complete t ["deploy" "dev" "us" "x"])))))))
 
+(deftest positional-file-completion-test
+  ;; a declared positional with no value completion -> file-completion marker line,
+  ;; which the stub turns into the shell's own file completer
+  (let [marker "org.babashka.cli/file-completion"
+        t [{:cmds ["cat"] :args->opts [:file] :spec {:v {:coerce :boolean}}}]
+        lines (fn [line] (set (str/split-lines (complete-via-cmd t {:prog "p"} line))))]
+    (testing "positional with no value-config emits the marker"
+      (is (contains? (lines "p cat ") marker)))
+    (testing "completing an option does not emit the marker"
+      (is (not (contains? (lines "p cat --") marker))))
+    (testing "a positional with value-config completes values, not files"
+      (let [v [{:cmds ["deploy"] :args->opts [:env] :spec {:env {:complete ["dev"]}}}]]
+        (is (not (contains? (set (str/split-lines (complete-via-cmd v {:prog "p"} "p deploy ")))
+                            marker)))))
+    (testing "variadic :args->opts does not hang and emits the marker"
+      (let [v [{:cmds ["x"] :args->opts (cons :a (repeat :b))}]]
+        (is (contains? (set (str/split-lines (complete-via-cmd v {:prog "p"} "p x one two ")))
+                       marker))))))
+
 (deftest description-sanitize-test
   ;; a newline/tab in a description must not break the value<TAB>desc wire protocol
   (let [t [{:cmds ["deploy"] :fn identity

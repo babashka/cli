@@ -1133,19 +1133,25 @@
         (:cmd node)))
 
 (defn- positional-candidates
-  "Value candidates for the positional argument being completed at `node`. The
-  node's `:args->opts` maps positional index -> spec key; the count of positionals
-  already parsed from `done` gives the current index. If that key has value
-  completion (`:complete`/`:complete-fn`/set `:validate`), complete its values."
+  "Candidates for the positional argument being completed at `node`. The node's
+  `:args->opts` maps positional index -> spec key; the count of positionals already
+  parsed from `done` gives the current index. If that key has value completion
+  (`:complete`/`:complete-fn`/set `:validate`), complete its values. A declared
+  positional without value completion yields a single `{:file-completion true}`
+  marker, so the stub defers to the shell's own file completer."
   [node spec opts done to-complete]
   (when-let [a->o (seq (:args->opts node))]
     (let [{pos-args :args parsed :opts}
           (try (parse-args done opts)
                (catch #?(:clj ExceptionInfo :cljs :default) _ {:args nil :opts nil}))
-          k (nth (vec a->o) (count pos-args) nil)
+          ;; nth on the seq directly: `:args->opts` may be infinite (variadic
+          ;; `(cons :foo (repeat :bar))`), so it must not be `vec`'d
+          k (nth a->o (count pos-args) nil)
           entry (when k (get (->spec-map spec) k))]
-      (when entry
-        (candidates-for-entry entry k to-complete parsed)))))
+      (when k
+        (if (or (:complete entry) (:complete-fn entry) (set? (:validate entry)))
+          (candidates-for-entry entry k to-complete parsed)
+          [{:file-completion true}])))))
 
 (defn- descend
   "Walk the completed prefix `tokens` down dispatch tree `node`, consuming
@@ -1216,10 +1222,17 @@
     else
         words=(\"${COMP_WORDS[@]}\"); cword=$COMP_CWORD; cur=\"${COMP_WORDS[COMP_CWORD]}\"
     fi
-    local values
-    values=$(\"${words[0]}\" org.babashka.cli/completions complete --shell bash -- \"${words[@]:1:cword}\" 2>/dev/null | cut -f1)
+    local out
+    out=$(\"${words[0]}\" org.babashka.cli/completions complete --shell bash -- \"${words[@]:1:cword}\" 2>/dev/null)
     local IFS=$'\\n'
-    COMPREPLY=( $(compgen -W \"$values\" -- \"$cur\") )
+    case \"$out\" in
+        *org.babashka.cli/file-completion*)
+            compopt -o filenames 2>/dev/null
+            COMPREPLY+=( $(compgen -f -- \"$cur\") ) ;;
+    esac
+    local values
+    values=$(grep -v '^org.babashka.cli/file-completion$' <<< \"$out\" | cut -f1)
+    COMPREPLY+=( $(compgen -W \"$values\" -- \"$cur\") )
 }
 complete -F " fn " " program-name "
 ")
@@ -1227,9 +1240,13 @@ complete -F " fn " " program-name "
 " fn "() {
     local -a completions described
     completions=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions complete --shell zsh -- \"${(@)words[2,CURRENT]}\" 2>/dev/null)}\")
+    local do_files=
+    if (( ${completions[(I)org.babashka.cli/file-completion]} )); then do_files=1; fi
+    completions=(${completions:#org.babashka.cli/file-completion})
     local c
     for c in $completions; do described+=(\"${c//$'\\t'/:}\"); done
     _describe -t commands " program-name " described
+    [[ -n $do_files ]] && _files
 }
 # register for the bare name and for path invocations (./prog, /abs/prog)
 compdef " fn " '*/" program-name "' " program-name "
@@ -1238,7 +1255,13 @@ compdef " fn " '*/" program-name "' " program-name "
     set -l toks (commandline --tokenize --cut-at-cursor)
     set -e toks[1]
     set -l cur (commandline --current-token)
-    " program-name " org.babashka.cli/completions complete --shell fish -- $toks \"$cur\" 2>/dev/null
+    for line in (" program-name " org.babashka.cli/completions complete --shell fish -- $toks \"$cur\" 2>/dev/null)
+        if test \"$line\" = org.babashka.cli/file-completion
+            __fish_complete_path \"$cur\"
+        else
+            echo $line
+        end
+    end
 end
 complete --command " program-name " --no-files --arguments \"(" fn ")\"
 ")
@@ -1252,10 +1275,14 @@ complete --command " program-name " --no-files --arguments \"(" fn ")\"
         $toks += $el.Extent.Text
     }
     if (-not $wordToComplete) { $toks += '' }
-    & $exe org.babashka.cli/completions complete --shell powershell -- $toks 2>$null | ForEach-Object {
+    $lines = @(& $exe org.babashka.cli/completions complete --shell powershell -- $toks 2>$null)
+    $lines | Where-Object { $_ -ne 'org.babashka.cli/file-completion' } | ForEach-Object {
         $parts = $_ -split \"`t\", 2
         $tip = if ($parts.Length -gt 1) { $parts[1] } else { $parts[0] }
         [System.Management.Automation.CompletionResult]::new($parts[0], $parts[0], 'ParameterValue', $tip)
+    }
+    if ($lines -contains 'org.babashka.cli/file-completion') {
+        [System.Management.Automation.CompletionCompleters]::CompleteFilename($wordToComplete)
     }
 }
 "))))
@@ -1665,7 +1692,12 @@ complete --command " program-name " --no-files --arguments \"(" fn ")\"
                               :else (print (completion-shell-snippet shell prog)))))}
                    "complete"
                    {:fn (fn [{:keys [args]}]
-                          (print-completions (complete-tree* tree (vec args))))}}}))
+                          (let [cands (complete-tree* tree (vec args))]
+                            (print-completions (remove :file-completion cands))
+                            ;; reserved marker line: the stub sees it and defers to
+                            ;; the shell's own file completer for this position
+                            (when (some :file-completion cands)
+                              (println "org.babashka.cli/file-completion"))))}}}))
 
 (defn dispatch
   "Subcommand dispatcher.

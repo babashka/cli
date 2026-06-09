@@ -32,8 +32,20 @@ try {
   Check 'bbtest deploy --env '   @('dev','staging','prod')
   Check 'bbtest deploy --env st' @('staging')
 
+  # positional file arg (cat <file>) -> shell file completion (./ vs .\ varies by OS)
+  New-Item -ItemType Directory (Join-Path $tmp 'fc') | Out-Null
+  New-Item -ItemType File (Join-Path $tmp 'fc' 'zzsmoke.txt') | Out-Null
+  Set-Location (Join-Path $tmp 'fc')
+  $r = TabExpansion2 -inputScript 'bbtest cat zz' -cursorColumn ('bbtest cat zz').Length
+  if (@($r.CompletionMatches.CompletionText) -match 'zzsmoke\.txt') {
+    Write-Output 'ok   [bbtest cat zz] -> file completion'
+  } else {
+    Write-Output 'FAIL [bbtest cat zz]: no file completion'; $script:fail = 1
+  }
+
   if ($script:fail -eq 0) { Write-Output 'powershell: PASS' } else { Write-Output 'powershell: FAIL' }
   exit $script:fail
 } finally {
+  Set-Location $repo
   Remove-Item -Recurse -Force $tmp
 }
