@@ -732,31 +732,32 @@ Set `:prog` to the program name.
 (cli/dispatch table args {:prog "mycli" :help true})
 ```
 
-Completion is driven by the `BABASHKA_CLI_COMPLETE` environment variable. Running
-the program with `BABASHKA_CLI_COMPLETE=<shell>` set (and no `COMP_LINE`) prints
-the install snippet for that shell. Install it like this.
+Completion rides a hidden `org.babashka.cli/complete` subcommand that `dispatch`
+adds for you. Running `mycli org.babashka.cli/complete --shell <shell>` prints the
+install snippet for that shell. Install it like this.
 
 ``` bash
 # bash (add to ~/.bashrc)
-source <(BABASHKA_CLI_COMPLETE=bash mycli)
+source <(mycli org.babashka.cli/complete --shell bash)
 
 # zsh (after compinit; or save as _mycli on your $fpath)
-source <(BABASHKA_CLI_COMPLETE=zsh mycli)
+source <(mycli org.babashka.cli/complete --shell zsh)
 
 # fish
-BABASHKA_CLI_COMPLETE=fish mycli | source
+mycli org.babashka.cli/complete --shell fish | source
 
 # powershell (add to $PROFILE)
-$env:BABASHKA_CLI_COMPLETE="powershell"; mycli | Out-String | Invoke-Expression; Remove-Item Env:\BABASHKA_CLI_COMPLETE
+mycli org.babashka.cli/complete --shell powershell | Out-String | Invoke-Expression
 ```
 
-The installed snippet calls the program back on each TAB, again through the
-environment (`BABASHKA_CLI_COMPLETE` plus the line in `COMP_LINE`), never through
-the command-line arguments. So completion keeps working even when a program
-rewrites or reorders its own argv before calling `dispatch`.
+The installed snippet calls the program back on each TAB as `mycli
+org.babashka.cli/complete --shell <shell> --line <line>`, and the program prints
+the candidates. `babashka.cli` only prints the snippet to stdout. It does not write
+files or edit your shell config for you.
 
-`babashka.cli` only prints the snippet to stdout. It does not write files or edit
-your shell config for you.
+If your program rewrites or reorders argv before calling `dispatch`, e.g. to inject
+a default subcommand, pass the `org.babashka.cli/complete` command through
+untouched. Otherwise it will not reach `dispatch` and completion will not work.
 
 The completion is registered for the command name `:prog`. During development you
 usually invoke the build directly, e.g. `./run.clj`, under a name that differs
@@ -765,12 +766,14 @@ reachable under the name completion registered:
 
 ``` bash
 ln -sf "$PWD/run.clj" /tmp/mycli && export PATH="/tmp:$PATH"   # :prog is "mycli"
-source <(BABASHKA_CLI_COMPLETE=zsh mycli)
+source <(mycli org.babashka.cli/complete --shell zsh)
 mycli <TAB>             # completes commands
 mycli sub --<TAB>       # completes sub's options
 ```
 
-In a shipped build the installed name is already `:prog`, so users just type it.
+For a renamed binary whose name differs from `:prog`, pass `--prog <name>` when
+generating the snippet, e.g. `mycli org.babashka.cli/complete --shell zsh --prog sq`.
+In a shipped build the installed name is usually `:prog`, so users just type it.
 
 This is shell completion attached to a command name. It does not apply when the
 program is run through a wrapper such as `npx mycli` or `bun mycli`, where the

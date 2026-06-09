@@ -1180,19 +1180,18 @@
                 (command-candidates node to-complete))
               (option-candidates spec opts aliases known level to-complete)))))
 
-;; The stub a user installs. On each TAB it calls the program back with no args,
-;; passing the line in the COMP_LINE env var and the trigger in
-;; BABASHKA_CLI_COMPLETE. The program prints `value<TAB>description` lines, which
-;; the stub renders (zsh/fish/powershell show descriptions; bash values only).
-;; Using env vars (not args) keeps completion working even when the caller
-;; preprocesses argv before `dispatch`.
+;; The stub a user installs. On each TAB it calls the program back with the hidden
+;; `org.babashka.cli/complete` subcommand, passing the line up to the cursor as
+;; `--line`. The program prints `value<TAB>description` lines, which the stub
+;; renders (zsh/fish/powershell show descriptions; bash completes values only).
 (defn- completion-shell-snippet [shell program-name]
   (case shell
     :bash (str "_babashka_cli_dynamic_completion()
 {
+    local line=\"${COMP_LINE:0:$COMP_POINT}\"
     local IFS=$'\\n'
     local values
-    values=$(COMP_LINE=\"${COMP_LINE:0:$COMP_POINT}\" BABASHKA_CLI_COMPLETE=bash \"${COMP_WORDS[0]}\" | cut -f1)
+    values=$(\"${COMP_WORDS[0]}\" org.babashka.cli/complete --shell bash --line \"$line\" | cut -f1)
     COMPREPLY=( $(compgen -W \"$values\" -- \"${COMP_WORDS[COMP_CWORD]}\") )
 }
 complete -F _babashka_cli_dynamic_completion " program-name "
@@ -1201,7 +1200,7 @@ complete -F _babashka_cli_dynamic_completion " program-name "
 _babashka_cli_dynamic_completion() {
     local line=\"${(j: :)words[1,CURRENT]}\"
     local -a completions
-    completions=(\"${(@f)$(COMP_LINE=\"$line\" BABASHKA_CLI_COMPLETE=zsh \"${words[1]}\")}\")
+    completions=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/complete --shell zsh --line \"$line\")}\")
     local -a described
     local c
     for c in $completions; do described+=(\"${c//$'\\t'/:}\"); done
@@ -1211,9 +1210,7 @@ _babashka_cli_dynamic_completion() {
 compdef _babashka_cli_dynamic_completion '*/" program-name "' " program-name "
 ")
     :fish (str "function _babashka_cli_dynamic_completion
-    set -lx COMP_LINE (commandline --cut-at-cursor)
-    set -lx BABASHKA_CLI_COMPLETE fish
-    " program-name "
+    " program-name " org.babashka.cli/complete --shell fish --line (commandline --cut-at-cursor)
 end
 complete --command " program-name " --no-files --arguments \"(_babashka_cli_dynamic_completion)\"
 ")
@@ -1223,17 +1220,10 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
     if ($cursorPosition -le $line.Length) { $line = $line.Substring(0, $cursorPosition) }
     else { $line = $line.PadRight($cursorPosition) }
     $exe = $commandAst.CommandElements[0].Value
-    $env:COMP_LINE = $line
-    $env:BABASHKA_CLI_COMPLETE = 'powershell'
-    try {
-        & $exe 2>$null | ForEach-Object {
-            $parts = $_ -split \"`t\", 2
-            $tip = if ($parts.Length -gt 1) { $parts[1] } else { $parts[0] }
-            [System.Management.Automation.CompletionResult]::new($parts[0], $parts[0], 'ParameterValue', $tip)
-        }
-    } finally {
-        Remove-Item Env:\\COMP_LINE -ErrorAction SilentlyContinue
-        Remove-Item Env:\\BABASHKA_CLI_COMPLETE -ErrorAction SilentlyContinue
+    & $exe org.babashka.cli/complete --shell powershell --line $line 2>$null | ForEach-Object {
+        $parts = $_ -split \"`t\", 2
+        $tip = if ($parts.Length -gt 1) { $parts[1] } else { $parts[0] }
+        [System.Management.Automation.CompletionResult]::new($parts[0], $parts[0], 'ParameterValue', $tip)
     }
 }
 ")))
@@ -1260,11 +1250,6 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
 (defn- eprintln [s]
   #?(:clj (binding [*out* *err*] (println s))
      :cljs (binding [*print-fn* *print-err-fn*] (println s))))
-
-;; rebindable so tests can drive the env-var completion protocol
-(def ^:dynamic ^:no-doc *getenv*
-  (fn [k] #?(:clj (System/getenv k)
-             :cljs (some-> (.-env js/process) (aget k)))))
 
 (defn- deep-merge [a b]
   (reduce (fn [acc k] (update acc k (fn [v]
@@ -1472,6 +1457,11 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
     prog    (assoc :prog prog)
     inherit (assoc :inherit inherit)))
 
+;; command names to suggest in errors: skip `:no-doc` (e.g. the injected
+;; `org.babashka.cli/complete`), same as help and completion hide them
+(defn- visible-command-names [cmd-info]
+  (into [] (comp (remove (comp :no-doc val)) (map key)) (:cmd cmd-info)))
+
 (defn- dispatch-tree'
   ([tree args]
    (dispatch-tree' tree args nil))
@@ -1549,11 +1539,11 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
              (if arg
                {:error :no-match
                 :wrong-input arg
-                :available-commands (keys (:cmd cmd-info))
+                :available-commands (visible-command-names cmd-info)
                 :dispatch cmds
                 :opts (dissoc all-opts ::opts-by-cmds)}
                {:error :input-exhausted
-                :available-commands (keys (:cmd cmd-info))
+                :available-commands (visible-command-names cmd-info)
                 :dispatch cmds
                 :opts (dissoc all-opts ::opts-by-cmds)}))))))))
 
@@ -1625,6 +1615,30 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
     (:cmd node) (update :cmd (fn [m]
                                (reduce-kv (fn [acc k v] (assoc acc k (inject-help v))) {} m)))))
 
+(defn- inject-completion
+  "Add the hidden `org.babashka.cli/complete` subcommand to the tree root. Its `:fn`
+  prints completions for `--line` (the line up to the cursor) or, with no `--line`,
+  the install snippet for `--shell`. `--prog` overrides the registered name for a
+  renamed binary. It completes against `tree` (captured before this injection, so
+  the hidden command never appears as a candidate)."
+  [tree opts]
+  (assoc-in tree [:cmd "org.babashka.cli/complete"]
+            {:no-doc true
+             :spec {:shell {:coerce :keyword} :line {} :prog {}}
+             :fn (fn [{copts :opts}]
+                   (let [{:keys [shell line prog]} copts]
+                     (if line
+                       (print-dispatch-completions tree line)
+                       (let [prog (or prog (:prog opts))]
+                         (cond
+                           (not prog)
+                           (eprintln (str "babashka.cli: set :prog in opts, or pass --prog,"
+                                          " to generate a completion snippet"))
+                           (not (#{:bash :zsh :fish :powershell} shell))
+                           (eprintln (str "babashka.cli: unknown --shell " (pr-str shell)
+                                          ", expected one of: bash zsh fish powershell"))
+                           :else (print (completion-shell-snippet shell prog)))))))}))
+
 (defn dispatch
   "Subcommand dispatcher.
 
@@ -1676,35 +1690,24 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
   ([table args]
    (dispatch table args {}))
   ([table args opts]
-   ;; completion is env-var driven (BABASHKA_CLI_COMPLETE=<shell>), checked before
-   ;; anything else and ignoring `args`, so it survives a caller preprocessing argv
-   ;; before `dispatch`. COMP_LINE present -> complete it; absent -> print the
-   ;; install snippet
-   (if-let [cshell (*getenv* "BABASHKA_CLI_COMPLETE")]
-     (if-let [line (*getenv* "COMP_LINE")]
-       (print-dispatch-completions (cond-> (table->tree table) (:help opts) inject-help) line)
-       (let [prog (:prog opts)]
-         (cond
-           (not prog)
-           (eprintln "babashka.cli: set :prog in opts to generate a completion snippet")
-           (not (#{:bash :zsh :fish :powershell} (keyword cshell)))
-           (eprintln (str "babashka.cli: unknown shell " (pr-str cshell)
-                          ", expected one of: bash zsh fish powershell"))
-           :else (print (completion-shell-snippet (keyword cshell) prog)))))
-     (let [base-tree (table->tree table)
-           ;; complete against the same tree the user dispatches with, so
-           ;; `--help`/`-h` (injected by `:help`) also show up as completions
-           tree (cond-> base-tree (:help opts) inject-help)]
-       (if (:help opts)
-         (dispatch-tree tree args
-                        (assoc opts ::help true
-                               ;; default :error-fn = print the message, then exit;
-                               ;; :cause is the dispatch cause as-is (:no-match /
-                               ;; :input-exhausted / a flag cause)
-                               :error-fn (or (:error-fn opts)
-                                             (fn [{:keys [cause dispatch] :as data}]
-                                               (print-command-error data)
-                                               (*exit-fn* {:exit 1 :cause cause
-                                                           :dispatch dispatch :data data})))
-                               ::help-fn (or (:help-fn opts) print-command-help)))
-         (dispatch-tree tree args opts))))))
+   (let [base-tree (table->tree table)
+         ;; complete against the same tree the user dispatches with, so
+         ;; `--help`/`-h` (injected by `:help`) also show up as completions
+         tree (cond-> base-tree (:help opts) inject-help)
+         ;; the hidden `org.babashka.cli/complete` subcommand carries completion;
+         ;; it routes through dispatch-tree like any command. A caller that
+         ;; preprocesses argv before `dispatch` must pass this command through.
+         tree (inject-completion tree opts)]
+     (if (:help opts)
+       (dispatch-tree tree args
+                      (assoc opts ::help true
+                             ;; default :error-fn = print the message, then exit;
+                             ;; :cause is the dispatch cause as-is (:no-match /
+                             ;; :input-exhausted / a flag cause)
+                             :error-fn (or (:error-fn opts)
+                                           (fn [{:keys [cause dispatch] :as data}]
+                                             (print-command-error data)
+                                             (*exit-fn* {:exit 1 :cause cause
+                                                         :dispatch dispatch :data data})))
+                             ::help-fn (or (:help-fn opts) print-command-help)))
+       (dispatch-tree tree args opts)))))

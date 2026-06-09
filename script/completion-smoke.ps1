@@ -11,9 +11,7 @@ try {
   & chmod +x $wrapper
   $env:PATH = "$tmp" + [IO.Path]::PathSeparator + $env:PATH
 
-  $env:BABASHKA_CLI_COMPLETE = "powershell"
-  & bbtest | Out-String | Invoke-Expression
-  Remove-Item Env:\BABASHKA_CLI_COMPLETE
+  & bbtest org.babashka.cli/complete --shell powershell | Out-String | Invoke-Expression
 
   $script:fail = 0
   function Check($line, [string[]]$expected) {

@@ -21,14 +21,14 @@
 (defn complete-options [opts args]
   (mapv :value (#'cli/complete-tree* (cli/table->tree [(assoc opts :cmds [])]) args)))
 
-;; drive the env-var completion protocol: BABASHKA_CLI_COMPLETE=<shell> triggers,
-;; COMP_LINE carries the line (its presence = complete, absence = print snippet)
-(defn- complete-via-env [table opts cmdline]
-  (binding [cli/*getenv* {"BABASHKA_CLI_COMPLETE" "zsh" "COMP_LINE" cmdline}]
-    (with-out-str (cli/dispatch table [] opts))))
-(defn- snippet-via-env [table opts shell]
-  (binding [cli/*getenv* {"BABASHKA_CLI_COMPLETE" shell}]
-    (with-out-str (cli/dispatch table [] opts))))
+;; drive completion through the hidden `org.babashka.cli/complete` subcommand:
+;; `--line` present -> complete it, absent -> print the install snippet
+(defn- complete-via-cmd [table opts cmdline]
+  (with-out-str
+    (cli/dispatch table ["org.babashka.cli/complete" "--shell" "zsh" "--line" cmdline] opts)))
+(defn- snippet-via-cmd [table opts shell & extra]
+  (with-out-str
+    (cli/dispatch table (into ["org.babashka.cli/complete" "--shell" shell] extra) opts)))
 
 (def cmd-table
   [{:cmds ["foo"] :spec {:foo-opt {:coerce :string
@@ -145,14 +145,14 @@
   (when-not (windows?)
     (doseq [shell ["bash" "zsh" "fish" "powershell"]]
       (is (= (read-snippet shell)
-             (snippet-via-env cmd-table {:prog "myprogram"} shell))
+             (snippet-via-cmd cmd-table {:prog "myprogram"} shell))
           shell))))
 
 (defn- complete-out
-  "Run the env-var completion handler for `cmdline` and return its emitted
+  "Run the completion handler for `cmdline` and return its emitted
   `value\\tdescription` lines as a set of strings."
   [cmdline]
-  (->> (complete-via-env cmd-table {:prog "myprogram"} cmdline)
+  (->> (complete-via-cmd cmd-table {:prog "myprogram"} cmdline)
        str/split-lines
        (remove str/blank?)
        set))
@@ -184,7 +184,7 @@
                            :complete [{:value "dev" :description "Development"}
                                       {:value "prod" :description "Production"}]}}}]]
       (is (= #{"dev\tDevelopment" "prod\tProduction"}
-             (->> (complete-via-env t {:prog "deploy"} "deploy --env ")
+             (->> (complete-via-cmd t {:prog "deploy"} "deploy --env ")
                   str/split-lines (remove str/blank?) set)))))
   (testing "set-valued :validate auto-completes its values (keywords -> names)"
     (is (= #{"a" "b"}
@@ -225,7 +225,7 @@
   (let [t [{:cmds ["deploy"] :fn identity
             :spec {:env {:coerce :string} :force {:coerce :boolean}}}]
         vals (fn [cmdline]
-               (->> (complete-via-env t {:prog "p" :restrict true} cmdline)
+               (->> (complete-via-cmd t {:prog "p" :restrict true} cmdline)
                     str/split-lines
                     (remove str/blank?)
                     (map #(first (str/split % #"\t")))
@@ -242,14 +242,21 @@
     (is (= #{"a.b/local"} (set (complete-options o ["--k" "a.b/lo"]))))))
 
 (deftest completion-robustness-test
-  (testing "unknown shell for the snippet: no crash (message goes to stderr)"
-    (is (nil? (binding [cli/*getenv* {"BABASHKA_CLI_COMPLETE" "bogus"}]
-                (cli/dispatch cmd-table [] {:prog "p"})))))
-  (testing "empty COMP_LINE completes the top level, no NPE"
+  (testing "unknown --shell for the snippet: no crash, nothing on stdout"
+    (is (= "" (snippet-via-cmd cmd-table {:prog "p"} "bogus"))))
+  (testing "an empty line completes the top level, no NPE"
     (is (= #{"foo" "bar" "bar-baz"}
-           (->> (complete-via-env cmd-table {:prog "p"} "")
+           (->> (complete-via-cmd cmd-table {:prog "p"} "")
                 str/split-lines (remove str/blank?)
                 (map #(first (str/split % #"\t"))) set)))))
+
+(deftest completion-prog-override-test
+  (let [registers? (fn [s nm]
+                     (str/includes? s (str "complete -F _babashka_cli_dynamic_completion " nm)))]
+    (testing ":prog is the default registered name"
+      (is (registers? (snippet-via-cmd cmd-table {:prog "squint"} "bash") "squint")))
+    (testing "--prog overrides :prog (renamed binary)"
+      (is (registers? (snippet-via-cmd cmd-table {:prog "squint"} "bash" "--prog" "sq") "sq")))))
 
 (deftest equals-form-test
   ;; babashka.cli parses --opt=val, so completion handles it too

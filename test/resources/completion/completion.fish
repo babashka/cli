@@ -1,6 +1,4 @@
 function _babashka_cli_dynamic_completion
-    set -lx COMP_LINE (commandline --cut-at-cursor)
-    set -lx BABASHKA_CLI_COMPLETE fish
-    myprogram
+    myprogram org.babashka.cli/complete --shell fish --line (commandline --cut-at-cursor)
 end
 complete --command myprogram --no-files --arguments "(_babashka_cli_dynamic_completion)"
