@@ -761,7 +761,7 @@ for you.
 The completion is registered for the command name `:prog`. During development you
 usually invoke the build directly, e.g. `./run.clj`, under a name that differs
 from `:prog`. Symlink the dev build to `:prog` and put it on your `PATH` so it is
-reachable under the name completion registered:
+callable under that name:
 
 ``` bash
 ln -sf "$PWD/run.clj" /tmp/mycli && export PATH="/tmp:$PATH"   # :prog is "mycli"
@@ -773,20 +773,22 @@ mycli sub --<TAB>       # completes sub's options
 For a renamed binary whose name differs from `:prog`, pass `--prog <name>`, e.g.
 `mycli org.babashka.cli/completions snippet --shell zsh --prog sq`.
 
-In babashka CLI, subcommands and options get completion support out of the box. Descriptions come from the same
-`:desc` (options) and `:doc` (subcommands) you're already using for `--help`, and
-are shown by `zsh`, `fish` and `powershell`. Currently bash integration completes values only. A `:no-doc`
-subcommand or option is hidden. Options already given drop out of later suggestions, except repeatable
-ones (a list-valued `:coerce`, e.g. `:coerce [:string]`, or a `:collect` option).
+In babashka CLI, subcommands and options get completion support out of the
+box. Descriptions come from the same `:desc` (options) and `:doc` (subcommands)
+you're already using for `--help`, and are shown by `zsh`, `fish` and
+`powershell`. Currently bash integration completes values but does not show the
+descriptions. A `:no-doc` subcommand or option is hidden. Options that already
+appeared are filtered out of suggestions, except repeatable options
+(e.g. `:coerce [:string]`).
 
 ### Completing option values
 
 To complete an option's value, give it one of:
 
 - `:complete` - a static collection of values (or `{:value .. :description ..}`
-  maps),
-- `:complete-fn` - a function for dynamic completion, or
-- nothing, but a set-valued `:validate`, whose members double as completions.
+  maps)
+- A set-valued `:validate`, whose members double as completions
+- `:complete-fn` - a function for dynamic completion
 
 ``` clojure
 {:env   {:coerce :string
@@ -813,16 +815,12 @@ A positional declared in `:args->opts` with no value completion defaults to the
 shell's own file completion. So `:args->opts [:file]` with a bare `:file` makes
 `mycli cat <TAB>` complete filenames, like other CLIs do for path arguments.
 
-In `zsh` and `fish`, completions also fire when the program is invoked by path
-(`./mycli`, `/path/mycli`), not just by bare name. `bash` and `powershell` complete
-the bare command name only.
-
 ## Adding Production Polish
 Babashka cli lets you get up and running quickly.
 As you move toward production quality, it's helpful to let users know when their inputs are invalid.
 Strict validation can be introduced with [:restrict](#restrict), [:require](#require), and [:validate](#validate).
 
-As you add polish, you'll likely make use of a [:spec](#spec), a custom [:error_fn](#error-handling), and maybe [subcommand dispatching](#subcommands). 
+As you add polish, you'll likely make use of a [:spec](#spec), a custom [:error_fn](#error-handling), and maybe [subcommand dispatching](#subcommands).
 
 ## Restrict
 
