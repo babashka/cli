@@ -550,9 +550,7 @@
                           (let [kname (if long-opt?
                                         (subs arg 2)
                                         (str/replace arg #"^(:|-|)" ""))
-                                ;; split on the first = only: --header=k=v
-                                ;; binds "k=v" (an unbounded split dropped
-                                ;; everything after the second =)
+                                ;; split on the first = only: --header=k=v binds "k=v"
                                 [kname arg-val] (if long-opt?
                                                   (str/split kname #"=" 2)
                                                   [kname])
@@ -956,9 +954,8 @@
         :else (into {} spec)))
 
 (defn- visible-spec?
-  "Does `spec` (map or vec-of-pairs) have any option that is not `:no-doc`?
-  Gates the help sections, matching the `:no-doc` filter in opts->help-rows -
-  an all-hidden spec must not render a dangling empty `Options:` header."
+  "Does `spec` have any non-`:no-doc` option? Gates the help sections, so an
+  all-hidden spec doesn't render an empty `Options:` header."
   [spec]
   (boolean (some (fn [[_ v]] (not (:no-doc v))) (->spec-map spec))))
 
@@ -1054,8 +1051,7 @@
 (defn- format-short-opt [k] (str "-" (kw->str k)))
 
 (defn- true-prefix?
-  "True when `s` starts with `prefix` and is strictly longer (a real completion,
-  not the already-typed token itself)."
+  "True when `s` starts with `prefix` and is strictly longer."
   [prefix s]
   (and (< (count prefix) (count s))
        (str/starts-with? s prefix)))
@@ -1067,18 +1063,15 @@
   (and s (str/starts-with? s "-")))
 
 (defn- option-key
-  "Resolve an option token (long `--foo` or short `-f`) to its keyword, given a
-  resolved `opts` (with `:alias`)."
+  "Resolve an option token (`--foo` or `-f`) to its keyword."
   [token opts]
   (if (str/starts-with? token "--")
     (keyword (strip-prefix "--" token))
     (get-in opts [:alias (keyword (strip-prefix "-" token))])))
 
 (defn- bool-opt?
-  "Does option token `o` take no value? True for a boolean `:coerce` (`:boolean`
-  or `:bool`, plain or collection-wrapped, matching the parser's own check), and
-  for the parser's negation form: a `--no-foo` whose `:no-foo` key is itself
-  unknown parses as `{:foo false}` and consumes nothing."
+  "True when option token `o` takes no value: a boolean `:coerce`, or the
+  parser's `--no-foo` negation (an unknown `:no-` key parses as `{:foo false}`)."
   [o opts known]
   (let [k (option-key o opts)]
     (or (some? (#{:boolean :bool} (coerce-coerce-fn (get-in opts [:coerce k]))))
@@ -1092,16 +1085,10 @@
     :else {:value (str c)}))
 
 (defn- candidates-for-entry
-  "Value candidates from a single spec `entry` for option/positional key `k`, from:
-  * `:complete-fn` - a fn of a context map `{:to-complete :opts :option}` for
-    dynamic/dependent completion (gets `:to-complete` so it may filter at the
-    source), or
-  * `:complete` - a coll of values (or `{:value .. :description ..}` maps), or,
-  * failing both, a set-valued `:validate` (its members double as completions).
-
-  All sources are normalized to `{:value :description}` maps and prefix-filtered
-  against `to-complete` (uniform - the shell does not filter for us on powershell).
-  `parsed` are the opts parsed from the completed prefix (for dependent completion)."
+  "Value candidates for spec `entry` (key `k`): `:complete-fn` (called with
+  `{:to-complete :opts :option}`), `:complete`, or a set-valued `:validate`.
+  Normalized to `{:value :description}` maps and prefix-filtered against
+  `to-complete` (powershell does not filter shell-side)."
   [entry k to-complete parsed]
   (let [candidates (cond
                      (:complete-fn entry) ((:complete-fn entry)
@@ -1113,10 +1100,8 @@
          (filter #(str/starts-with? (:value %) to-complete)))))
 
 (defn- value-candidates
-  "Candidates for the value of option token `prev` (the token before the cursor).
-  Resolves `prev` to its spec key and delegates to [[candidates-for-entry]].
-  An option value with no completion configured defaults to the shell's file
-  completion. `:complete false` opts out. `spec` is the resolved spec map."
+  "Candidates for the value of option token `prev`. No completion configured
+  defaults to the shell's file completion, `:complete false` opts out."
   [spec opts prev to-complete parsed]
   (let [k (option-key prev opts)
         entry (get spec k)]
@@ -1126,11 +1111,8 @@
         [{:file-completion true}]))))
 
 (defn- resolve-completion-opts
-  "Resolve completion opts (parse opts whose `:spec` may be a map or
-  vec-of-pairs) to `[opts aliases known-keys]`: the opts with the spec's
-  `:coerce`/`:alias`/... merged in and `:spec` mapified, the alias map, and the
-  set of known long-option keys (spec keys, `:coerce` keys and alias targets,
-  the parser's own known-keys derivation)."
+  "Resolve completion opts to `[opts aliases known-keys]`, with the spec merged
+  in and mapified. `known-keys` matches the parser's own derivation."
   [copts]
   (let [spec (->spec-map (:spec copts))
         opts (assoc (if (seq spec) (merge-opts copts (spec->opts spec copts)) copts)
@@ -1142,10 +1124,8 @@
     [opts aliases known]))
 
 (defn- node-completion-opts
-  "Effective parse opts for completion at tree `node`: dispatch-level opts,
-  spec entries `inherited` from ancestor levels, and the node's own entry-level
-  parse opts, with `:spec` merged the way dispatch-tree' merges it
-  (dispatch-level `:spec` < inherited < the node's own `:spec`)."
+  "Effective parse opts at tree `node`, `:spec` merged like dispatch-tree' does
+  (dispatch-level < inherited < the node's own)."
   [global-opts inherited node]
   (let [parse-keys [:coerce :alias :aliases :collect :no-keyword-opts :repeated-opts]
         spec (deep-merge (deep-merge (->spec-map (:spec global-opts)) inherited)
@@ -1155,18 +1135,16 @@
            :spec spec)))
 
 (defn- repeatable-opt?
-  "True when option `k` may appear more than once: a collection-valued `:coerce`
-  (`[:string]`, `#{:string}`) or a `:collect` fn. Such options stay suggestable
-  after they have been used."
+  "True when option `k` may appear more than once (collection-valued `:coerce`
+  or `:collect`)."
   [opts k]
   (or (coll? (get-in opts [:coerce k]))
       (contains? (:collect opts) k)))
 
 (defn- safe-parse
-  "Parse `args` for completion. `:exec-args` is dropped so a `:default` does not
-  mark its option as already used, and a no-op `:error-fn` keeps partial input
-  (e.g. a `:require`d option not typed yet) returning the parsed prefix instead
-  of throwing. Anything that still throws yields `{:args nil :opts nil}`."
+  "Parse `args` for completion: `:exec-args` dropped so a `:default` does not
+  count as already typed, no-op `:error-fn` so partial input (e.g. a missing
+  `:require`) still returns the parsed prefix."
   [args opts]
   (try (parse-args args (-> opts
                             (dissoc :exec-args)
@@ -1174,14 +1152,12 @@
        (catch #?(:clj ExceptionInfo :cljs :default) _ {:args nil :opts nil})))
 
 (defn- option-candidates
-  "Option candidates at one level completing `to-complete`, excluding the
-  single-value options already in `parsed` (the opts parsed from the completed
-  prefix; repeatable options stay). `spec` is the resolved spec map (for `:desc`
-  and `:no-doc`). Returns candidate maps."
+  "Option candidates completing `to-complete`, minus the single-value options
+  already in `parsed`."
   [spec opts aliases known parsed to-complete]
   (let [used (set (remove #(repeatable-opt? opts %) (keys parsed)))]
     (keep (fn [[token k]]
-            (when (and (not (:no-doc (get spec k)))   ; `:no-doc` option: hide from completion
+            (when (and (not (:no-doc (get spec k)))
                        (not (used k))
                        (true-prefix? to-complete token))
               {:value token :description (help-first-line (:desc (get spec k)))}))
@@ -1189,8 +1165,7 @@
                   (map (fn [[a l]] [(format-short-opt a) l]) aliases)))))
 
 (defn- command-candidates
-  "Subcommand candidates of `node` completing `to-complete` (descriptions from
-  each subcommand's `:doc`; `:no-doc` commands are hidden)."
+  "Subcommand candidates of `node` completing `to-complete`."
   [node to-complete]
   (keep (fn [[cmd subnode]]
           (when (and (not (:no-doc subnode)) (true-prefix? to-complete cmd))
@@ -1198,13 +1173,9 @@
         (:cmd node)))
 
 (defn- positional-candidates
-  "Candidates for the positional argument being completed at `node`. The node's
-  `:args->opts` maps positional index -> spec key; the count of positionals already
-  in `pos-args` gives the current index. If that key has value completion
-  (`:complete`/`:complete-fn`/set `:validate`), complete its values. A declared
-  positional without value completion yields a single `{:file-completion true}`
-  marker, so the stub defers to the shell's own file completer; `:complete
-  false` opts out."
+  "Candidates for the positional being completed at `node`, resolved to its spec
+  key via `:args->opts` (the count of `pos-args` is the current index). No value
+  completion yields the file-completion marker, `:complete false` opts out."
   [node spec pos-args parsed to-complete]
   (when-let [a->o (seq (:args->opts node))]
     ;; nth on the seq directly: `:args->opts` may be infinite (variadic
@@ -1219,13 +1190,9 @@
 
 (defn- descend
   "Walk the completed prefix `tokens` down dispatch tree `tree`, consuming
-  subcommands and options (with their values), accumulating `:inherit`-ed spec
-  entries the way dispatch-tree' does. Returns
-  `[[opts aliases known] deepest-node tokens-at-deepest-level end-of-options?]`,
-  where `[opts aliases known]` are the resolved completion opts at the deepest
-  node (resolved once per node, not per token). `level` feeds option exclusion;
-  `end-of-options?` is true once a literal `--` has been seen, after which only
-  positionals are completed."
+  subcommands and options with their values, accumulating `:inherit`-ed spec
+  entries like dispatch-tree' does. Returns
+  `[[opts aliases known] deepest-node tokens-at-deepest-level end-of-options?]`."
   [tree global-opts tokens]
   (let [inherit-opt (:inherit global-opts)
         resolve-node (fn [inherited node]
@@ -1236,24 +1203,22 @@
             [opts _ known] ropts]
         (cond
           (nil? head) [ropts node level eoo?]
-          ;; literal `--`: end of options. Everything after is positional; stop
-          ;; matching subcommands and options
+          ;; literal `--`: everything after is positional
           (= "--" head) (recur node ropts inherited (next toks) (conj level head) true)
           (and (not eoo?) (get-in node [:cmd head]))
           (let [inherited (merge inherited (inherited-entries (:spec node) inherit-opt))
                 child (get-in node [:cmd head])]
             (recur child (resolve-node inherited child) inherited (next toks) [] false))
           (and (not eoo?) (gnu-option? head))
-          (let [n (if (bool-opt? head opts known)
-                    1   ; boolean flag: no value
-                    2)] ; option plus its value
+          ;; flags consume one token, other options also their value
+          (let [n (if (bool-opt? head opts known) 1 2)]
             (recur node ropts inherited (drop n toks) (into level (take n toks)) eoo?))
-          ;; stray positional (e.g. a leftover value) - keep at this level
+          ;; stray positional
           :else (recur node ropts inherited (next toks) (conj level head) eoo?))))))
 
 (defn- split-eq
-  "Split a long `--opt=val` token into `[\"--opt\" \"val\"]` so the inline value is
-  treated like a separate token; other tokens pass through unchanged."
+  "Split a long `--opt=val` token into `[\"--opt\" \"val\"]`, other tokens pass
+  through unchanged."
   [token]
   (if (and (str/starts-with? token "--") (str/includes? token "="))
     (str/split token #"=" 2)
@@ -1261,41 +1226,37 @@
 
 (defn- complete-tree*
   "Returns completion candidate maps (`{:value :description}`) for dispatch tree
-  `cmd-tree` and `args` (a vector of tokens, last = the token being completed):
-  matching subcommands of the node reached by the earlier tokens, plus that
-  node's options. `global-opts` are the dispatch-level opts (`:spec`, `:coerce`,
-  `:inherit`, ...), accepted at every level like dispatch accepts them."
+  `cmd-tree` and `args` (a vector of tokens, last = the token being completed).
+  `global-opts` are the dispatch-level opts, accepted at every level like
+  dispatch accepts them."
   ([cmd-tree args] (complete-tree* cmd-tree args nil))
   ([cmd-tree args global-opts]
    (let [done (vec (mapcat split-eq (butlast args)))
          raw-last (or (last args) "")
-         ;; the `--opt=val` form: complete the value, but emit full `--opt=val`
-         ;; candidates - every shell matches and replaces the whole current token
-         ;; (bash strips the `--opt=` wordbreak prefix back off in the stub)
+         ;; `--opt=val`: complete the value, but emit full `--opt=val` tokens -
+         ;; shells match and replace the whole word (bash strips the `--opt=`
+         ;; wordbreak prefix back off in the stub)
          [eq-opt eq-val] (let [s (split-eq raw-last)] (when (second s) s))
          [[opts aliases known] node level eoo?] (descend cmd-tree global-opts done)
          spec (:spec opts)
          previous (peek done)]
      (cond
-       ;; past a literal `--`: only positionals (values or file completion)
        eoo?
        (let [{parsed :opts pos-args :args} (safe-parse level opts)]
          (positional-candidates node spec pos-args parsed raw-last))
        eq-opt
        (let [{parsed :opts} (safe-parse level opts)]
-         ;; no file fallback inside `--opt=`: the shells complete files against
-         ;; the whole `--opt=...` token, which never matches a filename
+         ;; no file fallback here: shells complete files against the whole
+         ;; `--opt=...` token, which never matches a filename
          (->> (value-candidates spec opts eq-opt eq-val parsed)
               (remove :file-completion)
               (map #(update % :value (fn [v] (str eq-opt "=" v))))))
+       ;; previous option awaits a value; parse the tokens before it (no value
+       ;; yet) for dependent completion
        (and (gnu-option? previous) (not (bool-opt? previous opts known)))
-       ;; preceding option awaits a value -> complete the value, not commands/options.
-       ;; Parse the tokens before that option (no value yet) for dependent completion.
        (let [{parsed :opts} (safe-parse (vec (butlast level)) opts)]
          (value-candidates spec opts previous raw-last parsed))
        :else
-       ;; parse the completed level once, shared by option exclusion and the
-       ;; positional index
        (let [{parsed :opts pos-args :args} (safe-parse level opts)]
          (concat (when-not (gnu-option? raw-last)
                    (command-candidates node raw-last))
@@ -1303,14 +1264,12 @@
                  (when-not (gnu-option? raw-last)
                    (positional-candidates node spec pos-args parsed raw-last))))))))
 
-;; The stub a user installs. On each TAB it calls the program back with the hidden
-;; `org.babashka.cli/completions complete` subcommand, passing the shell-tokenized
-;; words up to the cursor (after `--`), so quoting is handled by the shell, not us.
-;; The program prints `value<TAB>description` lines, which the stub renders
-;; (zsh/fish/powershell/nushell show descriptions; bash completes values only).
+;; The stub a user installs. On each TAB it calls the program back with the
+;; hidden `org.babashka.cli/completions complete` subcommand, passing the
+;; shell-tokenized words up to the cursor, and renders the
+;; `value<TAB>description` lines that come back.
 (defn- completion-shell-snippet [shell program-name]
-  ;; name the function after the program (sanitized), so installing completions for
-  ;; several babashka.cli CLIs in one shell does not collide on a shared function
+  ;; function named after the program so multiple CLIs don't collide
   (let [fn (str "_babashka_cli_complete_" (str/replace program-name #"[^a-zA-Z0-9_]+" "_"))]
    (case shell
     :bash (str fn "()
@@ -1456,11 +1415,8 @@ $env.config.completions.external.completer = {|spans|
 "))))
 
 (defn- print-completions
-  "Print one line per candidate: `value`, or `value<TAB>description` when the
-  candidate has a description. Shell-agnostic, the stub renders per shell. Tabs
-  and newlines are stripped from the value, and the description is reduced to
-  its first line with tabs stripped, so neither can break the line/field wire
-  protocol."
+  "Print one `value<TAB>description` line per candidate (tab and newline
+  stripped, they would break the line/field wire format)."
   [candidates]
   (doseq [{:keys [value description]} candidates]
     (let [value (str/replace value #"[\t\n\r]" " ")
@@ -1820,9 +1776,7 @@ $env.config.completions.external.completer = {|spans|
 
 (defn- drop-lone-eq
   "bash without bash-completion splits `--opt=val` into `--opt` `=` `val`
-  (COMP_WORDBREAKS); drop the lone `=` after an option token so the value still
-  completes. A trailing `=` means a fresh value: complete it from the empty
-  string. Only applied to bash callbacks."
+  (COMP_WORDBREAKS); drop the lone `=` so the value still completes."
   [toks]
   (loop [acc [] s (seq toks)]
     (if-not s
@@ -1833,15 +1787,11 @@ $env.config.completions.external.completer = {|spans|
           (recur (conj acc t) (next s)))))))
 
 (defn- completions-command
-  "Handle the hidden `org.babashka.cli/completions` command (`args` = everything
-  after that token): `snippet` prints the per-shell install snippet (`--prog`
-  overrides the registered name for a renamed binary), `complete` completes the
-  tokens after `--` against `tree` (the stub passes the shell-tokenized words up
-  to the cursor, so quoting is the shell's job).
-
-  Parsed here, in isolation from the dispatch-level opts: a global `:require`
-  or a custom `:error-fn` must not be able to fail the completion callback (the
-  stub discards stderr, so such a failure would just silently kill completions)."
+  "Handle the hidden `org.babashka.cli/completions` command: `snippet` prints
+  the per-shell install snippet, `complete` completes the tokens after `--`
+  against `tree`. Parsed here, isolated from the dispatch-level opts: a global
+  `:require` or `:error-fn` must not be able to fail the completion callback
+  (the stub discards stderr, so that failure would be silent)."
   [tree args opts]
   (let [[sub & more] args
         [pre toks] (split-with #(not= "--" %) more)
@@ -1865,13 +1815,12 @@ $env.config.completions.external.completer = {|spans|
       "complete"
       (let [toks (cond-> toks
                    (= :bash shell) drop-lone-eq
-                   ;; powershell signals a fresh word via --fresh (it cannot pass
-                   ;; an empty token); other shells append the empty token themselves
+                   ;; powershell can't pass an empty fresh-word token (PS 5.1
+                   ;; drops empty args), so it sends --fresh instead
                    fresh (conj ""))
             cands (complete-tree* tree toks opts)]
         (print-completions (remove :file-completion cands))
-        ;; reserved marker line: the stub sees it and defers to the shell's own
-        ;; file completer for this position
+        ;; marker line: the stub defers to the shell's own file completer
         (when (some :file-completion cands)
           (println "org.babashka.cli/file-completion")))
       (eprintln (str "[babashka.cli] Expected completions command snippet or complete, got "

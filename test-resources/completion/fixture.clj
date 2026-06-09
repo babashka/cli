@@ -12,11 +12,10 @@
     :doc "Deploy the app"
     :spec {:env   {:coerce :string :alias :e :desc "Target environment"
                    :complete ["dev" "staging" "prod"]}
-           ;; glob chars stay literal: a careless stub would expand them in cwd
+           ;; glob chars must stay literal in the stubs
            :glob  {:coerce :string :desc "File pattern"
                    :complete ["*.txt" "*.md"]}
-           ;; no :desc on purpose: the bare "-n" line is what fish's echo would
-           ;; swallow as a flag
+           ;; no :desc: a bare "-n" line is what fish's echo would eat as a flag
            :dry-run {:coerce :boolean :alias :n}
            :force {:coerce :boolean :desc "Skip confirmation"}}}
    {:cmds ["status"] :fn run :doc "Show status"}
