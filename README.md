@@ -746,28 +746,28 @@ same `:desc` (options) and `:doc` (subcommands) you already write for `--help`. 
 `:no-doc` subcommand or option is hidden. Options that already appeared are filtered
 out of later suggestions, except repeatable options, e.g. `:coerce [:string]`.
 
-Install it for your shell.
+Now the istructions to enable auto-completions in your shell.
 
-### bash
+### Bash
 
 ``` bash
 source <(mycli org.babashka.cli/completions snippet --shell bash)   # add to ~/.bashrc
 ```
 
-bash completes values only and does not show descriptions. For correct handling of
+Bash completes values only and does not show descriptions. For correct handling of
 `=` and `:` inside values, install the bash-completion package, which needs bash 4.1
 or newer. The macOS system bash 3.2 still works for the common cases.
 
-### zsh
+### Zsh
 
 ``` bash
 source <(mycli org.babashka.cli/completions snippet --shell zsh)   # after compinit
 ```
 
-Or save the output as `_mycli` on your `$fpath`. Descriptions show inline.
+or save the output as `_mycli` on your `$fpath`. Descriptions show inline.
 Completion also fires when the program is invoked by path, such as `./mycli`.
 
-### fish
+### Fish
 
 ``` fish
 mycli org.babashka.cli/completions snippet --shell fish | source
@@ -782,20 +782,52 @@ mycli org.babashka.cli/completions snippet --shell powershell | Out-String | Inv
 ```
 
 Add this to your `$PROFILE`. Descriptions show in menu-completion mode, which you
-enable with `Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete`.
+can enable with `Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete`.
 
 ### Developing completions
 
 Completion is registered for the command name `:prog`, so the command you type must
 match it. During development you usually invoke the build directly, e.g.
-`./run.clj`, under a different name. Symlink the dev build to `:prog`, put it on your
-`PATH`, then source the snippet for your shell:
+`./run.clj`, under a different name. Symlink the dev build to `:prog` and put it on
+your `PATH`:
 
 ``` bash
 ln -sf "$PWD/run.clj" /tmp/mycli && export PATH="/tmp:$PATH"   # :prog is "mycli"
+```
+
+Then source the snippet in the shell you are testing. Re-source it after each change
+to your CLI so new commands and options show up.
+
+bash:
+
+``` bash
+source <(mycli org.babashka.cli/completions snippet --shell bash)
+```
+
+zsh:
+
+``` bash
 source <(mycli org.babashka.cli/completions snippet --shell zsh)
-mycli <TAB>             # completes commands
-mycli sub --<TAB>       # completes sub's options
+```
+
+fish:
+
+``` fish
+mycli org.babashka.cli/completions snippet --shell fish | source
+```
+
+powershell:
+
+``` powershell
+mycli org.babashka.cli/completions snippet --shell powershell | Out-String | Invoke-Expression
+```
+
+Now `mycli <TAB>` completes commands and `mycli sub --<TAB>` its options. To see the
+completer's raw output directly, without a shell, call the hidden subcommand
+yourself:
+
+``` bash
+mycli org.babashka.cli/completions complete --shell zsh -- sub --   # value<TAB>description lines
 ```
 
 For a renamed binary whose name differs from `:prog`, pass `--prog <name>`, e.g.
