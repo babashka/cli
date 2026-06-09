@@ -859,6 +859,10 @@ far> :option <key>}` and returns values (strings) (or `{:value .. :description
 ..}` maps). All three sources are prefix-filtered against the partial value for
 you.
 
+An option value with none of these defaults to the shell's own file completion.
+For a value where file suggestions are noise (`--message`), opt out with
+`:complete false`.
+
 Positional arguments mapped with [`:args->opts`](#args-opts) complete the same
 way. A positional resolves to its spec key by position, so the same `:complete`,
 `:complete-fn` or set `:validate` on that key completes the positional too. With
@@ -866,8 +870,9 @@ way. A positional resolves to its spec key by position, so the same `:complete`,
 completes `dev`/`prod`.
 
 A positional declared in `:args->opts` with no value completion defaults to the
-shell's own file completion. So `:args->opts [:file]` with a bare `:file` makes
-`mycli cat <TAB>` complete filenames, like other CLIs do for path arguments.
+shell's own file completion the same way. So `:args->opts [:file]` with a bare
+`:file` makes `mycli cat <TAB>` complete filenames. `:complete false` opts out
+here too.
 
 ## Adding Production Polish
 Babashka cli lets you get up and running quickly.

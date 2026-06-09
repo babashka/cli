@@ -20,6 +20,11 @@
   (mapv :value (#'cli/complete-tree* (cli/table->tree table) args)))
 (defn complete-options [opts args]
   (mapv :value (#'cli/complete-tree* (cli/table->tree [(assoc opts :cmds [])]) args)))
+;; an unconfigured value position defaults to the shell's file completion
+(defn- files? [table args]
+  (= [{:file-completion true}] (#'cli/complete-tree* (cli/table->tree table) args)))
+(defn- files-options? [opts args]
+  (files? [(assoc opts :cmds [])] args))
 
 ;; drive the hidden `org.babashka.cli/completions` group: `snippet` prints the
 ;; install snippet, `complete` completes the shell-tokenized words after `--`. The
@@ -64,13 +69,14 @@
   (is (= #{"--bflag"} (set (complete-options opts ["--b"]))))
   (is (= #{} (set (complete-options opts ["--bflag"]))))
   (is (= #{"--aopt" "--aopt2" "-a"} (set (complete-options opts ["--bflag" ""]))))
-  (is (= #{} (set (complete-options opts ["--aopt" ""]))))
-  (is (= #{} (set (complete-options opts ["--aopt" "aval"]))))
+  (testing "an unconfigured option value defaults to file completion"
+    (is (files-options? opts ["--aopt" ""]))
+    (is (files-options? opts ["--aopt" "aval"])))
   (is (= #{"--aopt2" "--bflag" "-b"} (set (complete-options opts ["--aopt" "aval" ""]))))
   (is (= #{"--aopt" "--bflag" "-b" "-a"} (set (complete-options opts ["--aopt2" "aval2" ""]))))
   (testing "failing options"
-    (is (= #{} (set (complete-options opts ["--aopt" "-"]))))
-    (is (= #{} (set (complete-options opts ["--aopt" "--bflag"]))))
+    (is (files-options? opts ["--aopt" "-"]))
+    (is (files-options? opts ["--aopt" "--bflag"]))
     ;;FIXME
     #_(is (= #{} (set (complete-options opts ["--aopt" "--bflag" ""])))))
   (testing "invalid option value"
@@ -95,11 +101,11 @@
   (testing "complete suboption"
     (is (= #{"-f" "--foo-opt" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "-"])))))
 
-  (testing "completing an option's value: nothing without :complete, and the partial is not mis-read as an option/number/keyword/boolean"
+  (testing "completing an option's value: files without :complete, and the partial is not mis-read as an option/number/keyword/boolean"
     (is (= #{} (set (complete cmd-table ["foo" "-f"]))))
-    (is (= #{} (set (complete cmd-table ["foo" "-f" "123"]))))
-    (is (= #{} (set (complete cmd-table ["foo" "-f" ":foo"]))))
-    (is (= #{} (set (complete cmd-table ["foo" "-f" "true"]))))
+    (is (files? cmd-table ["foo" "-f" "123"]))
+    (is (files? cmd-table ["foo" "-f" ":foo"]))
+    (is (files? cmd-table ["foo" "-f" "true"]))
     (testing "value consumed, the next token completes options again"
       (is (= #{"bar" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "-f" "foo-val" ""]))))))
 
@@ -108,7 +114,7 @@
     (is (= #{"--foo-opt2"} (set (complete cmd-table ["foo" "--foo-opt"])))))
 
   (testing "the long --opt form awaits a value the same way (shares the option-key path)"
-    (is (= #{} (set (complete cmd-table ["foo" "--foo-opt" ""]))))
+    (is (files? cmd-table ["foo" "--foo-opt" ""]))
     (is (= #{"bar" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "--foo-opt" "foo-val" ""])))))
 
   (is (= #{"--foo-flag"} (set (complete cmd-table ["foo" "--foo-f"]))))
@@ -130,7 +136,7 @@
     (is (= #{"--bar-opt" "--bar-flag"} (set (complete cmd-table ["foo" "--foo-flag" "bar" "--"]))))
     (is (= #{"--bar-opt" "--bar-flag"} (set (complete cmd-table ["foo" "--foo-flag" "bar" "--bar-"]))))
     (is (= #{"--bar-opt"} (set (complete cmd-table ["foo" "--foo-flag" "bar" "--bar-o"]))))
-    (is (= #{} (set (complete cmd-table ["foo" "--foo-flag" "bar" "--bar-opt" "a"]))))
+    (is (files? cmd-table ["foo" "--foo-flag" "bar" "--bar-opt" "a"]))
     (is (= #{"--bar-flag"} (set (complete cmd-table ["foo" "--foo-flag" "bar" "--bar-opt" "bar-val" ""]))))))
 
 
@@ -197,8 +203,12 @@
                           :complete-fn (constantly ["dev" "staging" "prod"])}}}]
       (is (= #{"dev" "staging" "prod"} (set (complete-options o ["--env" ""]))))
       (is (= #{"staging"} (set (complete-options o ["--env" "st"]))))))
-  (testing "no :complete/:complete-fn/:validate -> no value candidates"
-    (is (= #{} (set (complete-options {:spec {:env {:coerce :string}}} ["--env" ""]))))))
+  (testing "no :complete/:complete-fn/:validate -> the shell's file completion"
+    (is (files-options? {:spec {:env {:coerce :string}}} ["--env" ""])))
+  (testing ":complete false opts out of the file default"
+    (is (empty? (#'cli/complete-tree*
+                 (cli/table->tree [{:cmds [] :spec {:msg {:complete false}}}])
+                 ["--msg" ""])))))
 
 (deftest repeatable-option-test
   (testing "a single-value option drops out once used"
@@ -285,6 +295,9 @@
       (let [v [{:cmds ["deploy"] :args->opts [:env] :spec {:env {:complete ["dev"]}}}]]
         (is (not (contains? (set (str/split-lines (complete-via-cmd v {:prog "p"} "p deploy ")))
                             marker)))))
+    (testing ":complete false opts a positional out of the file default"
+      (let [v [{:cmds ["run"] :args->opts [:name] :spec {:name {:complete false}}}]]
+        (is (not-any? :file-completion (#'cli/complete-tree* (cli/table->tree v) ["run" ""])))))
     (testing "variadic :args->opts does not hang and emits the marker"
       (let [v [{:cmds ["x"] :args->opts (cons :a (repeat :b))}]]
         (is (contains? (set (str/split-lines (complete-via-cmd v {:prog "p"} "p x one two ")))
@@ -330,6 +343,9 @@
       (is (= #{"--env=dev" "--env=prod"} (set (complete t ["deploy" "--env="])))))
     (testing "a completed --opt=val does not consume the next token"
       (is (= #{"--force"} (set (complete t ["deploy" "--env=dev" ""])))))
+    (testing "no file fallback inside --opt= (shells match files against the whole token)"
+      (let [u [{:cmds ["deploy"] :spec {:out {:coerce :string}}}]]
+        (is (empty? (#'cli/complete-tree* (cli/table->tree u) ["deploy" "--out="])))))
     (testing "bash wordbreak splitting (--opt = val arrives as three tokens)"
       (let [out (fn [& toks]
                   (with-out-str

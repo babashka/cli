@@ -1112,10 +1112,15 @@
 (defn- value-candidates
   "Candidates for the value of option token `prev` (the token before the cursor).
   Resolves `prev` to its spec key and delegates to [[candidates-for-entry]].
-  `spec` is the resolved spec map."
+  An option value with no completion configured defaults to the shell's file
+  completion. `:complete false` opts out. `spec` is the resolved spec map."
   [spec opts prev to-complete parsed]
-  (let [k (option-key prev opts)]
-    (candidates-for-entry (get spec k) k to-complete parsed)))
+  (let [k (option-key prev opts)
+        entry (get spec k)]
+    (if (or (:complete entry) (:complete-fn entry) (set? (:validate entry)))
+      (candidates-for-entry entry k to-complete parsed)
+      (when-not (false? (:complete entry))
+        [{:file-completion true}]))))
 
 (defn- resolve-completion-opts
   "Resolve completion opts (parse opts whose `:spec` may be a map or
@@ -1195,7 +1200,8 @@
   in `pos-args` gives the current index. If that key has value completion
   (`:complete`/`:complete-fn`/set `:validate`), complete its values. A declared
   positional without value completion yields a single `{:file-completion true}`
-  marker, so the stub defers to the shell's own file completer."
+  marker, so the stub defers to the shell's own file completer; `:complete
+  false` opts out."
   [node spec pos-args parsed to-complete]
   (when-let [a->o (seq (:args->opts node))]
     ;; nth on the seq directly: `:args->opts` may be infinite (variadic
@@ -1205,7 +1211,8 @@
       (when k
         (if (or (:complete entry) (:complete-fn entry) (set? (:validate entry)))
           (candidates-for-entry entry k to-complete parsed)
-          [{:file-completion true}])))))
+          (when-not (false? (:complete entry))
+            [{:file-completion true}]))))))
 
 (defn- descend
   "Walk the completed prefix `tokens` down dispatch tree `tree`, consuming
@@ -1273,8 +1280,11 @@
          (positional-candidates node spec pos-args parsed raw-last))
        eq-opt
        (let [{parsed :opts} (safe-parse level opts)]
-         (map #(update % :value (fn [v] (str eq-opt "=" v)))
-              (value-candidates spec opts eq-opt eq-val parsed)))
+         ;; no file fallback inside `--opt=`: the shells complete files against
+         ;; the whole `--opt=...` token, which never matches a filename
+         (->> (value-candidates spec opts eq-opt eq-val parsed)
+              (remove :file-completion)
+              (map #(update % :value (fn [v] (str eq-opt "=" v))))))
        (and (gnu-option? previous) (not (bool-opt? previous opts known)))
        ;; preceding option awaits a value -> complete the value, not commands/options.
        ;; Parse the tokens before that option (no value yet) for dependent completion.
