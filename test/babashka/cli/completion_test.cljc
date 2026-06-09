@@ -268,6 +268,21 @@
       (is (str/includes? (snippet-via-cmd cmd-table {:prog "x"} "bash" "--prog" "node_cli.js")
                          "_babashka_cli_complete_node_cli_js")))))
 
+(deftest positional-completion-test
+  ;; :args->opts maps positionals to spec keys, so a positional completes that
+  ;; key's values (the same :complete / :validate the option form uses)
+  (let [t [{:cmds ["deploy"] :args->opts [:env :region]
+            :spec {:env {:complete ["dev" "prod"]}
+                   :region {:validate #{:us :eu}}}}]]
+    (testing "first positional completes its :complete values"
+      (is (= #{"prod"} (set (complete t ["deploy" "pr"])))))
+    (testing "second positional completes the next key's set :validate"
+      (is (= #{"eu"} (set (complete t ["deploy" "dev" "e"])))))
+    (testing "a consumed flag does not shift the positional index"
+      (is (= #{"prod"} (set (complete t ["deploy" "pr"])))))
+    (testing "no positional candidates past the :args->opts mapping"
+      (is (= #{} (set (complete t ["deploy" "dev" "us" "x"])))))))
+
 (deftest description-sanitize-test
   ;; a newline/tab in a description must not break the value<TAB>desc wire protocol
   (let [t [{:cmds ["deploy"] :fn identity

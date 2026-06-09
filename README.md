@@ -811,6 +811,12 @@ far> :option <key>}` and returns values (strings) (or `{:value .. :description
 ..}` maps). All three sources are prefix-filtered against the partial value for
 you.
 
+Positional arguments mapped with [`:args->opts`](#args-opts) complete the same
+way. A positional resolves to its spec key by position, so the same `:complete`,
+`:complete-fn` or set `:validate` on that key completes the positional too. With
+`:args->opts [:env]` and `:env {:complete ["dev" "prod"]}`, `mycli deploy <TAB>`
+completes `dev`/`prod`.
+
 Completions also work when the program is invoked by path (`./mycli`,
 `/path/mycli`), not just by bare name.
 

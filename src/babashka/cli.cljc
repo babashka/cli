@@ -1052,9 +1052,8 @@
     (keyword? c) {:value (kw->str c)}
     :else {:value (str c)}))
 
-(defn- value-candidates
-  "Candidates for the value of option token `prev` (the token before the cursor),
-  from the option's:
+(defn- candidates-for-entry
+  "Value candidates from a single spec `entry` for option/positional key `k`, from:
   * `:complete-fn` - a fn of a context map `{:to-complete :opts :option}` for
     dynamic/dependent completion (gets `:to-complete` so it may filter at the
     source), or
@@ -1062,22 +1061,24 @@
   * failing both, a set-valued `:validate` (its members double as completions).
 
   All sources are normalized to `{:value :description}` maps and prefix-filtered
-  against `to-complete` (uniform - the shell does not filter for us on
-  powershell). `spec` is the raw spec; `parsed` are the opts parsed from the
-  completed prefix (for dependent completion)."
-  [spec opts prev to-complete parsed]
-  (let [k (option-key prev opts)
-        entry (get (->spec-map spec) k)
-        complete-fn (:complete-fn entry)
-        complete (:complete entry)
-        validate (:validate entry)
-        candidates (cond
-                     complete-fn (complete-fn {:to-complete to-complete :opts parsed :option k})
-                     complete complete
-                     (set? validate) validate)]
+  against `to-complete` (uniform - the shell does not filter for us on powershell).
+  `parsed` are the opts parsed from the completed prefix (for dependent completion)."
+  [entry k to-complete parsed]
+  (let [candidates (cond
+                     (:complete-fn entry) ((:complete-fn entry)
+                                           {:to-complete to-complete :opts parsed :option k})
+                     (:complete entry) (:complete entry)
+                     (set? (:validate entry)) (:validate entry))]
     (->> candidates
          (map normalize-value-candidate)
          (filter #(str/starts-with? (:value %) to-complete)))))
+
+(defn- value-candidates
+  "Candidates for the value of option token `prev` (the token before the cursor).
+  Resolves `prev` to its spec key and delegates to [[candidates-for-entry]]."
+  [spec opts prev to-complete parsed]
+  (let [k (option-key prev opts)]
+    (candidates-for-entry (get (->spec-map spec) k) k to-complete parsed)))
 
 (defn- resolve-completion-opts
   "Normalize an opts/spec map to a resolved opts map (with `:coerce`/`:alias`)
@@ -1131,6 +1132,21 @@
             {:value cmd :description (help-first-line (:doc subnode))}))
         (:cmd node)))
 
+(defn- positional-candidates
+  "Value candidates for the positional argument being completed at `node`. The
+  node's `:args->opts` maps positional index -> spec key; the count of positionals
+  already parsed from `done` gives the current index. If that key has value
+  completion (`:complete`/`:complete-fn`/set `:validate`), complete its values."
+  [node spec opts done to-complete]
+  (when-let [a->o (seq (:args->opts node))]
+    (let [{pos-args :args parsed :opts}
+          (try (parse-args done opts)
+               (catch #?(:clj ExceptionInfo :cljs :default) _ {:args nil :opts nil}))
+          k (nth (vec a->o) (count pos-args) nil)
+          entry (when k (get (->spec-map spec) k))]
+      (when entry
+        (candidates-for-entry entry k to-complete parsed)))))
+
 (defn- descend
   "Walk the completed prefix `tokens` down dispatch tree `node`, consuming
   subcommands and this-level options (with their values). Returns
@@ -1178,7 +1194,9 @@
         (value-candidates spec opts previous to-complete parsed))
       (concat (when-not (gnu-option? to-complete)
                 (command-candidates node to-complete))
-              (option-candidates spec opts aliases known level to-complete)))))
+              (option-candidates spec opts aliases known level to-complete)
+              (when-not (gnu-option? to-complete)
+                (positional-candidates node spec opts level to-complete))))))
 
 ;; The stub a user installs. On each TAB it calls the program back with the hidden
 ;; `org.babashka.cli/completions complete` subcommand, passing the shell-tokenized
