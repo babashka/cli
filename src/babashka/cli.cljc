@@ -550,8 +550,11 @@
                           (let [kname (if long-opt?
                                         (subs arg 2)
                                         (str/replace arg #"^(:|-|)" ""))
+                                ;; split on the first = only: --header=k=v
+                                ;; binds "k=v" (an unbounded split dropped
+                                ;; everything after the second =)
                                 [kname arg-val] (if long-opt?
-                                                  (str/split kname #"=")
+                                                  (str/split kname #"=" 2)
                                                   [kname])
                                 raw-k (keyword kname)
                                 alias (when-not long-opt? (get aliases raw-k))
