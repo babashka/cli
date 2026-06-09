@@ -7,6 +7,7 @@ For breaking changes, check [here](#breaking-changes).
 ## Unreleased
 
 - [#24](https://github.com/babashka/cli/issues/24) / [#95](https://github.com/babashka/cli/pull/95): shell completions for `dispatch` CLIs (`bash`/`zsh`/`fish`/`powershell`). Dynamic (a small snippet calls back into the program), with subcommand and option completion, descriptions from `:desc`/`:doc`, option-value completion via `:complete` (static) / `:complete-fn` (dynamic) or a set-valued `:validate`, the same value completion for `:args->opts` positionals, and shell file completion for positional file arguments. See [Completions](https://github.com/babashka/cli#completions) ([@sohalt](https://github.com/sohalt))
+- `:no-doc true` on a spec option hides it from `--help` and from completions, the same way it already hides a subcommand. The option still parses, for deprecated or internal flags.
 
 ## v0.10.69 (2026-06-06)
 

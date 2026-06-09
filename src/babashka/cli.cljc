@@ -870,6 +870,9 @@
   (let [entries (if (map? spec)
                   (map (fn [k] [k (spec k)]) (or order (keys spec)))
                   spec)
+        ;; `:no-doc` options still parse but are hidden from help, like `:no-doc`
+        ;; subcommands are hidden from the command list
+        entries (remove (fn [[_ v]] (:no-doc v)) entries)
         ;; effective required set, matching validation: per-option `:require true`
         ;; or membership in a top-level `:require` coll (both fold into one set)
         required (set required)
@@ -1115,15 +1118,16 @@
   [spec opts aliases known parsed to-complete]
   (let [used (set (remove #(repeatable-opt? opts %) (keys parsed)))
         smap (->spec-map spec)
+        hidden? (fn [k] (:no-doc (get smap k)))   ; `:no-doc` option: hide from completion
         desc (fn [k] (help-first-line (:desc (get smap k))))
         long-cands (keep (fn [k]
                            (let [v (format-long-opt k)]
-                             (when (and (not (used k)) (true-prefix? to-complete v))
+                             (when (and (not (hidden? k)) (not (used k)) (true-prefix? to-complete v))
                                {:value v :description (desc k)})))
                          known)
         short-cands (keep (fn [[a l]]
                             (let [v (format-short-opt a)]
-                              (when (and (not (used l)) (true-prefix? to-complete v))
+                              (when (and (not (hidden? l)) (not (used l)) (true-prefix? to-complete v))
                                 {:value v :description (desc l)})))
                           aliases)]
     (concat long-cands short-cands)))

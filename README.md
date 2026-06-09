@@ -502,7 +502,9 @@ Run "example <command> --help" for more information on a command.
 The `Commands:` summaries above come from each entry's `:doc`, a string
 documenting that (sub)command. Its first line is shown in the parent's command
 list. The `debug` command is absent from that list because `:no-doc true` hides a
-command from `--help` and from completions. The full text of `:doc` is shown as
+command from `--help` and from completions. The same `:no-doc true` on a spec
+option hides that option the same way. The option still parses, so it works for
+deprecated or internal flags. The full text of `:doc` is shown as
 the description on the command's own `--help` output, between the usage line and
 `Options:`:
 
@@ -724,15 +726,17 @@ and exit afterwards:
 
 ## Completions
 
-The `dispatch` function can generate shell completions for `bash`, `zsh`, `fish` and
-`powershell`. This is used dynamically by shells as they call back into your program on each TAB.
-Set `:prog` to the program name.
+The `dispatch` function can generate dynamic shell completions for `bash`,
+`zsh`, `fish` and `powershell`. Shells call back into your program on each TAB
+to generate completions. The `:prog` (program name) value is essential in the
+`dispatch` call. The generated snippet registers completion for that name, so it
+must match the command you type.
 
 ``` clojure
 (cli/dispatch table args {:prog "mycli" :help true})
 ```
 
-Completion rides a hidden `org.babashka.cli/completions` subcommand group that
+Completion goes through a hidden `org.babashka.cli/completions` subcommand group that
 `dispatch` adds for you. `mycli org.babashka.cli/completions snippet --shell <shell>`
 prints the install snippet for that shell. Install it like this.
 
@@ -740,7 +744,7 @@ prints the install snippet for that shell. Install it like this.
 # bash (add to ~/.bashrc)
 source <(mycli org.babashka.cli/completions snippet --shell bash)
 
-# zsh (after compinit; or save as _mycli on your $fpath)
+# zsh (after compinit, or save as _mycli on your $fpath)
 source <(mycli org.babashka.cli/completions snippet --shell zsh)
 
 # fish
@@ -750,16 +754,9 @@ mycli org.babashka.cli/completions snippet --shell fish | source
 mycli org.babashka.cli/completions snippet --shell powershell | Out-String | Invoke-Expression
 ```
 
-The installed snippet calls the program back on each TAB as `mycli
-org.babashka.cli/completions complete --shell <shell> -- <words>`, passing the
-shell-tokenized words up to the cursor, and the program prints the candidates. The
-shell does the tokenizing, so quoted arguments are handled correctly. `babashka.cli`
+On each TAB the snippet calls your program and prints the candidates. Note that `babashka.cli`
 only prints the snippet to stdout. It does not write files or edit your shell config
 for you.
-
-If your program rewrites or reorders argv before calling `dispatch`, e.g. to inject
-a default subcommand, pass the `org.babashka.cli/completions` command through
-untouched. Otherwise it will not reach `dispatch` and completion will not work.
 
 The completion is registered for the command name `:prog`. During development you
 usually invoke the build directly, e.g. `./run.clj`, under a name that differs
@@ -774,17 +771,12 @@ mycli sub --<TAB>       # completes sub's options
 ```
 
 For a renamed binary whose name differs from `:prog`, pass `--prog <name>`, e.g.
-`mycli org.babashka.cli/completions snippet --shell zsh --prog sq`. In a shipped
-build the installed name is usually `:prog`, so users just type it.
+`mycli org.babashka.cli/completions snippet --shell zsh --prog sq`.
 
-This is shell completion attached to a command name. It does not apply when the
-program is run through a wrapper such as `npx mycli` or `bun mycli`, where the
-shell completes the wrapper, not `mycli`.
-
-Subcommands and options have completion support out of the box. Descriptions come from the same
-`:desc` (options) and `:doc` (subcommands) you've already written for `--help`, and
+In babashka CLI, subcommands and options get completion support out of the box. Descriptions come from the same
+`:desc` (options) and `:doc` (subcommands) you're already using for `--help`, and
 are shown by `zsh`, `fish` and `powershell`. Currently bash integration completes values only. A `:no-doc`
-subcommand is hidden. Options already given drop out of later suggestions, except repeatable
+subcommand or option is hidden. Options already given drop out of later suggestions, except repeatable
 ones (a list-valued `:coerce`, e.g. `:coerce [:string]`, or a `:collect` option).
 
 ### Completing option values

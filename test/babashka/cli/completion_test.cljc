@@ -304,6 +304,20 @@
     (testing "after a literal -- only positionals complete (no options, no commands)"
       (is (= #{marker} (lines "p cat -- "))))))
 
+(deftest no-doc-option-test
+  ;; a :no-doc option still parses but is hidden from completion and --help, like a
+  ;; :no-doc subcommand is hidden from the command list
+  (let [t [{:cmds ["deploy"] :fn identity
+            :spec {:env {:coerce :string} :secret {:coerce :string :no-doc true :alias :s}}}]]
+    (testing "hidden from completion (long form and alias)"
+      (is (= #{"--env"} (set (complete t ["deploy" "-"])))))
+    (testing "hidden from --help"
+      (is (not (str/includes?
+                (with-out-str (cli/dispatch t ["deploy" "--help"] {:prog "p" :help true}))
+                "secret"))))
+    (testing "still parses"
+      (is (= {:secret "x"} (cli/parse-opts ["--secret" "x"] {:spec {:secret {:no-doc true}}}))))))
+
 (deftest description-sanitize-test
   ;; a newline/tab in a description must not break the value<TAB>desc wire protocol
   (let [t [{:cmds ["deploy"] :fn identity
