@@ -736,6 +736,10 @@ must match the command you type.
 (cli/dispatch table args {:prog "mycli" :help true})
 ```
 
+If the installed command has a different name, e.g. a distro renames it, pass
+`--prog <name>` when generating the snippet to register that name instead:
+`mycli org.babashka.cli/completions snippet --shell zsh --prog sq`.
+
 Completion goes through a hidden `org.babashka.cli/completions` subcommand group
 that `dispatch` adds for you. `mycli org.babashka.cli/completions snippet --shell
 <shell>` prints the install snippet for that shell. `babashka.cli` only prints it to
@@ -810,9 +814,6 @@ yourself:
 ``` bash
 mycli org.babashka.cli/completions complete --shell zsh -- sub --   # value<TAB>description lines
 ```
-
-For a renamed binary whose name differs from `:prog`, pass `--prog <name>`, e.g.
-`mycli org.babashka.cli/completions snippet --shell zsh --prog sq`.
 
 ### Completing option values
 
