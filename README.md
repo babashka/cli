@@ -815,7 +815,7 @@ On nushell versions without autoload dirs, save it anywhere and add
 `source <literal path>` to your `config.nu`. Descriptions show in the completion
 menu.
 
-Unlike the other shells, nushell has no per-command completion registration: one
+Unlike the other shells, nushell has no per-command completion registration. Instead, one
 global hook (`$env.config.completions.external.completer`) handles TAB for all
 external commands. The snippet does not overwrite a completer you already have
 there: it saves the previous one and falls back to it for every command other
