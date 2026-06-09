@@ -25,13 +25,7 @@ org.babashka/cli {:mvn/version "<latest-version>"}
 
 ## Intro
 
-Command line arguments in clojure and babashka CLIs are often in the form:
-
-``` clojure
-$ cli command :opt1 v1 :opt2 v2
-```
-
-or the more Unixy:
+Turn a Clojure function into a CLI that takes Unix-style command line arguments:
 
 ``` clojure
 $ cli command --long-opt1 v1 -o v2
@@ -44,14 +38,11 @@ The main ideas:
   familiar with `clj -X`, read the docs
   [here](https://clojure.org/reference/clojure_cli#use_fn).
 - But with a better UX by not having to use quotes on the command line as a
-  result of having to pass EDN directly: `:dir foo` instead of `:dir '"foo"'` or
-  who knows how to write the latter in `cmd.exe` or Powershell.
+  result of having to pass EDN directly: `--dir foo` instead of `:dir '"foo"'` (or
+  who knows how to write the latter in `cmd.exe` or Powershell?).
 - By default, employ an open world assumption: passing extra arguments does not break and arguments
   can be re-used in multiple contexts.
 - But also support incremental restrictions and validations as a form of polishing a CLI for production use.
-
-Both `:` and `--` are supported as the initial characters of a named option, but
-cannot be mixed. See [options](#options) for more details.
 
 See [clojure CLI](#clojure-cli) for how to turn your exec functions into CLIs.
 
@@ -70,6 +61,7 @@ See [clojure CLI](#clojure-cli) for how to turn your exec functions into CLIs.
 - [Options](#options)
 - [Arguments](#arguments)
 - [Subcommands](#subcommands)
+- [Completions](#completions)
 - [Adding Production Polish](#adding-production-polish)
 - [Babashka tasks](#babashka-tasks)
 - [Clojure CLI](#clojure-cli)
@@ -183,6 +175,11 @@ help customization.
 ## Options
 
 For parsing options, use either [`parse-opts`](/API.md#parse-opts) or [`parse-args`](/API.md#parse-args).
+
+On the command line, a named option is written `--opt val`, or `-o val` using an
+[alias](#aliases). Babashka CLI also accepts a `:`-prefixed form, `:opt val`, to
+match the Clojure CLI `-X` invocation style. The two cannot be mixed in a single
+invocation. Use `--`/`-` or `:`, not both.
 
 Options are configured with a [spec](#spec) (short for "options spec", not
 `clojure.spec`): a map keyed by option name, each value a map of `:coerce`,
@@ -476,7 +473,8 @@ Building on the [simple example](#simple-example): there, the single entry used
     :spec {:dry-run {:coerce :boolean :desc "Do a dry run"}}}
    {:cmds ["delete"] :fn delete :doc "Delete a file" :args->opts [:file]
     :spec {:recursive {:coerce :boolean :desc "Recurse"}
-           :depth     {:coerce :long    :desc "Max depth"}}}])
+           :depth     {:coerce :long    :desc "Max depth"}}}
+   {:cmds ["debug"]  :fn prn    :doc "Dump internal state" :no-doc true}])
 
 (defn -main [& args]
   (cli/dispatch table args {:prog "example" :help true}))
@@ -501,7 +499,27 @@ Options:
 Run "example <command> --help" for more information on a command.
 ```
 
-`example copy the-file --dry-run` calls `copy`, which prints:
+The `Commands:` summaries above come from each entry's `:doc`, a string
+documenting that (sub)command. Its first line is shown in the parent's command
+list. The `debug` command is absent from that list because `:no-doc true` hides a
+command from `--help` and from completions. The same `:no-doc true` on a spec
+option hides that option the same way. The option still parses, so it works for
+deprecated or internal flags. The full text of `:doc` is shown as
+the description on the command's own `--help` output, between the usage line and
+`Options:`:
+
+```
+$ example copy --help
+Usage: example copy [options] <file>
+
+Copy a file
+
+Options:
+      --dry-run  Do a dry run
+  -h, --help     Show this help
+```
+
+Running `example copy the-file --dry-run` calls `copy`, which prints:
 
 ``` clojure
 :copy {:file "the-file", :dry-run true}
@@ -706,12 +724,178 @@ and exit afterwards:
                (cli/*exit-fn* {:exit 1 :cause (:cause data)}))})
 ```
 
+## Completions
+
+The `dispatch` function can generate dynamic shell completions for `bash`,
+`zsh`, `fish`, `powershell` and `nushell`. Shells call back into your program on
+each TAB to generate completions. The `:prog` (program name) value is essential
+in the `dispatch` call. The generated snippet registers completion for that
+name, so it must match the command you type, and it must be a plain command name
+consisting of only alphanumeric characters, `.`, `_` or `-`.
+
+``` clojure
+(cli/dispatch table args {:prog "mycli" :help true})
+```
+
+If the installed command has a different name, e.g. a distro renames it, pass
+`--prog <name>` when generating the snippet to register that name instead:
+
+``` bash
+mycli org.babashka.cli/completions snippet --shell zsh --prog sq
+```
+
+The completions call goes through a hidden `org.babashka.cli/completions`
+subcommand group that `dispatch` adds for you. Running `mycli
+org.babashka.cli/completions snippet --shell <shell>` prints the install snippet
+for that specific shell to stdout. It does not write files or edit your shell
+config for you.
+
+Subcommands and options come with completion support out of the box. Descriptions come from the
+same `:desc` (options) and `:doc` (subcommands) you already write for `--help`. A
+`:no-doc` subcommand or option is hidden. Options that already appeared are filtered
+out of later suggestions, except repeatable options (e.g. `:coerce [:string]`).
+
+Here follow the instructions to enable auto-completions in your shell.
+
+### Bash
+
+Add this code to your bash init file:
+
+``` bash
+source <(mycli org.babashka.cli/completions snippet --shell bash)
+```
+
+Bash completes values only and does not show descriptions. For correct handling of
+`=` and `:` inside values, install the bash-completion package, which needs bash 4.1
+or newer. The macOS system bash 3.2 still works for the common cases.
+
+### Zsh
+
+Add this to your zsh init file, after `compinit`:
+
+``` bash
+source <(mycli org.babashka.cli/completions snippet --shell zsh)
+```
+
+or save the output as `_mycli` on your `$fpath`. Option and subcommand
+descriptions show inline. Completions also fire when the program is invoked by
+path, such as `./mycli`.
+
+### Fish
+
+``` fish
+mycli org.babashka.cli/completions snippet --shell fish | source
+```
+
+Option and subcommand descriptions show inline. Completion also fires on a path
+invocation.
+
+### Powershell
+
+Add this to your `$PROFILE`:
+
+``` powershell
+mycli org.babashka.cli/completions snippet --shell powershell | Out-String | Invoke-Expression
+```
+
+Descriptions show in menu-completion mode, which you can enable with
+`Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete`.
+
+### Nushell
+
+Nushell cannot `source` from a pipe, so save the snippet to a file in the
+autoload directory and restart `nu`:
+
+``` nu
+mkdir ($nu.user-autoload-dirs | first)
+mycli org.babashka.cli/completions snippet --shell nushell | save -f (($nu.user-autoload-dirs | first) | path join "mycli.nu")
+```
+
+On nushell versions without autoload dirs, save it anywhere and add
+`source <literal path>` to your `config.nu`. Descriptions show in the completion
+menu.
+
+Unlike the other shells, nushell has no per-command completion registration: one
+global hook (`$env.config.completions.external.completer`) handles TAB for all
+external commands. The snippet does not overwrite a completer you already have
+there: it saves the previous one and falls back to it for every command other
+than `mycli`, so several tools can install side by side.
+
+### Developing completions
+
+Completions are registered for the command name `:prog`, so the command you type must
+match it. During development you usually invoke the build directly, e.g.
+`./run.clj`, under a different name. Make the dev build callable under your `:prog`
+name on `PATH`. On unix shells, symlink it and prepend its directory:
+
+``` bash
+ln -sf "$PWD/run.clj" /tmp/mycli                   # name the link :prog
+export PATH="/tmp:$PATH"                           # bash and zsh
+```
+
+In fish use `set -gx PATH /tmp $PATH`, in nushell
+`$env.PATH = ($env.PATH | prepend /tmp)`. On Windows, put a `mycli` wrapper
+script on your `PATH` instead of a symlink.
+
+Then source the snippet in the shell you are testing, using the install command from
+its section above, and re-source it after each change to your CLI so new commands and
+options show up.
+
+Now `mycli <TAB>` completes commands and `mycli sub --<TAB>` its options. To see the
+completer's raw output directly, without a shell, call the hidden subcommand
+yourself. The tokens after `--` are what the shell would pass on TAB, here the
+subcommand `sub` and a `--` to complete its options. It prints one candidate per
+line, as the value, a tab, then the description:
+
+``` bash
+mycli org.babashka.cli/completions complete --shell zsh -- sub --
+```
+
+### Completing option values
+
+To complete an option's value, give it one of:
+
+- `:complete` - a static collection of values (or `{:value .. :description ..}`
+  maps)
+- A set-valued `:validate`, whose members double as completions
+- `:complete-fn` - a function for dynamic completion
+
+``` clojure
+{:env   {:coerce :string
+         :complete ["dev" "staging" "prod"]}         ; static list
+ :level {:coerce :keyword
+         :validate #{:local :global :system}}        ; reused as completions
+ :branch {:coerce :string
+          :complete-fn (fn [{:keys [to-complete opts]}] ; dynamic
+                         (git-branches to-complete))}}
+```
+
+The `:complete-fn` is called with `{:to-complete <partial> :opts <opts parsed so
+far> :option <key>}` and returns values (strings) (or `{:value .. :description
+..}` maps). All three sources are prefix-filtered against the partial value for
+you.
+
+An option value with none of these defaults to the shell's own file completion.
+For a value where file suggestions are not appropriate, you can opt out with
+`:complete false`.
+
+Positional arguments mapped with [`:args->opts`](#args-opts) complete in the same
+way. A positional resolves to its spec key by position, so the same `:complete`,
+`:complete-fn` or set `:validate` on that key completes the positional too. With
+`:args->opts [:env]` and `:env {:complete ["dev" "prod"]}`, `mycli deploy <TAB>`
+completes `dev`/`prod`.
+
+A positional declared in `:args->opts` with no value completion defaults to the
+shell's own file completion the same way. So `:args->opts [:file]` with a bare
+`:file` makes `mycli cat <TAB>` complete filenames and `:complete false` opts
+out here too.
+
 ## Adding Production Polish
 Babashka cli lets you get up and running quickly.
 As you move toward production quality, it's helpful to let users know when their inputs are invalid.
 Strict validation can be introduced with [:restrict](#restrict), [:require](#require), and [:validate](#validate).
 
-As you add polish, you'll likely make use of a [:spec](#spec), a custom [:error_fn](#error-handling), and maybe [subcommand dispatching](#subcommands). 
+As you add polish, you'll likely make use of a [:spec](#spec), a custom [:error_fn](#error-handling), and maybe [subcommand dispatching](#subcommands).
 
 ## Restrict
 

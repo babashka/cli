@@ -4,6 +4,12 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- [#24](https://github.com/babashka/cli/issues/24) / [#95](https://github.com/babashka/cli/pull/95): shell completions for `dispatch` CLIs (`bash`/`zsh`/`fish`/`powershell`/`nushell`): subcommands, options, option and positional values, and file arguments. Based on initial work from 2024 by [@sohalt](https://github.com/sohalt). See [Completions](https://github.com/babashka/cli#completions)
+- `:no-doc` now hides a spec option too, not just a subcommand. See [Subcommands](https://github.com/babashka/cli#subcommands)
+- `--opt=val` splits on the first `=` only: `--header=k=v` parses as `"k=v"` (everything after the second `=` was dropped before). `--opt=` now parses as an explicit empty-string value instead of a flag
+
 ## v0.10.69 (2026-06-06)
 
 - [#112](https://github.com/babashka/cli/issues/112): auto-generated `--help` for `dispatch` CLIs (`Usage` / `Commands` / `Options`, `--help`/`-h` on every (sub)command, terse errors). See [Help](https://github.com/babashka/cli#help)

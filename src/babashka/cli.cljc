@@ -550,8 +550,9 @@
                           (let [kname (if long-opt?
                                         (subs arg 2)
                                         (str/replace arg #"^(:|-|)" ""))
+                                ;; split on the first = only: --header=k=v binds "k=v"
                                 [kname arg-val] (if long-opt?
-                                                  (str/split kname #"=")
+                                                  (str/split kname #"=" 2)
                                                   [kname])
                                 raw-k (keyword kname)
                                 alias (when-not long-opt? (get aliases raw-k))
@@ -870,6 +871,9 @@
   (let [entries (if (map? spec)
                   (map (fn [k] [k (spec k)]) (or order (keys spec)))
                   spec)
+        ;; `:no-doc` options still parse but are hidden from help, like `:no-doc`
+        ;; subcommands are hidden from the command list
+        entries (remove (fn [[_ v]] (:no-doc v)) entries)
         ;; effective required set, matching validation: per-option `:require true`
         ;; or membership in a top-level `:require` coll (both fold into one set)
         required (set required)
@@ -949,6 +953,12 @@
         (map? spec) spec
         :else (into {} spec)))
 
+(defn- visible-spec?
+  "Does `spec` have any non-`:no-doc` option? Gates the help sections, so an
+  all-hidden spec doesn't render an empty `Options:` header."
+  [spec]
+  (boolean (some (fn [[_ v]] (not (:no-doc v))) (->spec-map spec))))
+
 (defn- render-help
   "Render help text for one tree `node` (built by [[command-help-context]]):
   given a computed `:prog` (full command path), `:inherited` spec and `:parents`
@@ -962,18 +972,18 @@
         desc (help-description (:doc node))
         cmds (help-commands-table node)
         sections
-        (cond-> [(help-usage-line prog node (or (seq spec) (seq inherited)))]
+        (cond-> [(help-usage-line prog node (or (visible-spec? spec) (visible-spec? inherited)))]
           desc
           (conj desc)
 
           (seq cmds)
           (conj (str "Commands:\n" (format-table {:rows cmds :indent 2})))
 
-          (seq spec)
+          (visible-spec? spec)
           (conj (str "Options:\n" (format-opts (cond-> {:spec spec :required (:require node)}
                                                  order (assoc :order order)))))
 
-          (seq inherited)
+          (visible-spec? inherited)
           (conj (str "Inherited options:\n" (format-opts {:spec inherited})))
 
           (seq cmds)
@@ -1024,15 +1034,6 @@
                                         (b k)))))
           a (keys b)))
 
-(defn- has-parse-opts? [m]
-  (some #{:spec :coerce :require :restrict :validate :args->opts :exec-args} (keys m)))
-
-(defn- is-option? [s]
-  (and s
-       (or (str/starts-with? s "-")
-           (str/starts-with? s ":"))))
-
-
 (defn- inherited-entries
   "Spec entries of `spec` that propagate to descendant levels: those marked
   `:inherit`, plus those selected by a dispatch-level `:inherit` opt
@@ -1043,6 +1044,398 @@
       m
       (merge (into {} (filter (fn [[_ v]] (and (map? v) (:inherit v))) m))
              (when (coll? inherit-opt) (select-keys m (set inherit-opt)))))))
+
+;;;; Shell completion
+
+(defn- format-long-opt [k] (str "--" (kw->str k)))
+(defn- format-short-opt [k] (str "-" (kw->str k)))
+
+(defn- true-prefix?
+  "True when `s` starts with `prefix` and is strictly longer."
+  [prefix s]
+  (and (< (count prefix) (count s))
+       (str/starts-with? s prefix)))
+
+(defn- strip-prefix [prefix s]
+  (if (str/starts-with? s prefix) (subs s (count prefix)) s))
+
+(defn- gnu-option? [s]
+  (and s (str/starts-with? s "-")))
+
+(defn- option-key
+  "Resolve an option token (`--foo` or `-f`) to its keyword."
+  [token opts]
+  (if (str/starts-with? token "--")
+    (keyword (strip-prefix "--" token))
+    (get-in opts [:alias (keyword (strip-prefix "-" token))])))
+
+(defn- bool-opt?
+  "True when option token `o` takes no value: a boolean `:coerce`, or the
+  parser's `--no-foo` negation (an unknown `:no-` key parses as `{:foo false}`)."
+  [o opts known]
+  (let [k (option-key o opts)]
+    (or (some? (#{:boolean :bool} (coerce-coerce-fn (get-in opts [:coerce k]))))
+        (and k (not (contains? known k))
+             (str/starts-with? (kw->str k) "no-")))))
+
+(defn- normalize-value-candidate [c]
+  (cond
+    (map? c) (update c :value (fn [v] (if (keyword? v) (kw->str v) (str v))))
+    (keyword? c) {:value (kw->str c)}
+    :else {:value (str c)}))
+
+(defn- candidates-for-entry
+  "Value candidates for spec `entry` (key `k`): `:complete-fn` (called with
+  `{:to-complete :opts :option}`), `:complete`, or a set-valued `:validate`.
+  Normalized to `{:value :description}` maps and prefix-filtered against
+  `to-complete` (powershell does not filter shell-side)."
+  [entry k to-complete parsed]
+  (let [candidates (cond
+                     (:complete-fn entry) ((:complete-fn entry)
+                                           {:to-complete to-complete :opts parsed :option k})
+                     (:complete entry) (:complete entry)
+                     (set? (:validate entry)) (:validate entry))]
+    (->> candidates
+         (map normalize-value-candidate)
+         (filter #(str/starts-with? (:value %) to-complete)))))
+
+(defn- value-candidates
+  "Candidates for the value of option token `prev`. No completion configured
+  defaults to the shell's file completion, `:complete false` opts out."
+  [spec opts prev to-complete parsed]
+  (let [k (option-key prev opts)
+        entry (get spec k)]
+    (if (or (:complete entry) (:complete-fn entry) (set? (:validate entry)))
+      (candidates-for-entry entry k to-complete parsed)
+      (when-not (false? (:complete entry))
+        [{:file-completion true}]))))
+
+(defn- resolve-completion-opts
+  "Resolve completion opts to `[opts aliases known-keys]`, with the spec merged
+  in and mapified. `known-keys` matches the parser's own derivation."
+  [copts]
+  (let [spec (->spec-map (:spec copts))
+        opts (assoc (if (seq spec) (merge-opts copts (spec->opts spec copts)) copts)
+                    :spec spec)
+        aliases (or (:alias opts) (:aliases opts))
+        known (set (concat (keys spec)
+                           (keys (:coerce opts))
+                           (vals aliases)))]
+    [opts aliases known]))
+
+(defn- node-completion-opts
+  "Effective parse opts at tree `node`, `:spec` merged like dispatch-tree' does
+  (dispatch-level < inherited < the node's own)."
+  [global-opts inherited node]
+  (let [parse-keys [:coerce :alias :aliases :collect :no-keyword-opts :repeated-opts]
+        spec (deep-merge (deep-merge (->spec-map (:spec global-opts)) inherited)
+                         (->spec-map (:spec node)))]
+    (assoc (deep-merge (select-keys global-opts parse-keys)
+                       (select-keys node parse-keys))
+           :spec spec)))
+
+(defn- repeatable-opt?
+  "True when option `k` may appear more than once (collection-valued `:coerce`
+  or `:collect`)."
+  [opts k]
+  (or (coll? (get-in opts [:coerce k]))
+      (contains? (:collect opts) k)))
+
+(defn- safe-parse
+  "Parse `args` for completion: `:exec-args` dropped so a `:default` does not
+  count as already typed, no-op `:error-fn` so partial input (e.g. a missing
+  `:require`) still returns the parsed prefix."
+  [args opts]
+  (try (parse-args args (-> opts
+                            (dissoc :exec-args)
+                            (assoc :error-fn (fn [_]) ::resolved true)))
+       (catch #?(:clj ExceptionInfo :cljs :default) _ {:args nil :opts nil})))
+
+(defn- option-candidates
+  "Option candidates completing `to-complete`, minus the single-value options
+  already in `parsed`."
+  [spec opts aliases known parsed to-complete]
+  (let [used (set (remove #(repeatable-opt? opts %) (keys parsed)))]
+    (keep (fn [[token k]]
+            (when (and (not (:no-doc (get spec k)))
+                       (not (used k))
+                       (true-prefix? to-complete token))
+              {:value token :description (help-first-line (:desc (get spec k)))}))
+          (concat (map (fn [k] [(format-long-opt k) k]) known)
+                  (map (fn [[a l]] [(format-short-opt a) l]) aliases)))))
+
+(defn- command-candidates
+  "Subcommand candidates of `node` completing `to-complete`."
+  [node to-complete]
+  (keep (fn [[cmd subnode]]
+          (when (and (not (:no-doc subnode)) (true-prefix? to-complete cmd))
+            {:value cmd :description (help-first-line (:doc subnode))}))
+        (:cmd node)))
+
+(defn- positional-candidates
+  "Candidates for the positional being completed at `node`, resolved to its spec
+  key via `:args->opts` (the count of `pos-args` is the current index). No value
+  completion yields the file-completion marker, `:complete false` opts out."
+  [node spec pos-args parsed to-complete]
+  (when-let [a->o (seq (:args->opts node))]
+    ;; nth on the seq directly: `:args->opts` may be infinite (variadic
+    ;; `(cons :foo (repeat :bar))`), so it must not be `vec`'d
+    (let [k (nth a->o (count pos-args) nil)
+          entry (when k (get spec k))]
+      (when k
+        (if (or (:complete entry) (:complete-fn entry) (set? (:validate entry)))
+          (candidates-for-entry entry k to-complete parsed)
+          (when-not (false? (:complete entry))
+            [{:file-completion true}]))))))
+
+(defn- descend
+  "Walk the completed prefix `tokens` down dispatch tree `tree`, consuming
+  subcommands and options with their values, accumulating `:inherit`-ed spec
+  entries like dispatch-tree' does. Returns
+  `[[opts aliases known] deepest-node tokens-at-deepest-level end-of-options?]`."
+  [tree global-opts tokens]
+  (let [inherit-opt (:inherit global-opts)
+        resolve-node (fn [inherited node]
+                       (resolve-completion-opts (node-completion-opts global-opts inherited node)))]
+    (loop [node tree, ropts (resolve-node {} tree), inherited {},
+           toks (seq tokens), level [], eoo? false]
+      (let [head (first toks)
+            [opts _ known] ropts]
+        (cond
+          (nil? head) [ropts node level eoo?]
+          ;; literal `--`: everything after is positional
+          (= "--" head) (recur node ropts inherited (next toks) (conj level head) true)
+          (and (not eoo?) (get-in node [:cmd head]))
+          (let [inherited (merge inherited (inherited-entries (:spec node) inherit-opt))
+                child (get-in node [:cmd head])]
+            (recur child (resolve-node inherited child) inherited (next toks) [] false))
+          (and (not eoo?) (gnu-option? head))
+          ;; flags consume one token, other options also their value
+          (let [n (if (bool-opt? head opts known) 1 2)]
+            (recur node ropts inherited (drop n toks) (into level (take n toks)) eoo?))
+          ;; stray positional
+          :else (recur node ropts inherited (next toks) (conj level head) eoo?))))))
+
+(defn- split-eq
+  "Split a long `--opt=val` token into `[\"--opt\" \"val\"]`, other tokens pass
+  through unchanged."
+  [token]
+  (if (and (str/starts-with? token "--") (str/includes? token "="))
+    (str/split token #"=" 2)
+    [token]))
+
+(defn- complete-tree*
+  "Returns completion candidate maps (`{:value :description}`) for dispatch tree
+  `cmd-tree` and `args` (a vector of tokens, last = the token being completed).
+  `global-opts` are the dispatch-level opts, accepted at every level like
+  dispatch accepts them."
+  ([cmd-tree args] (complete-tree* cmd-tree args nil))
+  ([cmd-tree args global-opts]
+   (let [done (vec (mapcat split-eq (butlast args)))
+         raw-last (or (last args) "")
+         ;; `--opt=val`: complete the value, but emit full `--opt=val` tokens -
+         ;; shells match and replace the whole word (bash strips the `--opt=`
+         ;; wordbreak prefix back off in the stub)
+         [eq-opt eq-val] (let [s (split-eq raw-last)] (when (second s) s))
+         [[opts aliases known] node level eoo?] (descend cmd-tree global-opts done)
+         spec (:spec opts)
+         previous (peek done)]
+     (cond
+       eoo?
+       (let [{parsed :opts pos-args :args} (safe-parse level opts)]
+         (positional-candidates node spec pos-args parsed raw-last))
+       eq-opt
+       (let [{parsed :opts} (safe-parse level opts)]
+         ;; no file fallback here: shells complete files against the whole
+         ;; `--opt=...` token, which never matches a filename
+         (->> (value-candidates spec opts eq-opt eq-val parsed)
+              (remove :file-completion)
+              (map #(update % :value (fn [v] (str eq-opt "=" v))))))
+       ;; previous option awaits a value; parse the tokens before it (no value
+       ;; yet) for dependent completion
+       (and (gnu-option? previous) (not (bool-opt? previous opts known)))
+       (let [{parsed :opts} (safe-parse (vec (butlast level)) opts)]
+         (value-candidates spec opts previous raw-last parsed))
+       :else
+       (let [{parsed :opts pos-args :args} (safe-parse level opts)]
+         (concat (when-not (gnu-option? raw-last)
+                   (command-candidates node raw-last))
+                 (option-candidates spec opts aliases known parsed raw-last)
+                 (when-not (gnu-option? raw-last)
+                   (positional-candidates node spec pos-args parsed raw-last))))))))
+
+;; The stub a user installs. On each TAB it calls the program back with the
+;; hidden `org.babashka.cli/completions complete` subcommand, passing the
+;; shell-tokenized words up to the cursor, and renders the
+;; `value<TAB>description` lines that come back.
+(defn- completion-shell-snippet [shell program-name]
+  ;; function named after the program so multiple CLIs don't collide
+  (let [fn (str "_babashka_cli_complete_" (str/replace program-name #"[^a-zA-Z0-9_]+" "_"))]
+   (case shell
+    :bash (str fn "()
+{
+    local cur words cword
+    # -n =: keeps --opt=val and ns:val as single words (bash splits on = and :
+    # via COMP_WORDBREAKS); the no-bash-completion fallback below cannot, so a : in
+    # a value is only fully handled when bash-completion is installed
+    if declare -F _init_completion >/dev/null 2>&1; then
+        _init_completion -n =: || return
+    else
+        words=(\"${COMP_WORDS[@]}\"); cword=$COMP_CWORD; cur=\"${COMP_WORDS[COMP_CWORD]}\"
+    fi
+    # keep our candidate order. Only on the real compopt builtin (bash 4.4+): on
+    # bash 3.2 with bash-completion, compopt is a shim that forwards to `complete`,
+    # which rejects -o nosort. The probe is cached: its answer never changes
+    if [[ -z ${_babashka_cli_compopt_t+x} ]]; then _babashka_cli_compopt_t=$(type -t compopt); fi
+    [[ $_babashka_cli_compopt_t == builtin ]] && compopt -o nosort 2>/dev/null
+    local out
+    out=$(\"${words[0]}\" org.babashka.cli/completions complete --shell bash -- \"${words[@]:1:cword}\" 2>/dev/null)
+    # candidates come back already prefix-filtered; insert them verbatim.
+    # read -r keeps them out of word splitting and pathname expansion (an
+    # unquoted loop would glob a '*.txt' candidate against the cwd), printf %q
+    # escapes spaces/quotes for insertion
+    local line v
+    while IFS= read -r line; do
+        [[ -n $line ]] || continue
+        if [[ $line == org.babashka.cli/file-completion ]]; then
+            compopt -o filenames 2>/dev/null
+            while IFS= read -r v; do
+                [[ -n $v ]] && COMPREPLY+=( \"$v\" )
+            done < <(compgen -f -- \"$cur\")
+        else
+            v=${line%%$'\\t'*}
+            printf -v v '%q' \"$v\"
+            COMPREPLY+=( \"$v\" )
+        fi
+    done <<< \"$out\"
+    # bash re-inserts from the last COMP_WORDBREAKS char (e.g. : or =); strip that
+    # prefix from each candidate so colon/equals values complete without duplication
+    local wb pre i
+    for wb in : = ; do
+        if [[ \"$cur\" == *\"$wb\"* && \"$COMP_WORDBREAKS\" == *\"$wb\"* ]]; then
+            pre=\"${cur%\"${cur##*$wb}\"}\"
+            for ((i=0; i<${#COMPREPLY[@]}; i++)); do COMPREPLY[$i]=\"${COMPREPLY[$i]#\"$pre\"}\"; done
+        fi
+    done
+}
+complete -F " fn " " program-name "
+")
+    :zsh (str "#compdef " program-name "
+" fn "() {
+    local -a lines described
+    lines=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions complete --shell zsh -- \"${(@)words[2,CURRENT]}\" 2>/dev/null)}\")
+    local do_files= l v d
+    for l in $lines; do
+        if [[ $l == org.babashka.cli/file-completion ]]; then do_files=1; continue; fi
+        v=\"${l%%$'\\t'*}\"; d=
+        [[ $l == *$'\\t'* ]] && d=\"${l#*$'\\t'}\"
+        # _describe eats backslashes and splits on ':', so escape both
+        v=\"${v//\\\\/\\\\\\\\}\"; d=\"${d//\\\\/\\\\\\\\}\"
+        v=\"${v//:/\\\\:}\"; d=\"${d//:/\\\\:}\"
+        described+=(\"$v${d:+:$d}\")
+    done
+    local ret=1
+    (( $#described )) && { _describe -t values completion described && ret=0; }
+    [[ -n $do_files ]] && { _files; ret=0; }
+    # return success when we added completions, else zsh retries other completers
+    # (_match, _approximate, ...) and re-lists everything
+    return $ret
+}
+# register for the bare name and for path invocations (./prog, /abs/prog)
+compdef " fn " '*/" program-name "' " program-name "
+")
+    :fish (str "function " fn "
+    set -l toks (commandline --tokenize --cut-at-cursor)
+    set -l prog $toks[1]
+    set -e toks[1]
+    set -l cur (commandline --current-token)
+    for line in ($prog org.babashka.cli/completions complete --shell fish -- $toks \"$cur\" 2>/dev/null)
+        if test \"$line\" = org.babashka.cli/file-completion
+            __fish_complete_path \"$cur\"
+        else
+            # printf, not echo: echo eats a bare -n/-e candidate as its own flag
+            printf '%s\\n' $line
+        end
+    end
+end
+complete --command " program-name " --no-files --arguments \"(" fn ")\"
+")
+    :powershell (str "Register-ArgumentCompleter -Native -CommandName " program-name " -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
+    $exe = $commandAst.CommandElements[0].Value
+    $toks = @()
+    for ($i = 1; $i -lt $commandAst.CommandElements.Count; $i++) {
+        $el = $commandAst.CommandElements[$i]
+        if ($el.Extent.StartOffset -ge $cursorPosition) { break }
+        $toks += $el.Extent.Text
+    }
+    # a fresh word is signaled via --fresh, not a trailing '' token: PowerShell 5.1
+    # and pwsh with legacy native argument passing drop empty-string arguments
+    $fresh = if ($wordToComplete) { 'false' } else { 'true' }
+    $lines = @(& $exe org.babashka.cli/completions complete --shell powershell --fresh $fresh -- $toks 2>$null)
+    $lines | Where-Object { $_ -ne 'org.babashka.cli/file-completion' } | ForEach-Object {
+        $parts = $_ -split \"`t\", 2
+        $tip = if ($parts.Length -gt 1) { $parts[1] } else { $parts[0] }
+        $text = $parts[0]
+        if ($text -match '\\s') { $text = \"'\" + ($text -replace \"'\", \"''\") + \"'\" }
+        [System.Management.Automation.CompletionResult]::new($text, $parts[0], 'ParameterValue', $tip)
+    }
+    if ($lines -contains 'org.babashka.cli/file-completion') {
+        [System.Management.Automation.CompletionCompleters]::CompleteFilename($wordToComplete)
+    }
+}
+")
+    :nushell (str "# " program-name " tab completion for nushell. Nushell completes external
+# commands through one global external completer, so this chains any previously
+# configured completer: several CLIs can install side by side
+let " fn "_prev = $env.config.completions?.external?.completer?
+$env.config.completions.external.enable = true
+$env.config.completions.external.completer = {|spans|
+    if ($spans | first | path basename) == \"" program-name "\" {
+        let res = (do { ^($spans | first) org.babashka.cli/completions complete --shell nushell -- ...($spans | skip 1) } | complete)
+        let lines = (if $res.exit_code == 0 { $res.stdout | lines } else { [] })
+        if \"org.babashka.cli/file-completion\" in $lines {
+            null  # defer to nushell's own file completion
+        } else {
+            $lines | each {|l|
+                let parts = ($l | split row -n 2 \"\\t\")
+                if ($parts | length) == 2 {
+                    {value: $parts.0, description: $parts.1}
+                } else {
+                    {value: $parts.0}
+                }
+            }
+        }
+    } else if $" fn "_prev != null {
+        do $" fn "_prev $spans
+    } else {
+        null
+    }
+}
+"))))
+
+(defn- print-completions
+  "Print one `value<TAB>description` line per candidate (tab and newline
+  stripped, they would break the line/field wire format)."
+  [candidates]
+  (doseq [{:keys [value description]} candidates]
+    (let [value (str/replace value #"[\t\n\r]" " ")
+          desc (when-not (str/blank? description)
+                 (str/replace (first (str/split-lines description)) "\t" " "))]
+      (println (if desc (str value \tab desc) value)))))
+
+(defn- eprintln [s]
+  #?(:clj (binding [*out* *err*] (println s))
+     :cljs (binding [*print-fn* *print-err-fn*] (println s))))
+
+(defn- has-parse-opts? [m]
+  (some #{:spec :coerce :require :restrict :validate :args->opts :exec-args} (keys m)))
+
+(defn- is-option? [s]
+  (and s
+       (or (str/starts-with? s "-")
+           (str/starts-with? s ":"))))
+
 
 (defn- command-help-context
   "Given a dispatch `tree`, command path `cmds`, `prog` name and dispatch-level
@@ -1213,9 +1606,7 @@
   stdout). Only prints - does not exit (the default `:error-fn` prints, then
   calls [[*exit-fn*]] itself)."
   [data]
-  (let [s (format-command-error data)]
-    #?(:clj  (binding [*out* *err*] (println s))
-       :cljs (binding [*print-fn* *print-err-fn*] (println s)))))
+  (eprintln (format-command-error data)))
 
 (defn- thread-dispatch-context
   "Add the dispatch-level `:prog` and `:inherit` (when set) to error/help `data`,
@@ -1224,6 +1615,11 @@
   (cond-> data
     prog    (assoc :prog prog)
     inherit (assoc :inherit inherit)))
+
+;; command names to suggest in errors: skip `:no-doc`, same as help and
+;; completion hide them
+(defn- visible-command-names [cmd-info]
+  (into [] (comp (remove (comp :no-doc val)) (map key)) (:cmd cmd-info)))
 
 (defn- dispatch-tree'
   ([tree args]
@@ -1302,11 +1698,11 @@
              (if arg
                {:error :no-match
                 :wrong-input arg
-                :available-commands (keys (:cmd cmd-info))
+                :available-commands (visible-command-names cmd-info)
                 :dispatch cmds
                 :opts (dissoc all-opts ::opts-by-cmds)}
                {:error :input-exhausted
-                :available-commands (keys (:cmd cmd-info))
+                :available-commands (visible-command-names cmd-info)
                 :dispatch cmds
                 :opts (dissoc all-opts ::opts-by-cmds)}))))))))
 
@@ -1378,6 +1774,58 @@
     (:cmd node) (update :cmd (fn [m]
                                (reduce-kv (fn [acc k v] (assoc acc k (inject-help v))) {} m)))))
 
+(defn- drop-lone-eq
+  "bash without bash-completion splits `--opt=val` into `--opt` `=` `val`
+  (COMP_WORDBREAKS); drop the lone `=` so the value still completes."
+  [toks]
+  (loop [acc [] s (seq toks)]
+    (if-not s
+      acc
+      (let [t (first s)]
+        (if (and (= "=" t) (gnu-option? (peek acc)))
+          (recur (if (next s) acc (conj acc "")) (next s))
+          (recur (conj acc t) (next s)))))))
+
+(defn- completions-command
+  "Handle the hidden `org.babashka.cli/completions` command: `snippet` prints
+  the per-shell install snippet, `complete` completes the tokens after `--`
+  against `tree`. Parsed here, isolated from the dispatch-level opts: a global
+  `:require` or `:error-fn` must not be able to fail the completion callback
+  (the stub discards stderr, so that failure would be silent)."
+  [tree args opts]
+  (let [[sub & more] args
+        [pre toks] (split-with #(not= "--" %) more)
+        {{:keys [shell prog fresh]} :opts}
+        (parse-args (vec pre) {:coerce {:shell :keyword :fresh :boolean}})
+        toks (vec (rest toks))]
+    (case sub
+      "snippet"
+      (let [prog (or prog (:prog opts))]
+        (cond
+          (not prog)
+          (eprintln (str "[babashka.cli] Set :prog in opts, or pass --prog,"
+                         " to generate a completion snippet"))
+          (not (re-matches #"[A-Za-z0-9_.-]+" prog))
+          (eprintln (str "[babashka.cli] Cannot register completions for program name "
+                         (pr-str prog) ", expected letters, digits, '.', '_' or '-'"))
+          (not (#{:bash :zsh :fish :powershell :nushell} shell))
+          (eprintln (str "[babashka.cli] Unknown --shell " (pr-str shell)
+                         ", expected one of: bash zsh fish powershell nushell"))
+          :else (print (completion-shell-snippet shell prog))))
+      "complete"
+      (let [toks (cond-> toks
+                   (= :bash shell) drop-lone-eq
+                   ;; powershell can't pass an empty fresh-word token (PS 5.1
+                   ;; drops empty args), so it sends --fresh instead
+                   fresh (conj ""))
+            cands (complete-tree* tree toks opts)]
+        (print-completions (remove :file-completion cands))
+        ;; marker line: the stub defers to the shell's own file completer
+        (when (some :file-completion cands)
+          (println "org.babashka.cli/file-completion")))
+      (eprintln (str "[babashka.cli] Expected completions command snippet or complete, got "
+                     (pr-str sub))))))
+
 (defn dispatch
   "Subcommand dispatcher.
 
@@ -1429,17 +1877,24 @@
   ([table args]
    (dispatch table args {}))
   ([table args opts]
-   (let [tree (-> table table->tree)]
-     (if (:help opts)
-       (dispatch-tree (inject-help tree) args
-                      (assoc opts ::help true
-                             ;; default :error-fn = print the message, then exit;
-                             ;; :cause is the dispatch cause as-is (:no-match /
-                             ;; :input-exhausted / a flag cause)
-                             :error-fn (or (:error-fn opts)
-                                           (fn [{:keys [cause dispatch] :as data}]
-                                             (print-command-error data)
-                                             (*exit-fn* {:exit 1 :cause cause
-                                                         :dispatch dispatch :data data})))
-                             ::help-fn (or (:help-fn opts) print-command-help)))
-       (dispatch-tree tree args opts)))))
+   (let [;; complete against the same tree the user dispatches with, so
+         ;; `--help`/`-h` (injected by `:help`) also show up as completions
+         tree (cond-> (table->tree table) (:help opts) inject-help)]
+     (if (= "org.babashka.cli/completions" (first args))
+       ;; the hidden completions command, handled before (and isolated from) the
+       ;; normal dispatch parse. A caller that preprocesses argv before `dispatch`
+       ;; must pass this command through.
+       (completions-command tree (rest args) opts)
+       (if (:help opts)
+         (dispatch-tree tree args
+                        (assoc opts ::help true
+                               ;; default :error-fn = print the message, then exit;
+                               ;; :cause is the dispatch cause as-is (:no-match /
+                               ;; :input-exhausted / a flag cause)
+                               :error-fn (or (:error-fn opts)
+                                             (fn [{:keys [cause dispatch] :as data}]
+                                               (print-command-error data)
+                                               (*exit-fn* {:exit 1 :cause cause
+                                                           :dispatch dispatch :data data})))
+                               ::help-fn (or (:help-fn opts) print-command-help)))
+         (dispatch-tree tree args opts))))))

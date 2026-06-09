@@ -67,3 +67,42 @@ jobs:
     - name: Run tests
       run: |
         bb cljs-test
+
+  test-completions:
+    runs-on: ubuntu-latest
+    steps:
+    - name: "Checkout code"
+      uses: "actions/checkout@v6"
+
+    - name: Prepare java
+      uses: actions/setup-java@v5
+      with:
+        distribution: "zulu"
+        java-version: 21
+
+    - name: Setup Clojure
+      uses: DeLaGuardo/setup-clojure@13.5
+      with:
+        bb: 1.12.218
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Install shells
+      run: sudo apt-get update && sudo apt-get install -y zsh fish
+
+    - name: Install nushell
+      uses: hustcer/setup-nu@v3
+      with:
+        version: "*"
+
+    # drive the generated completion snippet under each real shell, headless,
+    # and assert the candidates (see script/completion-smoke.*)
+    - name: bash completions
+      run: bash script/completion-smoke.bash
+    - name: zsh completions
+      run: zsh script/completion-smoke.zsh
+    - name: fish completions
+      run: fish script/completion-smoke.fish
+    - name: powershell completions
+      run: pwsh -File script/completion-smoke.ps1
+    - name: nushell completions
+      run: nu script/completion-smoke.nu

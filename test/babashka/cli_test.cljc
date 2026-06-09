@@ -105,6 +105,13 @@
     (is (= {:args ["dude"], :opts {:option false}}
            (cli/parse-args ["--no-option" "dude"] {:coerce {:option :bool}})))))
 
+(deftest equals-value-test
+  (testing "--opt=val splits on the first = only"
+    (is (= {:header "k=v"} (cli/parse-opts ["--header=k=v"])))
+    (is (= {:foo "bar"} (cli/parse-opts ["--foo=bar"]))))
+  (testing "--opt= is an explicit empty value, not a flag"
+    (is (= {:foo ""} (cli/parse-opts ["--foo="])))))
+
 (deftest parse-opts-keywords-test
   (is (= {:version "2021a4", :no-git-tag-version true, :deps-file "foo.edn"}
          (cli/parse-opts ["2021a4" ":no-git-tag-version" ":deps-file" "foo.edn"] {:args->opts [:version] :spec {:no-git-tag-version {:coerce :boolean}}}))))

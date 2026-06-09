@@ -1,0 +1,24 @@
+Register-ArgumentCompleter -Native -CommandName myprogram -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
+    $exe = $commandAst.CommandElements[0].Value
+    $toks = @()
+    for ($i = 1; $i -lt $commandAst.CommandElements.Count; $i++) {
+        $el = $commandAst.CommandElements[$i]
+        if ($el.Extent.StartOffset -ge $cursorPosition) { break }
+        $toks += $el.Extent.Text
+    }
+    # a fresh word is signaled via --fresh, not a trailing '' token: PowerShell 5.1
+    # and pwsh with legacy native argument passing drop empty-string arguments
+    $fresh = if ($wordToComplete) { 'false' } else { 'true' }
+    $lines = @(& $exe org.babashka.cli/completions complete --shell powershell --fresh $fresh -- $toks 2>$null)
+    $lines | Where-Object { $_ -ne 'org.babashka.cli/file-completion' } | ForEach-Object {
+        $parts = $_ -split "`t", 2
+        $tip = if ($parts.Length -gt 1) { $parts[1] } else { $parts[0] }
+        $text = $parts[0]
+        if ($text -match '\s') { $text = "'" + ($text -replace "'", "''") + "'" }
+        [System.Management.Automation.CompletionResult]::new($text, $parts[0], 'ParameterValue', $tip)
+    }
+    if ($lines -contains 'org.babashka.cli/file-completion') {
+        [System.Management.Automation.CompletionCompleters]::CompleteFilename($wordToComplete)
+    }
+}
