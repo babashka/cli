@@ -727,7 +727,7 @@ and exit afterwards:
 ## Completions
 
 The `dispatch` function can generate dynamic shell completions for `bash`,
-`zsh`, `fish` and `powershell`. Shells call back into your program on each TAB
+`zsh`, `fish`, `powershell` and `nushell`. Shells call back into your program on each TAB
 to generate completions. The `:prog` (program name) value is essential in the
 `dispatch` call. The generated snippet registers completion for that name, so it
 must match the command you type, and it must be a plain command name (letters,
@@ -789,6 +789,22 @@ mycli org.babashka.cli/completions snippet --shell powershell | Out-String | Inv
 Add this to your `$PROFILE`. Descriptions show in menu-completion mode, which you
 can enable with `Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete`.
 
+### Nushell
+
+Nushell cannot `source` from a pipe, so save the snippet to a file in the
+autoload directory and restart `nu`:
+
+``` nu
+mkdir ($nu.user-autoload-dirs | first)
+mycli org.babashka.cli/completions snippet --shell nushell | save -f (($nu.user-autoload-dirs | first) | path join "mycli.nu")
+```
+
+On nushell versions without autoload dirs, save it anywhere and add
+`source <literal path>` to your `config.nu`. Descriptions show in the completion
+menu. Nushell completes external commands through one global external completer;
+the snippet chains any completer you already configured, so several CLIs (and
+e.g. carapace) can install side by side.
+
 ### Developing completions
 
 Completion is registered for the command name `:prog`, so the command you type must
@@ -801,8 +817,9 @@ ln -sf "$PWD/run.clj" /tmp/mycli                   # name the link :prog
 export PATH="/tmp:$PATH"                            # bash and zsh
 ```
 
-In fish use `set -gx PATH /tmp $PATH`. On Windows, put a `mycli` wrapper script on
-your `PATH` instead of a symlink.
+In fish use `set -gx PATH /tmp $PATH`, in nushell
+`$env.PATH = ($env.PATH | prepend /tmp)`. On Windows, put a `mycli` wrapper
+script on your `PATH` instead of a symlink.
 
 Then source the snippet in the shell you are testing, using the install command from
 its section above, and re-source it after each change to your CLI so new commands and

@@ -136,7 +136,7 @@
 
 (deftest dispatch-completion-snippet-test
   (when-not (windows?)
-    (doseq [shell ["bash" "zsh" "fish" "powershell"]]
+    (doseq [shell ["bash" "zsh" "fish" "powershell" "nushell"]]
       (is (= (read-snippet shell)
              (snippet-via-cmd cmd-table {:prog "myprogram"} shell))
           shell))))

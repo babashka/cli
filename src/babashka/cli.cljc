@@ -1294,7 +1294,7 @@
 ;; `org.babashka.cli/completions complete` subcommand, passing the shell-tokenized
 ;; words up to the cursor (after `--`), so quoting is handled by the shell, not us.
 ;; The program prints `value<TAB>description` lines, which the stub renders
-;; (zsh/fish/powershell show descriptions; bash completes values only).
+;; (zsh/fish/powershell/nushell show descriptions; bash completes values only).
 (defn- completion-shell-snippet [shell program-name]
   ;; name the function after the program (sanitized), so installing completions for
   ;; several babashka.cli CLIs in one shell does not collide on a shared function
@@ -1405,6 +1405,34 @@ complete --command " program-name " --no-files --arguments \"(" fn ")\"
     }
     if ($lines -contains 'org.babashka.cli/file-completion') {
         [System.Management.Automation.CompletionCompleters]::CompleteFilename($wordToComplete)
+    }
+}
+")
+    :nushell (str "# " program-name " tab completion for nushell. Nushell completes external
+# commands through one global external completer, so this chains any previously
+# configured completer: several CLIs can install side by side
+let " fn "_prev = $env.config.completions?.external?.completer?
+$env.config.completions.external.enable = true
+$env.config.completions.external.completer = {|spans|
+    if ($spans | first | path basename) == \"" program-name "\" {
+        let res = (do { ^($spans | first) org.babashka.cli/completions complete --shell nushell -- ...($spans | skip 1) } | complete)
+        let lines = (if $res.exit_code == 0 { $res.stdout | lines } else { [] })
+        if \"org.babashka.cli/file-completion\" in $lines {
+            null  # defer to nushell's own file completion
+        } else {
+            $lines | each {|l|
+                let parts = ($l | split row -n 2 \"\\t\")
+                if ($parts | length) == 2 {
+                    {value: $parts.0, description: $parts.1}
+                } else {
+                    {value: $parts.0}
+                }
+            }
+        }
+    } else if $" fn "_prev != null {
+        do $" fn "_prev $spans
+    } else {
+        null
     }
 }
 "))))
@@ -1812,9 +1840,9 @@ complete --command " program-name " --no-files --arguments \"(" fn ")\"
           (not (re-matches #"[A-Za-z0-9_.-]+" prog))
           (eprintln (str "babashka.cli: cannot register completions for program name "
                          (pr-str prog) ", expected letters, digits, '.', '_' or '-'"))
-          (not (#{:bash :zsh :fish :powershell} shell))
+          (not (#{:bash :zsh :fish :powershell :nushell} shell))
           (eprintln (str "babashka.cli: unknown --shell " (pr-str shell)
-                         ", expected one of: bash zsh fish powershell"))
+                         ", expected one of: bash zsh fish powershell nushell"))
           :else (print (completion-shell-snippet shell prog))))
       "complete"
       (let [toks (cond-> toks

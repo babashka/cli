@@ -89,6 +89,11 @@ jobs:
     - name: Install shells
       run: sudo apt-get update && sudo apt-get install -y zsh fish
 
+    - name: Install nushell
+      uses: hustcer/setup-nu@v3
+      with:
+        version: "*"
+
     # drive the generated completion snippet under each real shell, headless,
     # and assert the candidates (see script/completion-smoke.*)
     - name: bash completions
@@ -99,3 +104,5 @@ jobs:
       run: fish script/completion-smoke.fish
     - name: powershell completions
       run: pwsh -File script/completion-smoke.ps1
+    - name: nushell completions
+      run: nu script/completion-smoke.nu
