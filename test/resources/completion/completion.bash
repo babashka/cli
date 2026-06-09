@@ -1,4 +1,4 @@
-_babashka_cli_dynamic_completion()
+_babashka_cli_complete_myprogram()
 {
     local cur words cword
     if declare -F _init_completion >/dev/null 2>&1; then
@@ -11,4 +11,4 @@ _babashka_cli_dynamic_completion()
     local IFS=$'\n'
     COMPREPLY=( $(compgen -W "$values" -- "$cur") )
 }
-complete -F _babashka_cli_dynamic_completion myprogram
+complete -F _babashka_cli_complete_myprogram myprogram

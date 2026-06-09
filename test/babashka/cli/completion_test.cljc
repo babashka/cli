@@ -257,12 +257,16 @@
                 (map #(first (str/split % #"\t"))) set)))))
 
 (deftest completion-prog-override-test
+  ;; the function name is namespaced per prog so multiple CLIs do not collide
   (let [registers? (fn [s nm]
-                     (str/includes? s (str "complete -F _babashka_cli_dynamic_completion " nm)))]
+                     (str/includes? s (str "complete -F _babashka_cli_complete_" nm " " nm)))]
     (testing ":prog is the default registered name"
       (is (registers? (snippet-via-cmd cmd-table {:prog "squint"} "bash") "squint")))
     (testing "--prog overrides :prog (renamed binary)"
-      (is (registers? (snippet-via-cmd cmd-table {:prog "squint"} "bash" "--prog" "sq") "sq")))))
+      (is (registers? (snippet-via-cmd cmd-table {:prog "squint"} "bash" "--prog" "sq") "sq")))
+    (testing "non-identifier chars in the name are sanitized in the function name"
+      (is (str/includes? (snippet-via-cmd cmd-table {:prog "x"} "bash" "--prog" "node_cli.js")
+                         "_babashka_cli_complete_node_cli_js")))))
 
 (deftest equals-form-test
   ;; babashka.cli parses --opt=val, so completion handles it too

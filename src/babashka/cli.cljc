@@ -1186,8 +1186,11 @@
 ;; The program prints `value<TAB>description` lines, which the stub renders
 ;; (zsh/fish/powershell show descriptions; bash completes values only).
 (defn- completion-shell-snippet [shell program-name]
-  (case shell
-    :bash (str "_babashka_cli_dynamic_completion()
+  ;; name the function after the program (sanitized), so installing completions for
+  ;; several babashka.cli CLIs in one shell does not collide on a shared function
+  (let [fn (str "_babashka_cli_complete_" (str/replace program-name #"[^a-zA-Z0-9_]+" "_"))]
+   (case shell
+    :bash (str fn "()
 {
     local cur words cword
     if declare -F _init_completion >/dev/null 2>&1; then
@@ -1200,10 +1203,10 @@
     local IFS=$'\\n'
     COMPREPLY=( $(compgen -W \"$values\" -- \"$cur\") )
 }
-complete -F _babashka_cli_dynamic_completion " program-name "
+complete -F " fn " " program-name "
 ")
     :zsh (str "#compdef " program-name "
-_babashka_cli_dynamic_completion() {
+" fn "() {
     local -a completions described
     completions=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions complete --shell zsh -- \"${(@)words[2,CURRENT]}\")}\")
     local c
@@ -1211,15 +1214,15 @@ _babashka_cli_dynamic_completion() {
     _describe -t commands " program-name " described
 }
 # register for the bare name and for path invocations (./prog, /abs/prog)
-compdef _babashka_cli_dynamic_completion '*/" program-name "' " program-name "
+compdef " fn " '*/" program-name "' " program-name "
 ")
-    :fish (str "function _babashka_cli_dynamic_completion
+    :fish (str "function " fn "
     set -l toks (commandline --tokenize --cut-at-cursor)
     set -e toks[1]
     set -l cur (commandline --current-token)
     " program-name " org.babashka.cli/completions complete --shell fish -- $toks \"$cur\"
 end
-complete --command " program-name " --no-files --arguments \"(_babashka_cli_dynamic_completion)\"
+complete --command " program-name " --no-files --arguments \"(" fn ")\"
 ")
     :powershell (str "Register-ArgumentCompleter -Native -CommandName " program-name " -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
@@ -1237,7 +1240,7 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
         [System.Management.Automation.CompletionResult]::new($parts[0], $parts[0], 'ParameterValue', $tip)
     }
 }
-")))
+"))))
 
 (defn- print-completions
   "Print one line per candidate: `value`, or `value<TAB>description` when the

@@ -26,7 +26,7 @@ assert() { # <command line> <expected candidate>...
   IFS=' ' read -ra COMP_WORDS <<< "$line"
   [[ "$line" == *" " ]] && COMP_WORDS+=("")
   COMP_CWORD=$(( ${#COMP_WORDS[@]} - 1 )); COMPREPLY=()
-  _babashka_cli_dynamic_completion
+  _babashka_cli_complete_bbtest
   local out=" ${COMPREPLY[*]} " ok=1
   for exp in "$@"; do
     if [[ "$out" != *" $exp "* ]]; then
