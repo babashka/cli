@@ -1100,15 +1100,20 @@
   (or (coll? (get-in opts [:coerce k]))
       (contains? (:collect opts) k)))
 
+(defn- safe-parse
+  "Parse `args` for completion, swallowing the errors partial input provokes.
+  Returns the `parse-args` result, or `{:args nil :opts nil}` if it throws."
+  [args opts]
+  (try (parse-args args opts)
+       (catch #?(:clj ExceptionInfo :cljs :default) _ {:args nil :opts nil})))
+
 (defn- option-candidates
   "Option candidates at one level completing `to-complete`, excluding the
-  single-value options already present in the completed tokens `done` (repeatable
-  options stay). `spec` (raw, for `:desc`) may be a map, a vec-of-pairs, or nil.
-  Returns candidate maps."
-  [spec opts aliases known done to-complete]
-  (let [{parsed :opts} (try (parse-args done opts)
-                            (catch #?(:clj ExceptionInfo :cljs :default) _ nil))
-        used (set (remove #(repeatable-opt? opts %) (keys parsed)))
+  single-value options already in `parsed` (the opts parsed from the completed
+  prefix; repeatable options stay). `spec` (raw, for `:desc`) may be a map, a
+  vec-of-pairs, or nil. Returns candidate maps."
+  [spec opts aliases known parsed to-complete]
+  (let [used (set (remove #(repeatable-opt? opts %) (keys parsed)))
         smap (->spec-map spec)
         desc (fn [k] (help-first-line (:desc (get smap k))))
         long-cands (keep (fn [k]
@@ -1135,18 +1140,15 @@
 (defn- positional-candidates
   "Candidates for the positional argument being completed at `node`. The node's
   `:args->opts` maps positional index -> spec key; the count of positionals already
-  parsed from `done` gives the current index. If that key has value completion
+  in `pos-args` gives the current index. If that key has value completion
   (`:complete`/`:complete-fn`/set `:validate`), complete its values. A declared
   positional without value completion yields a single `{:file-completion true}`
   marker, so the stub defers to the shell's own file completer."
-  [node spec opts done to-complete]
+  [node spec pos-args parsed to-complete]
   (when-let [a->o (seq (:args->opts node))]
-    (let [{pos-args :args parsed :opts}
-          (try (parse-args done opts)
-               (catch #?(:clj ExceptionInfo :cljs :default) _ {:args nil :opts nil}))
-          ;; nth on the seq directly: `:args->opts` may be infinite (variadic
-          ;; `(cons :foo (repeat :bar))`), so it must not be `vec`'d
-          k (nth a->o (count pos-args) nil)
+    ;; nth on the seq directly: `:args->opts` may be infinite (variadic
+    ;; `(cons :foo (repeat :bar))`), so it must not be `vec`'d
+    (let [k (nth a->o (count pos-args) nil)
           entry (when k (get (->spec-map spec) k))]
       (when k
         (if (or (:complete entry) (:complete-fn entry) (set? (:validate entry)))
@@ -1197,22 +1199,22 @@
         spec (:spec node)
         [opts aliases known] (resolve-completion-opts {:spec spec})
         previous (peek done)]
-    (cond
-      ;; past a literal `--`: only positionals (values or file completion), never
-      ;; commands or options
-      eoo? (positional-candidates node spec opts level to-complete)
+    (if (and (not eoo?) (gnu-option? previous) (not (bool-opt? previous opts)))
       ;; preceding option awaits a value -> complete the value, not commands/options.
       ;; Parse the tokens before that option (no value yet) for dependent completion.
-      (and (gnu-option? previous) (not (bool-opt? previous opts)))
-      (let [{parsed :opts} (try (parse-args (vec (butlast level)) opts)
-                                (catch #?(:clj ExceptionInfo :cljs :default) _ nil))]
+      (let [{parsed :opts} (safe-parse (vec (butlast level)) opts)]
         (value-candidates spec opts previous to-complete parsed))
-      :else
-      (concat (when-not (gnu-option? to-complete)
-                (command-candidates node to-complete))
-              (option-candidates spec opts aliases known level to-complete)
-              (when-not (gnu-option? to-complete)
-                (positional-candidates node spec opts level to-complete))))))
+      ;; parse the completed level once, shared by option exclusion and the
+      ;; positional index
+      (let [{parsed :opts pos-args :args} (safe-parse level opts)]
+        (if eoo?
+          ;; past a literal `--`: only positionals (values or file completion)
+          (positional-candidates node spec pos-args parsed to-complete)
+          (concat (when-not (gnu-option? to-complete)
+                    (command-candidates node to-complete))
+                  (option-candidates spec opts aliases known parsed to-complete)
+                  (when-not (gnu-option? to-complete)
+                    (positional-candidates node spec pos-args parsed to-complete))))))))
 
 ;; The stub a user installs. On each TAB it calls the program back with the hidden
 ;; `org.babashka.cli/completions complete` subcommand, passing the shell-tokenized
