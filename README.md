@@ -799,32 +799,9 @@ export PATH="/tmp:$PATH"                            # bash and zsh
 In fish use `set -gx PATH /tmp $PATH`. On Windows, put a `mycli` wrapper script on
 your `PATH` instead of a symlink.
 
-Then source the snippet in the shell you are testing. Re-source it after each change
-to your CLI so new commands and options show up.
-
-bash:
-
-``` bash
-source <(mycli org.babashka.cli/completions snippet --shell bash)
-```
-
-zsh:
-
-``` bash
-source <(mycli org.babashka.cli/completions snippet --shell zsh)
-```
-
-fish:
-
-``` fish
-mycli org.babashka.cli/completions snippet --shell fish | source
-```
-
-powershell:
-
-``` powershell
-mycli org.babashka.cli/completions snippet --shell powershell | Out-String | Invoke-Expression
-```
+Then source the snippet in the shell you are testing, using the install command from
+its section above, and re-source it after each change to your CLI so new commands and
+options show up.
 
 Now `mycli <TAB>` completes commands and `mycli sub --<TAB>` its options. To see the
 completer's raw output directly, without a shell, call the hidden subcommand
