@@ -775,8 +775,9 @@ For a renamed binary whose name differs from `:prog`, pass `--prog <name>`, e.g.
 
 In babashka CLI, subcommands and options get completion support out of the
 box. Descriptions come from the same `:desc` (options) and `:doc` (subcommands)
-you're already using for `--help`, and are shown by `zsh`, `fish` and
-`powershell`. Currently bash integration completes values but does not show the
+you're already using for `--help`. `zsh` and `fish` show them inline. `powershell`
+shows them in menu-completion mode, which you enable with `Set-PSReadLineKeyHandler
+-Key Tab -Function MenuComplete`. Currently bash completes values but does not show
 descriptions. A `:no-doc` subcommand or option is hidden. Options that already
 appeared are filtered out of suggestions, except repeatable options
 (e.g. `:coerce [:string]`).
