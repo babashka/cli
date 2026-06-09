@@ -1199,7 +1199,7 @@
         words=(\"${COMP_WORDS[@]}\"); cword=$COMP_CWORD; cur=\"${COMP_WORDS[COMP_CWORD]}\"
     fi
     local values
-    values=$(\"${words[0]}\" org.babashka.cli/completions complete --shell bash -- \"${words[@]:1:cword}\" | cut -f1)
+    values=$(\"${words[0]}\" org.babashka.cli/completions complete --shell bash -- \"${words[@]:1:cword}\" 2>/dev/null | cut -f1)
     local IFS=$'\\n'
     COMPREPLY=( $(compgen -W \"$values\" -- \"$cur\") )
 }
@@ -1208,7 +1208,7 @@ complete -F " fn " " program-name "
     :zsh (str "#compdef " program-name "
 " fn "() {
     local -a completions described
-    completions=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions complete --shell zsh -- \"${(@)words[2,CURRENT]}\")}\")
+    completions=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions complete --shell zsh -- \"${(@)words[2,CURRENT]}\" 2>/dev/null)}\")
     local c
     for c in $completions; do described+=(\"${c//$'\\t'/:}\"); done
     _describe -t commands " program-name " described
@@ -1220,7 +1220,7 @@ compdef " fn " '*/" program-name "' " program-name "
     set -l toks (commandline --tokenize --cut-at-cursor)
     set -e toks[1]
     set -l cur (commandline --current-token)
-    " program-name " org.babashka.cli/completions complete --shell fish -- $toks \"$cur\"
+    " program-name " org.babashka.cli/completions complete --shell fish -- $toks \"$cur\" 2>/dev/null
 end
 complete --command " program-name " --no-files --arguments \"(" fn ")\"
 ")
@@ -1244,12 +1244,14 @@ complete --command " program-name " --no-files --arguments \"(" fn ")\"
 
 (defn- print-completions
   "Print one line per candidate: `value`, or `value<TAB>description` when the
-  candidate has a description. Shell-agnostic; the stub renders per shell."
+  candidate has a description. Shell-agnostic, the stub renders per shell. The
+  description is reduced to its first line with tabs stripped, so it can't break
+  the line/field wire protocol."
   [candidates]
   (doseq [{:keys [value description]} candidates]
-    (println (if (str/blank? description)
-               value
-               (str value \tab description)))))
+    (let [desc (when-not (str/blank? description)
+                 (str/replace (first (str/split-lines description)) "\t" " "))]
+      (println (if desc (str value \tab desc) value)))))
 
 (defn- eprintln [s]
   #?(:clj (binding [*out* *err*] (println s))

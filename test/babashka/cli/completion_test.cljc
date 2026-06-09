@@ -268,6 +268,18 @@
       (is (str/includes? (snippet-via-cmd cmd-table {:prog "x"} "bash" "--prog" "node_cli.js")
                          "_babashka_cli_complete_node_cli_js")))))
 
+(deftest description-sanitize-test
+  ;; a newline/tab in a description must not break the value<TAB>desc wire protocol
+  (let [t [{:cmds ["deploy"] :fn identity
+            :doc "First line\nsecond line dropped"
+            :spec {:env {:coerce :string :desc "Tab\there" :complete ["dev"]}}}]]
+    (testing "newline in :doc is reduced to the first line"
+      (is (= #{"deploy\tFirst line"}
+             (->> (complete-via-cmd t {:prog "p"} "p dep") str/split-lines (remove str/blank?) set))))
+    (testing "tab in :desc is replaced with a space"
+      (is (= #{"--env\tTab here"}
+             (->> (complete-via-cmd t {:prog "p"} "p deploy --e") str/split-lines (remove str/blank?) set))))))
+
 (deftest equals-form-test
   ;; babashka.cli parses --opt=val, so completion handles it too
   (let [t [{:cmds ["deploy"]

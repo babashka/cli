@@ -7,7 +7,7 @@ _babashka_cli_complete_myprogram()
         words=("${COMP_WORDS[@]}"); cword=$COMP_CWORD; cur="${COMP_WORDS[COMP_CWORD]}"
     fi
     local values
-    values=$("${words[0]}" org.babashka.cli/completions complete --shell bash -- "${words[@]:1:cword}" | cut -f1)
+    values=$("${words[0]}" org.babashka.cli/completions complete --shell bash -- "${words[@]:1:cword}" 2>/dev/null | cut -f1)
     local IFS=$'\n'
     COMPREPLY=( $(compgen -W "$values" -- "$cur") )
 }
