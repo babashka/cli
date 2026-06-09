@@ -9,7 +9,10 @@ _babashka_cli_complete_myprogram()
     else
         words=("${COMP_WORDS[@]}"); cword=$COMP_CWORD; cur="${COMP_WORDS[COMP_CWORD]}"
     fi
-    compopt -o nosort 2>/dev/null   # keep our candidate order (bash 4.4+; ignored on 3.2)
+    # keep our candidate order. Only on the real compopt builtin (bash 4.4+): on
+    # bash 3.2 with bash-completion, compopt is a shim that forwards to `complete`,
+    # which rejects -o nosort
+    [[ $(type -t compopt) == builtin ]] && compopt -o nosort 2>/dev/null
     local out
     out=$("${words[0]}" org.babashka.cli/completions complete --shell bash -- "${words[@]:1:cword}" 2>/dev/null)
     local IFS=$'\n'

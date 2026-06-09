@@ -1242,7 +1242,10 @@
     else
         words=(\"${COMP_WORDS[@]}\"); cword=$COMP_CWORD; cur=\"${COMP_WORDS[COMP_CWORD]}\"
     fi
-    compopt -o nosort 2>/dev/null   # keep our candidate order (bash 4.4+; ignored on 3.2)
+    # keep our candidate order. Only on the real compopt builtin (bash 4.4+): on
+    # bash 3.2 with bash-completion, compopt is a shim that forwards to `complete`,
+    # which rejects -o nosort
+    [[ $(type -t compopt) == builtin ]] && compopt -o nosort 2>/dev/null
     local out
     out=$(\"${words[0]}\" org.babashka.cli/completions complete --shell bash -- \"${words[@]:1:cword}\" 2>/dev/null)
     local IFS=$'\\n'
@@ -1268,15 +1271,23 @@ complete -F " fn " " program-name "
 ")
     :zsh (str "#compdef " program-name "
 " fn "() {
-    local -a completions described
-    completions=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions complete --shell zsh -- \"${(@)words[2,CURRENT]}\" 2>/dev/null)}\")
-    local do_files=
-    if (( ${completions[(I)org.babashka.cli/file-completion]} )); then do_files=1; fi
-    completions=(${completions:#org.babashka.cli/file-completion})
-    local c
-    for c in $completions; do described+=(\"${c//$'\\t'/:}\"); done
-    _describe -t commands " program-name " described
-    [[ -n $do_files ]] && _files
+    local -a lines described
+    lines=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions complete --shell zsh -- \"${(@)words[2,CURRENT]}\" 2>/dev/null)}\")
+    local do_files= l v d
+    for l in $lines; do
+        if [[ $l == org.babashka.cli/file-completion ]]; then do_files=1; continue; fi
+        v=\"${l%%$'\\t'*}\"; d=
+        [[ $l == *$'\\t'* ]] && d=\"${l#*$'\\t'}\"
+        # _describe splits on ':', so escape any colon in the value or description
+        v=\"${v//:/\\\\:}\"; d=\"${d//:/\\\\:}\"
+        described+=(\"$v${d:+:$d}\")
+    done
+    local ret=1
+    (( $#described )) && { _describe -t values completion described && ret=0; }
+    [[ -n $do_files ]] && { _files; ret=0; }
+    # return success when we added completions, else zsh retries other completers
+    # (_match, _approximate, ...) and re-lists everything
+    return $ret
 }
 # register for the bare name and for path invocations (./prog, /abs/prog)
 compdef " fn " '*/" program-name "' " program-name "
