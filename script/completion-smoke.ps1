@@ -11,7 +11,7 @@ try {
   & chmod +x $wrapper
   $env:PATH = "$tmp" + [IO.Path]::PathSeparator + $env:PATH
 
-  & bbtest org.babashka.cli/complete --shell powershell | Out-String | Invoke-Expression
+  & bbtest org.babashka.cli/completions --shell powershell --print-snippet | Out-String | Invoke-Expression
 
   $script:fail = 0
   function Check($line, [string[]]$expected) {

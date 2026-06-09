@@ -2,7 +2,7 @@
 _babashka_cli_dynamic_completion() {
     local line="${(j: :)words[1,CURRENT]}"
     local -a completions
-    completions=("${(@f)$("${words[1]}" org.babashka.cli/complete --shell zsh --line "$line")}")
+    completions=("${(@f)$("${words[1]}" org.babashka.cli/completions --shell zsh --line "$line")}")
     local -a described
     local c
     for c in $completions; do described+=("${c//$'\t'/:}"); done

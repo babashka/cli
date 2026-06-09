@@ -1181,7 +1181,7 @@
               (option-candidates spec opts aliases known level to-complete)))))
 
 ;; The stub a user installs. On each TAB it calls the program back with the hidden
-;; `org.babashka.cli/complete` subcommand, passing the line up to the cursor as
+;; `org.babashka.cli/completions` subcommand, passing the line up to the cursor as
 ;; `--line`. The program prints `value<TAB>description` lines, which the stub
 ;; renders (zsh/fish/powershell show descriptions; bash completes values only).
 (defn- completion-shell-snippet [shell program-name]
@@ -1191,7 +1191,7 @@
     local line=\"${COMP_LINE:0:$COMP_POINT}\"
     local IFS=$'\\n'
     local values
-    values=$(\"${COMP_WORDS[0]}\" org.babashka.cli/complete --shell bash --line \"$line\" | cut -f1)
+    values=$(\"${COMP_WORDS[0]}\" org.babashka.cli/completions --shell bash --line \"$line\" | cut -f1)
     COMPREPLY=( $(compgen -W \"$values\" -- \"${COMP_WORDS[COMP_CWORD]}\") )
 }
 complete -F _babashka_cli_dynamic_completion " program-name "
@@ -1200,7 +1200,7 @@ complete -F _babashka_cli_dynamic_completion " program-name "
 _babashka_cli_dynamic_completion() {
     local line=\"${(j: :)words[1,CURRENT]}\"
     local -a completions
-    completions=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/complete --shell zsh --line \"$line\")}\")
+    completions=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions --shell zsh --line \"$line\")}\")
     local -a described
     local c
     for c in $completions; do described+=(\"${c//$'\\t'/:}\"); done
@@ -1210,7 +1210,7 @@ _babashka_cli_dynamic_completion() {
 compdef _babashka_cli_dynamic_completion '*/" program-name "' " program-name "
 ")
     :fish (str "function _babashka_cli_dynamic_completion
-    " program-name " org.babashka.cli/complete --shell fish --line (commandline --cut-at-cursor)
+    " program-name " org.babashka.cli/completions --shell fish --line (commandline --cut-at-cursor)
 end
 complete --command " program-name " --no-files --arguments \"(_babashka_cli_dynamic_completion)\"
 ")
@@ -1220,7 +1220,7 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
     if ($cursorPosition -le $line.Length) { $line = $line.Substring(0, $cursorPosition) }
     else { $line = $line.PadRight($cursorPosition) }
     $exe = $commandAst.CommandElements[0].Value
-    & $exe org.babashka.cli/complete --shell powershell --line $line 2>$null | ForEach-Object {
+    & $exe org.babashka.cli/completions --shell powershell --line $line 2>$null | ForEach-Object {
         $parts = $_ -split \"`t\", 2
         $tip = if ($parts.Length -gt 1) { $parts[1] } else { $parts[0] }
         [System.Management.Automation.CompletionResult]::new($parts[0], $parts[0], 'ParameterValue', $tip)
@@ -1458,7 +1458,7 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
     inherit (assoc :inherit inherit)))
 
 ;; command names to suggest in errors: skip `:no-doc` (e.g. the injected
-;; `org.babashka.cli/complete`), same as help and completion hide them
+;; `org.babashka.cli/completions`), same as help and completion hide them
 (defn- visible-command-names [cmd-info]
   (into [] (comp (remove (comp :no-doc val)) (map key)) (:cmd cmd-info)))
 
@@ -1616,19 +1616,18 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
                                (reduce-kv (fn [acc k v] (assoc acc k (inject-help v))) {} m)))))
 
 (defn- inject-completion
-  "Add the hidden `org.babashka.cli/complete` subcommand to the tree root. Its `:fn`
-  prints completions for `--line` (the line up to the cursor) or, with no `--line`,
-  the install snippet for `--shell`. `--prog` overrides the registered name for a
-  renamed binary. It completes against `tree` (captured before this injection, so
-  the hidden command never appears as a candidate)."
+  "Add the hidden `org.babashka.cli/completions` subcommand to the tree root. With
+  `--print-snippet` its `:fn` prints the install snippet for `--shell`; otherwise it
+  prints completions for `--line` (the line up to the cursor). `--prog` overrides the
+  registered name for a renamed binary. It completes against `tree` (captured before
+  this injection, so the hidden command never appears as a candidate)."
   [tree opts]
-  (assoc-in tree [:cmd "org.babashka.cli/complete"]
+  (assoc-in tree [:cmd "org.babashka.cli/completions"]
             {:no-doc true
-             :spec {:shell {:coerce :keyword} :line {} :prog {}}
+             :spec {:shell {:coerce :keyword} :line {} :prog {} :print-snippet {:coerce :boolean}}
              :fn (fn [{copts :opts}]
-                   (let [{:keys [shell line prog]} copts]
-                     (if line
-                       (print-dispatch-completions tree line)
+                   (let [{:keys [shell line prog print-snippet]} copts]
+                     (if print-snippet
                        (let [prog (or prog (:prog opts))]
                          (cond
                            (not prog)
@@ -1637,7 +1636,8 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
                            (not (#{:bash :zsh :fish :powershell} shell))
                            (eprintln (str "babashka.cli: unknown --shell " (pr-str shell)
                                           ", expected one of: bash zsh fish powershell"))
-                           :else (print (completion-shell-snippet shell prog)))))))}))
+                           :else (print (completion-shell-snippet shell prog))))
+                       (print-dispatch-completions tree (or line "")))))}))
 
 (defn dispatch
   "Subcommand dispatcher.
@@ -1694,7 +1694,7 @@ complete --command " program-name " --no-files --arguments \"(_babashka_cli_dyna
          ;; complete against the same tree the user dispatches with, so
          ;; `--help`/`-h` (injected by `:help`) also show up as completions
          tree (cond-> base-tree (:help opts) inject-help)
-         ;; the hidden `org.babashka.cli/complete` subcommand carries completion;
+         ;; the hidden `org.babashka.cli/completions` subcommand carries completion;
          ;; it routes through dispatch-tree like any command. A caller that
          ;; preprocesses argv before `dispatch` must pass this command through.
          tree (inject-completion tree opts)]

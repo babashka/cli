@@ -21,14 +21,14 @@
 (defn complete-options [opts args]
   (mapv :value (#'cli/complete-tree* (cli/table->tree [(assoc opts :cmds [])]) args)))
 
-;; drive completion through the hidden `org.babashka.cli/complete` subcommand:
-;; `--line` present -> complete it, absent -> print the install snippet
+;; drive completion through the hidden `org.babashka.cli/completions` subcommand:
+;; `--print-snippet` -> install snippet, otherwise complete `--line`
 (defn- complete-via-cmd [table opts cmdline]
   (with-out-str
-    (cli/dispatch table ["org.babashka.cli/complete" "--shell" "zsh" "--line" cmdline] opts)))
+    (cli/dispatch table ["org.babashka.cli/completions" "--shell" "zsh" "--line" cmdline] opts)))
 (defn- snippet-via-cmd [table opts shell & extra]
   (with-out-str
-    (cli/dispatch table (into ["org.babashka.cli/complete" "--shell" shell] extra) opts)))
+    (cli/dispatch table (into ["org.babashka.cli/completions" "--shell" shell "--print-snippet"] extra) opts)))
 
 (def cmd-table
   [{:cmds ["foo"] :spec {:foo-opt {:coerce :string

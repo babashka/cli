@@ -21,7 +21,7 @@ cat > $tmp/bbtest <<EOF
 exec bb --classpath "$repo/src" "$repo/test-resources/completion/fixture.clj" "\$@"
 EOF
 chmod +x $tmp/bbtest
-PATH="$tmp:$PATH" command bbtest org.babashka.cli/complete --shell zsh > $tmp/comp.zsh
+PATH="$tmp:$PATH" command bbtest org.babashka.cli/completions --shell zsh --print-snippet > $tmp/comp.zsh
 
 # setup sourced into the pty zsh: completion system + compadd capture hook + our snippet
 cat > $tmp/setup.zsh <<SETUP
