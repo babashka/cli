@@ -216,6 +216,19 @@ If the tree is blessed as user-facing input, the gaps are:
 3. The `:cmd` key collision with the candidate shape below becomes moot if
    the existing tree is adopted instead.
 
+### SHIPPED in v0.11.71 (#164): `dispatch` accepts the tree; declaration
+order recorded and used for help/completions; explicit `:cmd-order` for
+maps beyond 8 entries (selects + orders, like option `:order`). The
+vec-of-pairs idea below was not adopted - `:cmd-order` won.
+
+### Revisited 2026-06-11 (after 0.11.71 release): pairs again, deferred
+
+Considered switching/adding lambdaisland-style pairs for `:cmd` so order
+never needs `:cmd-order`. Decision (Michiel): wait, enough drift, 0.11.71
+already published. If picked up later: accept map OR pairs (normalize at
+ingestion, internal form stays the map), then `:cmd-order` becomes
+redundant. Var-as-config (doc/fn from var meta) also deferred.
+
 ### Resolution (2026-06-11, Michiel): bless the tree
 
 Document the tree as user-facing input and fix ordering the way `:spec`

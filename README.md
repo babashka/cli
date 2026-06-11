@@ -88,7 +88,10 @@ Here is an example babashka script to get you started!
           :require true}             ; --num,-n is required
    :dir  {:alias :d
           :desc "Directory name to do stuff"
-          :validate dir-exists?}     ; tests if --dir exists
+          :validate                  ; tests if --dir exists,
+          {:pred dir-exists?         ; with a custom error message
+           :ex-msg (fn [{:keys [value]}]
+                     (str "Directory does not exist: " value))}}
    :flag {:coerce :boolean           ; defines a boolean flag
           :desc "I am just a flag"}})
 
@@ -96,22 +99,33 @@ Here is an example babashka script to get you started!
   (println "Here are your cli args!:" opts))
 
 (defn -main [& args]
-  (cli/dispatch [{:cmds [] :fn run :spec spec}] args {:prog "try-me" :help true}))
+  (cli/dispatch {:fn run :spec spec} args {:prog "try-me" :help true}))
 
-(-main *command-line-args*)
+(apply -main *command-line-args*)
 ```
 
 In the above example, `:help true` wires up automatic `--help`/`-h` support and terse error messages for you. See [Subcommands > Help](#help) for
 customizing it.
 
-The CLI uses a table (the first argument to `dispatch`): a vector of command
-entries. Each entry's `:cmds` is its subcommand path. This CLI has no
-subcommands, so its single entry uses `:cmds []`: a special case of a
-multi-subcommand CLI with 0 levels (see [Subcommands](#subcommands)).
+The first argument to `dispatch` is a [tree](#tree-format) of subcommands. Since this CLI has no subcommands, this is all you need to write. See [Subcommands](#subcommands) for more info.
 
 And this is how you run it:
 
 ```
+$ bb try-me.clj --num 1 --dir my_dir --flag
+Error: Directory does not exist: my_dir
+
+Usage: try-me [options]
+
+Run "try-me --help" for more information.
+```
+
+The directory is validated with `dir-exists?`. A custom error message is
+produced by the `:ex-msg` function. Since the dir does not exist, let's create
+it and try again.
+
+```
+$ mkdir my_dir
 $ bb try-me.clj --num 1 --dir my_dir --flag
 Here are your cli args!: {:num 1, :dir my_dir, :flag true}
 
@@ -119,10 +133,10 @@ $ bb try-me.clj --help
 Usage: try-me [options]
 
 Options:
-  -n, --num  Number of some items
-  -d, --dir  Directory name to do stuff
-      --flag I am just a flag
-  -h, --help Show this help
+  -n, --num   Number of some items (required)
+  -d, --dir   Directory name to do stuff
+      --flag  I am just a flag
+  -h, --help  Show this help
 
 $ bb try-me.clj
 Error: Required option: --num
@@ -132,10 +146,9 @@ Usage: try-me [options]
 Run "try-me --help" for more information.
 ```
 
-### Adding a subcommand
+### Adding subcommands
 
-To grow this into a multi-command CLI, give each entry a `:cmds` path. Here the
-single command becomes a `run` subcommand, with a `version` subcommand added:
+To add subcommands to this CLI, we need to specify a subcommand structure. We'll just give an example here. See [Subcommands](#subcommands) for more info.
 
 ``` clojure
 (defn run [{:keys [opts]}]
@@ -144,12 +157,12 @@ single command becomes a `run` subcommand, with a `version` subcommand added:
 (defn version [_]
   (println "try-me 1.0"))
 
-(def table
-  [{:cmds ["run"]     :fn run     :doc "Run the thing" :spec spec}
-   {:cmds ["version"] :fn version :doc "Print version"}])
+(def tree
+  {:cmd {"run"     {:fn run     :doc "Run the thing" :spec spec}
+         "version" {:fn version :doc "Print version"}}})
 
 (defn -main [& args]
-  (cli/dispatch table args {:prog "try-me" :help true}))
+  (cli/dispatch tree args {:prog "try-me" :help true}))
 ```
 
 `--help` now lists the commands:
@@ -163,7 +176,7 @@ Commands:
   version Print version
 
 Options:
-  -h, --help Show this help
+  -h, --help  Show this help
 
 Run "try-me <command> --help" for more information on a command.
 ```
@@ -454,9 +467,6 @@ Say we want a CLI called as:
 $ example copy <file> --dry-run
 $ example delete <file> --recursive --depth 3
 ```
-
-Building on the [simple example](#simple-example): there, the single entry used
-`:cmds []`. Give each entry a non-empty `:cmds` path and you have subcommands:
 
 ``` clojure
 (ns example

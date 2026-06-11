@@ -1,5 +1,12 @@
 # dispatch: accept the (already public) tree format directly
 
+> STATUS: IMPLEMENTED in v0.11.71 (#164, commit 5e9f935). `dispatch` accepts
+> a tree; table/tree interchangeable in dispatch + format-command-help;
+> declaration order recorded (internal `::cmd-order`) and used for help +
+> completions; explicit `:cmd-order` (vector of names, selects + orders like
+> option `:order`) for >8-entry maps. Vec-of-pairs `:cmd` NOT adopted.
+> Kept for the design trail.
+
 ## Problem
 
 `table->tree` is public API (#150): its output shape (nested `:cmd` maps) is
