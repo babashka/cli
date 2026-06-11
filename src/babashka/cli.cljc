@@ -1905,10 +1905,9 @@ $env.config.completions.external.completer = {|spans|
    {:cmds [] :fn f}]
   ```
 
-  Instead of a table, a tree (the shape [[table->tree]] produces) is also
-  accepted: a map node with the root options and a `:cmd` map from command
-  name to child node. Each node takes the same keys a table entry does
-  (except `:cmds`):
+  Instead of a table, bb.cli also accepts a tree-shaped format: a map node with
+  the root options and a `:cmd` map from command name to child node. Each node
+  takes the same keys a table entry does (except `:cmds`):
 
   ```clojure
   {:spec {:format {:desc \"edn or table\"}}
@@ -1917,10 +1916,10 @@ $env.config.completions.external.completer = {|spans|
                      :cmd {\"clean\" {:fn clean-cache}}}}}
   ```
 
-  Commands render in help and complete in `:cmd` map order. Map literals with
+  The subcommands render in help and completions in the order specified. Map literals with
   more than 8 entries lose insertion order, so put a `:cmd-order` (vector of
-  child command names) on the node to control which children are shown and in
-  what order, like `:order` does for options. A table keeps its entry order
+  child command names) on the map to control which children are shown and in
+   what order (like `:order` does for options). A table keeps its entry order
   automatically.
 
   When a match is found, `:fn` called with the return value of
