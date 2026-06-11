@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## v0.11.72 (2026-06-11)
+
+- [#131](https://github.com/babashka/cli/issues/131): Exclude `scratch.clj` from released jar
+
 ## v0.11.71 (2026-06-11)
 
 - `dispatch` now accepts a tree directly (as returned by `table->tree`). See [Tree format](https://github.com/babashka/cli#tree-format)

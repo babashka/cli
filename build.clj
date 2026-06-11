@@ -17,6 +17,7 @@
 (defn jar [opts]
   (when (:verbose opts)
     (println "Building jar..."))
+  (clean nil)
   (b/write-pom {:class-dir class-dir
                 :lib lib
                 :version version
