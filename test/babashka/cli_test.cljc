@@ -447,15 +447,15 @@
 
 (deftest table->tree-test
   (testing "internal represenation"
-    (is (= {:cmd-order ["foo"]
+    (is (= {:babashka.cli/cmd-order ["foo"]
             :cmd
             {"foo"
-             {:cmd-order ["bar"]
+             {:babashka.cli/cmd-order ["bar"]
               :cmd
               {"bar"
                {:spec {:baz {:coerce :boolean}},
                 :fn identity
-                :cmd-order ["baz"]
+                :babashka.cli/cmd-order ["baz"]
                 :cmd
                 {"baz"
                  {:spec {:quux {:coerce :keyword}},
@@ -468,19 +468,47 @@
                               :fn identity}]))))
   (testing "extra entry keys (e.g. :doc) survive on the node, for help rendering"
     (is (= {:doc "root"
-            :cmd-order ["foo"]
+            :babashka.cli/cmd-order ["foo"]
             :cmd {"foo" {:doc "a foo" :fn identity}}}
            (cli/table->tree [{:cmds [] :doc "root"}
                              {:cmds ["foo"] :doc "a foo" :fn identity}]))))
   (testing "repeated mentions and repeated names at different depths: order
             recorded per node, deduped"
-    (is (= {:cmd-order ["foo"]
-            :cmd {"foo" {:cmd-order ["foo" "baz"]
-                         :cmd {"foo" {:cmd-order ["bar"]
+    (is (= {:babashka.cli/cmd-order ["foo"]
+            :cmd {"foo" {:babashka.cli/cmd-order ["foo" "baz"]
+                         :cmd {"foo" {:babashka.cli/cmd-order ["bar"]
                                       :cmd {"bar" {:fn identity}}}
                                "baz" {:fn identity}}}}}
            (cli/table->tree [{:cmds ["foo" "foo" "bar"] :fn identity}
-                             {:cmds ["foo" "baz"] :fn identity}])))))
+                             {:cmds ["foo" "baz"] :fn identity}]))))
+  (testing "idempotent: converting a tree again is a no-op"
+    (let [tree (cli/table->tree [{:cmds ["a" "b"] :fn identity}
+                                 {:cmds ["c"] :fn identity}])]
+      (is (= tree (cli/table->tree tree)))))
+  (testing "a single table entry (map with :cmds) throws instead of being taken
+            for a tree"
+    (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs :default)
+                 (cli/table->tree {:cmds ["add"] :fn identity})))
+    (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs :default)
+                 (cli/dispatch {:cmds ["add"] :fn identity} ["add"]))))
+  (testing ":cmd merged in via a catch-all entry is recorded, not hidden"
+    (let [tree (cli/table->tree [{:cmds [] :cmd {"b" {:fn identity :doc "B"}}}])]
+      (is (= ["b"] (mapv first (#'cli/cmd-children tree)))))))
+
+(defn- run-dispatch
+  "Run [[cli/dispatch]] capturing stdout+stderr and *exit-fn* calls. Returns
+  `{:out <captured output> :exit <*exit-fn* arg or nil>}`."
+  [table args opts]
+  (let [exit (atom nil)
+        out (with-out-str
+              (binding [cli/*exit-fn*
+                        (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))
+                        #?@(:clj [*err* *out*] :cljs [*print-err-fn* *print-fn*])]
+                (try
+                  (cli/dispatch table args opts)
+                  (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                    (when-not (::exit (ex-data e)) (throw e))))))]
+    {:out out :exit @exit}))
 
 (deftest dispatch-tree-input-test
   ;; dispatch accepts a tree (the table->tree shape) directly
@@ -490,17 +518,7 @@
                            :spec {:port {:coerce :long :desc "Port"}}}
                     "deps" {:doc "Dep tools"
                             :cmd {"outdated" {:fn identity :doc "Show outdated"}}}}}
-        run (fn [args]
-              (let [exit (atom nil)
-                    out (with-out-str
-                          (binding [cli/*exit-fn*
-                                    (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))
-                                    #?@(:clj [*err* *out*] :cljs [*print-err-fn* *print-fn*])]
-                            (try
-                              (cli/dispatch tree args {:prog "tool" :help true})
-                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
-                                (when-not (::exit (ex-data e)) (throw e))))))]
-                {:out out :exit @exit}))]
+        run (fn [args] (run-dispatch tree args {:prog "tool" :help true}))]
     (testing "nested dispatch with options at each level"
       (is (submap? {:dispatch ["dev"] :opts {:port 1234}}
                    (cli/dispatch tree ["dev" "--port" "1234"])))
@@ -568,7 +586,31 @@
                           (cli/format-command-error {:cause :no-match :wrong-input "nope"
                                                      :dispatch [] :prog "p" :tree tree})))))
       (testing "a hidden child still dispatches"
-        (is (submap? {:dispatch ["b"]} (cli/dispatch tree ["b"])))))))
+        (is (submap? {:dispatch ["b"]} (cli/dispatch tree ["b"]))))))
+  (testing "an explicit :cmd-order on a table entry is honored, regardless of
+            where sibling entries sit in the table"
+    (let [group {:cmds ["g"] :cmd-order ["pub"]}
+          pub {:cmds ["g" "pub"] :fn identity :doc "Pub"}
+          secret {:cmds ["g" "secret"] :fn identity :doc "Secret"}
+          names (fn [table]
+                  (listed-command-names
+                   (cli/format-command-help {:table table :cmds ["g"] :prog "p"})))]
+      (is (= ["pub"] (names [group pub secret])))
+      (is (= ["pub"] (names [pub secret group])))))
+  (testing "duplicate names in a hand-written :cmd-order render once"
+    (let [tree {:cmd-order ["a" "a"] :cmd {"a" {:fn identity :doc "A"}}}]
+      (is (= ["a"] (listed-command-names (cli/format-command-help {:table tree :prog "p"}))))))
+  (testing "a node whose children are all hidden does not advertise <command>"
+    (is (= "Usage: p"
+           (cli/format-command-help {:table {:cmd-order [] :cmd {"a" {:fn identity}}}
+                                     :prog "p"}))))
+  (testing ":help true does not change command order (sorted tree, >8 children)"
+    (let [tree {:cmd (into (sorted-map)
+                           (map (fn [i] [(str "c" i) {:fn identity}]))
+                           (range 10))}
+          expected (mapv #(str "c" %) (range 10))]
+      (is (= expected (listed-command-names
+                       (:out (run-dispatch tree ["--help"] {:prog "p" :help true}))))))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
@@ -790,20 +832,11 @@
                {:cmds ["deps"] :doc "Dep tools"}
                {:cmds ["deps" "outdated"] :fn identity :doc "Show outdated"}]
         run (fn [args]
-              (let [exit (atom nil)
-                    ran (atom nil)
-                    table (mapv (fn [e] (cond-> e (:fn e) (assoc :fn (fn [m] (reset! ran m))))) table)
-                    out (with-out-str
-                          (binding [cli/*exit-fn*
-                                    (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))
-                                    ;; capture stderr (errors print there) into the same string
-                                    #?@(:clj [*err* *out*] :cljs [*print-err-fn* *print-fn*])]
-                            (try
-                              ;; NOTE: no :restrict
-                              (cli/dispatch table args {:prog "tool" :help true})
-                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
-                                (when-not (::exit (ex-data e)) (throw e))))))]
-                {:out out :exit @exit :ran @ran}))]
+              (let [ran (atom nil)
+                    table (mapv (fn [e] (cond-> e (:fn e) (assoc :fn (fn [m] (reset! ran m))))) table)]
+                ;; NOTE: no :restrict
+                (assoc (run-dispatch table args {:prog "tool" :help true})
+                       :ran @ran)))]
     (testing "--help at root, no :restrict needed (success: prints, no *exit-fn*)"
       (let [{:keys [out exit]} (run ["--help"])]
         (is (str/includes? out "Usage: tool [options] <command>"))

@@ -62,7 +62,7 @@ Terminates the process after `dispatch`'s `:help` option prints an *error*
   Must exit or throw.
 
   Default: `System/exit` (JVM), `js/process.exit` (Node), `throw` (browser).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1544-L1571">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1570-L1597">Source</a></sub></p>
 
 ## <a name="babashka.cli/apply-defaults">`apply-defaults`</a>
 ``` clojure
@@ -175,7 +175,7 @@ Subcommand dispatcher.
   more than 8 entries lose insertion order, so put a `:cmd-order` (vector of
   child command names) on the node to control which children are shown and in
   what order, like `:order` does for options. A table keeps its entry order
-  automatically ([`table->tree`](#babashka.cli/table->tree) records it as `:cmd-order`).
+  automatically.
 
   When a match is found, `:fn` called with the return value of
   [`parse-args`](#babashka.cli/parse-args) applied to `args` enhanced with:
@@ -211,7 +211,7 @@ Subcommand dispatcher.
   Each entry in the table may have additional [`parse-args`](#babashka.cli/parse-args) options.
 
   For more information and examples, see [README.md](README.md#subcommands).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1856-L1946">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1882-L1971">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-command-error">`format-command-error`</a>
 ``` clojure
@@ -235,7 +235,7 @@ Render a terse, helpful message (a string) for a dispatch error, given the
   this, then calls [`*exit-fn*`](#babashka.cli/*exit-fn*)). Call it from a custom `:error-fn` to keep the
   standard message and add your own output. `--help`/`-h` is not an error - it
   goes to the `:help-fn`, rendered by [`format-command-help`](#babashka.cli/format-command-help).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1582-L1628">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1608-L1654">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-command-help">`format-command-help`</a>
 ``` clojure
@@ -280,7 +280,7 @@ Render conventional `--help` text (a string) for the command at path `cmds`
   This is the renderer the `:help` option uses; call it from a custom `:help-fn`
   to render the standard help and then add your own output. An entry may carry
   `:no-doc true` to be omitted from `Commands:`.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1501-L1542">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1527-L1568">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-opts">`format-opts`</a>
 ``` clojure
@@ -434,14 +434,17 @@ Function.
 
 Converts a `dispatch` table into a tree. Each `:cmds` becomes a path of
   nested `:cmd` maps; other entry keys are kept on the node. Empty `:cmds`
-  merges onto the root. Table order is kept: each node gets a `:cmd-order`
-  with its children in first-appearance order (see [`dispatch`](#babashka.cli/dispatch)).
+  merges onto the root. Table entry order is recorded on each node (internal
+  key) and used as the display order for help and completions (see
+  [`dispatch`](#babashka.cli/dispatch)).
 
   ```clojure
   (table->tree [{:cmds ["add"] :fn add} {:cmds [] :fn help}])
-  ;; => {:fn help, :cmd {"add" {:fn add}}, :cmd-order ["add"]}
+  ;; => {:fn help, :cmd {"add" {:fn add}}, ...}
   ```
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1037-L1050">Source</a></sub></p>
+
+  A tree passed in is normalized and returned, so the function is idempotent.
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1054-L1076">Source</a></sub></p>
 
 ## <a name="babashka.cli/validate-opts">`validate-opts`</a>
 ``` clojure
