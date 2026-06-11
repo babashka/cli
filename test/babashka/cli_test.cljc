@@ -447,12 +447,15 @@
 
 (deftest table->tree-test
   (testing "internal represenation"
-    (is (= {:cmd
+    (is (= {:cmd-order ["foo"]
+            :cmd
             {"foo"
-             {:cmd
+             {:cmd-order ["bar"]
+              :cmd
               {"bar"
                {:spec {:baz {:coerce :boolean}},
                 :fn identity
+                :cmd-order ["baz"]
                 :cmd
                 {"baz"
                  {:spec {:quux {:coerce :keyword}},
@@ -465,9 +468,107 @@
                               :fn identity}]))))
   (testing "extra entry keys (e.g. :doc) survive on the node, for help rendering"
     (is (= {:doc "root"
+            :cmd-order ["foo"]
             :cmd {"foo" {:doc "a foo" :fn identity}}}
            (cli/table->tree [{:cmds [] :doc "root"}
-                             {:cmds ["foo"] :doc "a foo" :fn identity}])))))
+                             {:cmds ["foo"] :doc "a foo" :fn identity}]))))
+  (testing "repeated mentions and repeated names at different depths: order
+            recorded per node, deduped"
+    (is (= {:cmd-order ["foo"]
+            :cmd {"foo" {:cmd-order ["foo" "baz"]
+                         :cmd {"foo" {:cmd-order ["bar"]
+                                      :cmd {"bar" {:fn identity}}}
+                               "baz" {:fn identity}}}}}
+           (cli/table->tree [{:cmds ["foo" "foo" "bar"] :fn identity}
+                             {:cmds ["foo" "baz"] :fn identity}])))))
+
+(deftest dispatch-tree-input-test
+  ;; dispatch accepts a tree (the table->tree shape) directly
+  (let [tree {:doc "tool"
+              :spec {:verbose {:alias :v :coerce :boolean :inherit true :desc "Verbose"}}
+              :cmd {"dev" {:fn identity :doc "Start dev."
+                           :spec {:port {:coerce :long :desc "Port"}}}
+                    "deps" {:doc "Dep tools"
+                            :cmd {"outdated" {:fn identity :doc "Show outdated"}}}}}
+        run (fn [args]
+              (let [exit (atom nil)
+                    out (with-out-str
+                          (binding [cli/*exit-fn*
+                                    (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))
+                                    #?@(:clj [*err* *out*] :cljs [*print-err-fn* *print-fn*])]
+                            (try
+                              (cli/dispatch tree args {:prog "tool" :help true})
+                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                                (when-not (::exit (ex-data e)) (throw e))))))]
+                {:out out :exit @exit}))]
+    (testing "nested dispatch with options at each level"
+      (is (submap? {:dispatch ["dev"] :opts {:port 1234}}
+                   (cli/dispatch tree ["dev" "--port" "1234"])))
+      (is (submap? {:dispatch ["deps" "outdated"] :opts {}}
+                   (cli/dispatch tree ["deps" "outdated"]))))
+    (testing "a root :inherit option is accepted after a subcommand"
+      (is (submap? {:dispatch ["dev"] :opts {:verbose true :port 80}}
+                   (cli/dispatch tree ["dev" "--verbose" "--port" "80"]))))
+    (testing "--help at every level"
+      (let [{:keys [out exit]} (run ["--help"])]
+        (is (str/includes? out "Usage: tool [options] <command>"))
+        (is (str/includes? out "Commands:"))
+        (is (nil? exit)))
+      (is (str/includes? (:out (run ["deps" "--help"])) "Usage: tool deps"))
+      (is (str/includes? (:out (run ["deps" "outdated" "--help"])) "Usage: tool deps outdated")))
+    (testing "unknown subcommand exits via the :error-fn"
+      (let [{:keys [out exit]} (run ["nope"])]
+        (is (str/includes? out "Unknown command: nope"))
+        (is (submap? {:exit 1 :cause :no-match} exit))))
+    (testing "bare group exits via the :error-fn"
+      (let [{:keys [out exit]} (run ["deps"])]
+        (is (str/includes? out "No subcommand given."))
+        (is (submap? {:exit 1 :cause :input-exhausted} exit))))
+    (testing "flag error exits via the :error-fn"
+      (let [{:keys [out exit]} (run ["dev" "--port" "nan"])]
+        (is (str/includes? out "Error:"))
+        (is (submap? {:exit 1 :cause :coerce} exit))))
+    (testing "a table and its equivalent tree dispatch and render help the same"
+      (let [table [{:cmds [] :doc "tool"
+                    :spec {:verbose {:alias :v :coerce :boolean :inherit true :desc "Verbose"}}}
+                   {:cmds ["dev"] :fn identity :doc "Start dev."
+                    :spec {:port {:coerce :long :desc "Port"}}}
+                   {:cmds ["deps"] :doc "Dep tools"}
+                   {:cmds ["deps" "outdated"] :fn identity :doc "Show outdated"}]]
+        (is (= (cli/dispatch table ["dev" "-v" "--port" "1"])
+               (cli/dispatch tree ["dev" "-v" "--port" "1"])))
+        (is (= (cli/format-command-help {:table table :prog "tool"})
+               (cli/format-command-help {:table tree :prog "tool"})))
+        (is (= (cli/format-command-help {:table table :cmds ["dev"] :prog "tool"})
+               (cli/format-command-help {:table tree :cmds ["dev"] :prog "tool"})))))))
+
+(defn- listed-command-names
+  "Command names from the `Commands:` section of help/error output, in order."
+  [s]
+  (->> (str/split-lines s)
+       (drop-while #(not= "Commands:" %))
+       rest
+       (take-while #(str/starts-with? % "  "))
+       (mapv #(first (str/split (str/trim %) #" +")))))
+
+(deftest cmd-order-test
+  (testing "a table with more than 8 subcommands keeps entry order in help"
+    (let [table (mapv (fn [i] {:cmds [(str "cmd" i)] :fn identity :doc (str "Cmd " i)})
+                      (range 10))
+          help (cli/format-command-help {:table table :prog "p"})]
+      (is (= (mapv #(str "cmd" %) (range 10)) (listed-command-names help)))))
+  (testing ":cmd-order on a tree node: sets display order, hides unlisted children"
+    (let [tree {:cmd-order ["c" "a"]
+                :cmd {"a" {:fn identity :doc "A"}
+                      "b" {:fn identity :doc "B"}
+                      "c" {:fn identity :doc "C"}}}]
+      (is (= ["c" "a"] (listed-command-names (cli/format-command-help {:table tree :prog "p"}))))
+      (testing "error suggestions follow the same order"
+        (is (= ["c" "a"] (listed-command-names
+                          (cli/format-command-error {:cause :no-match :wrong-input "nope"
+                                                     :dispatch [] :prog "p" :tree tree})))))
+      (testing "a hidden child still dispatches"
+        (is (submap? {:dispatch ["b"]} (cli/dispatch tree ["b"])))))))
 
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
