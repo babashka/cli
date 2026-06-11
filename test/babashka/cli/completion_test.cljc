@@ -171,6 +171,30 @@
       ;; --foo-opt2 above appears as bare \"--foo-opt2\", proving the no-desc case
       (is (contains? (complete-out "myprogram foo --foo") "--foo-opt2")))))
 
+(deftest tree-completion-test
+  (testing "a tree passed directly to dispatch completes end-to-end"
+    (let [tree {:cmd {"outdated" {:fn identity :doc "Show outdated"}
+                      "cache" {:doc "Manage cache"
+                               :cmd {"clean" {:fn identity}}}}}]
+      (is (= ["outdated\tShow outdated"]
+             (-> (complete-via-cmd tree {:prog "deps"} "deps out")
+                 str/split-lines)))
+      (is (= ["clean"]
+             (-> (complete-via-cmd tree {:prog "deps"} "deps cache ")
+                 str/split-lines)))))
+  (testing ":cmd-order on a tree node: candidates in order, unlisted hidden"
+    (let [tree {:cmd-order ["c" "a"]
+                :cmd {"a" {:fn identity}
+                      "b" {:fn identity}
+                      "c" {:fn identity}}}]
+      (is (= ["c" "a"]
+             (-> (complete-via-cmd tree {:prog "p"} "p ")
+                 str/split-lines)))))
+  (testing "a table with more than 8 subcommands completes in entry order"
+    (let [table (mapv (fn [i] {:cmds [(str "cmd" i)] :fn identity}) (range 10))]
+      (is (= (mapv #(str "cmd" %) (range 10))
+             (complete table [""]))))))
+
 (deftest value-completion-test
   (testing ":complete as a static coll of strings"
     (let [o {:spec {:env {:coerce :string :complete ["dev" "prod"]}}}]

@@ -930,9 +930,26 @@
           (= k prev) (conj (pop acc) (str "<" (name prev) ">..."))
           :else (recur (next s) (conj acc (str "<" (name k) ">")) k (inc n)))))))
 
+(defn- cmd-children
+  "Visible `[name child]` pairs of `node`'s subcommands, for display (help,
+  completions, error suggestions): `:no-doc` children are dropped. An explicit
+  node `:cmd-order` (vector of names) selects which children are shown and in
+  what order, like `:order` does for options. Without it: the declaration
+  order recorded by [[table->tree]]."
+  [node]
+  (let [m (:cmd node)
+        order (or (:cmd-order node) (::cmd-order node))
+        pairs (if order
+                (keep (fn [k] (when-let [child (get m k)] [k child])) order)
+                (map (juxt key val) m))]
+    (remove (comp :no-doc second) pairs)))
+
 (defn- help-usage-line [prog node any-options?]
   (str "Usage: " prog
        (when any-options? " [options]")
+       ;; `<command>` reflects the runtime contract (the node accepts/requires
+       ;; a subcommand), so it keys on the dispatchable children, not the
+       ;; visible ones: a node may hide all children and still demand one
        (cond (seq (:cmd node)) " <command>"
              ;; a runnable command: show labeled positionals from :args->opts, if
              ;; any. We don't show a generic `[<args>]` placeholder otherwise
@@ -942,11 +959,9 @@
              :else             "")))
 
 (defn- help-commands-table [node]
-  (vec
-   (keep (fn [[cmd subnode]]
-           (when-not (:no-doc subnode)
-             [(str cmd) (or (help-first-line (:doc subnode)) "")]))
-         (:cmd node))))
+  (mapv (fn [[cmd subnode]]
+          [(str cmd) (or (help-first-line (:doc subnode)) "")])
+        (cmd-children node)))
 
 (defn- ->spec-map [spec]
   (cond (nil? spec) {}
@@ -1005,23 +1020,71 @@
     (when (= prefix a)
       suffix)))
 
+(defn- add-table-entry
+  "Merge table entry `cfg` into `node` at path `cmds`, recording each child in
+  its parent's `::cmd-order` along the way (duplicates are fine,
+  `normalize-node` dedupes). Empty `cmds` merges onto `node` itself (the
+  catch-all entry); a literal `:cmd` it carries merges with (not clobbers)
+  children from other entries, recorded like path-declared ones."
+  [node cmds cfg]
+  (if-let [[c & cs] (seq cmds)]
+    (-> node
+        (update ::cmd-order (fnil conj []) c)
+        (update-in [:cmd c] add-table-entry cs cfg))
+    (let [extra (:cmd cfg)]
+      (cond-> (merge node cfg)
+        extra (assoc :cmd (merge (:cmd node) extra))
+        extra (update ::cmd-order (fnil into []) (keys extra))))))
+
+(defn- normalize-node
+  "Normalize tree `node`, recursively. Rejects table-entry `:cmds` on a node,
+  dedupes an explicit `:cmd-order` and
+  reconciles the recorded `::cmd-order` with the actual `:cmd` children -
+  stale names dropped, unrecorded children appended in `:cmd` map order
+  (whatever order the map iterates in is at least stable from then on).
+  Idempotent; an already-normalized node comes back `identical?` (subtrees
+  are shared, not copied)."
+  [node]
+  (when (:cmds node)
+    (throw (ex-info "A tree node contains :cmds (table entry syntax): nest children under :cmd, or pass a table (vector of entries)"
+                    {:node node})))
+  (if-let [m (:cmd node)]
+    (let [recorded (into [] (comp (distinct) (filter #(contains? m %))) (::cmd-order node))
+          order (into recorded (remove (set recorded)) (keys m))
+          m' (reduce-kv (fn [acc k v]
+                          (let [v' (normalize-node v)]
+                            (if (identical? v v') acc (assoc acc k v'))))
+                        m m)
+          deduped (when-let [co (:cmd-order node)] (vec (distinct co)))]
+      (cond-> node
+        (not (identical? m m')) (assoc :cmd m')
+        (not= order (::cmd-order node)) (assoc ::cmd-order order)
+        (and deduped (not= deduped (:cmd-order node))) (assoc :cmd-order deduped)))
+    node))
+
 (defn table->tree
   "Converts a `dispatch` table into a tree. Each `:cmds` becomes a path of
   nested `:cmd` maps; other entry keys are kept on the node. Empty `:cmds`
-  merges onto the root.
+  merges onto the root. Table entry order is recorded on each node (internal
+  key) and used as the display order for help and completions (see
+  [[dispatch]]).
 
   ```clojure
   (table->tree [{:cmds [\"add\"] :fn add} {:cmds [] :fn help}])
-  ;; => {:fn help, :cmd {\"add\" {:fn add}}}
-  ```"
+  ;; => {:fn help, :cmd {\"add\" {:fn add}}, ...}
+  ```
+
+  A tree passed in is normalized and returned, so the function is idempotent."
   [table]
-  (reduce (fn [tree {:as cfg :keys [cmds]}]
-            (let [ks (interleave (repeat :cmd) cmds)]
-              (if (seq ks)
-                (update-in tree ks merge (dissoc cfg :cmds))
-                ;; catch-all
-                (merge tree (dissoc cfg :cmds)))))
-          {} table))
+  (if (map? table)
+    (if (:cmds table)
+      (throw (ex-info "Expected a table (vector of entries) or a tree, got a single table entry - wrap it in a vector"
+                      {:table table}))
+      (normalize-node table))
+    (normalize-node
+     (reduce (fn [tree {:as cfg :keys [cmds]}]
+               (add-table-entry tree cmds (dissoc cfg :cmds)))
+             {} table))))
 
 (comment
   (table->tree [{:cmds [] :fn identity}])
@@ -1168,9 +1231,9 @@
   "Subcommand candidates of `node` completing `to-complete`."
   [node to-complete]
   (keep (fn [[cmd subnode]]
-          (when (and (not (:no-doc subnode)) (true-prefix? to-complete cmd))
+          (when (true-prefix? to-complete cmd)
             {:value cmd :description (help-first-line (:doc subnode))}))
-        (:cmd node)))
+        (cmd-children node)))
 
 (defn- positional-candidates
   "Candidates for the positional being completed at `node`, resolved to its spec
@@ -1474,7 +1537,7 @@ $env.config.completions.external.completer = {|spans|
 
 (defn format-command-help
   "Render conventional `--help` text (a string) for the command at path `cmds`
-  in a `dispatch` table (or the tree from [[table->tree]]):
+  in a `dispatch` table or tree:
 
   ```
   Usage: <prog> [options] <command>
@@ -1495,7 +1558,8 @@ $env.config.completions.external.completer = {|spans|
   top-level help.
 
   Takes a single map:
-  * `:table`   - a `dispatch` table, or a tree from [[table->tree]] (required)
+  * `:table`   - a `dispatch` table, or a tree (hand-written or from
+                 [[table->tree]]) - see [[dispatch]] (required)
   * `:cmds`    - the command path, e.g. `[\"deps\" \"outdated\"]` (default `[]`)
   * `:prog`    - program name shown in the usage line (required)
   * `:inherit` - only needed when you pass a dispatch-level `:inherit` to
@@ -1510,7 +1574,7 @@ $env.config.completions.external.completer = {|spans|
   to render the standard help and then add your own output. An entry may carry
   `:no-doc true` to be omitted from `Commands:`."
   [{:keys [table cmds prog inherit] :or {cmds []}}]
-  (let [tree (if (map? table) table (table->tree table))
+  (let [tree (table->tree table)
         ctx (command-help-context tree (vec cmds) prog inherit)]
     (render-help (:node ctx) ctx)))
 
@@ -1570,7 +1634,8 @@ $env.config.completions.external.completer = {|spans|
   standard message and add your own output. `--help`/`-h` is not an error - it
   goes to the `:help-fn`, rendered by [[format-command-help]]."
   [{:keys [cause dispatch wrong-input msg prog inherit tree]}]
-  (let [path   (or dispatch [])
+  (let [tree   (table->tree tree)
+        path   (or dispatch [])
         ctx-at (fn [p] (command-help-context tree (vec p) prog inherit))
         hint  (str "Run \"" (str/join " " (cons prog path))
                    " --help\" for more information.")
@@ -1619,7 +1684,7 @@ $env.config.completions.external.completer = {|spans|
 ;; command names to suggest in errors: skip `:no-doc`, same as help and
 ;; completion hide them
 (defn- visible-command-names [cmd-info]
-  (into [] (comp (remove (comp :no-doc val)) (map key)) (:cmd cmd-info)))
+  (mapv first (cmd-children cmd-info)))
 
 (defn- dispatch-tree'
   ([tree args]
@@ -1839,6 +1904,23 @@ $env.config.completions.external.completer = {|spans|
    ...
    {:cmds [] :fn f}]
   ```
+
+  Instead of a table, bb.cli also accepts a tree-shaped format: a map node with
+  the root options and a `:cmd` map from command name to child node. Each node
+  takes the same keys a table entry does (except `:cmds`):
+
+  ```clojure
+  {:spec {:format {:desc \"edn or table\"}}
+   :cmd {\"outdated\" {:fn outdated}
+         \"cache\"    {:doc \"Manage cache\"
+                     :cmd {\"clean\" {:fn clean-cache}}}}}
+  ```
+
+  The subcommands render in help and completions in the order specified. Map literals with
+  more than 8 entries lose insertion order, so put a `:cmd-order` (vector of
+  child command names) on the map to control which children are shown and in
+   what order (like `:order` does for options). A table keeps its entry order
+  automatically.
 
   When a match is found, `:fn` called with the return value of
   [[parse-args]] applied to `args` enhanced with:

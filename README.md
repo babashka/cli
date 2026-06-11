@@ -549,7 +549,41 @@ See [neil](https://github.com/babashka/neil) for a real-world CLI using subcomma
 
 Each table entry accepts any [parse-args](#options) option (`:spec`,
 `:args->opts`, `:alias`, `:restrict`, ...). The order of entries in the table
-doesn't matter (since 0.8.54).
+doesn't matter for invocation on the command line, but is used for `--help`
+output and completions.
+
+### Tree format
+
+Subcommands can also be specified in a tree format. The root accepts a `:spec`
+for top-level options. The first level of subcommands is specified under `:cmd`
+in a map of strings to subcommand options, which are the same as in the table
+above, minus the `:cmds` entry. You can nest arbitrarily deep.
+
+``` clojure
+(def tree
+  {:spec {:verbose {:coerce :boolean :inherit true :desc "Verbose output"}}
+   :cmd {"copy" {:fn copy :doc "Copy a file" :args->opts [:file]
+                 :spec {:dry-run {:coerce :boolean :desc "Do a dry run"}}}
+         "cache" {:doc "Manage the cache"
+                  :cmd {"clean" {:fn clean :doc "Clean the cache"}}}}})
+
+(cli/dispatch tree args {:prog "example" :help true})
+```
+
+The table or tree format can be used interchangeably in `dispatch`,
+`format-command-help` and the like.
+
+The map's order is used for help output. This can be problematic with more than
+8 entries since those maps turn into unordered hash-maps. In that case you can
+use `:cmd-order` to specify the order for printing. Commands not mentioned in
+`:cmd-order` are left out of printed output, but are still callable on the
+command line.
+
+``` clojure
+{:cmd-order ["copy" "cache"]
+ :cmd {"copy" {...}
+       "cache" {...}}}
+```
 
 Options can be supplied at each level, before and between the subcommands. The
 root level (`:cmds []`) holds options available to every command. For example:
@@ -704,8 +738,8 @@ the default uses:
                         {:table tree :cmds dispatch :prog prog :inherit inherit})))})
 ```
 
-`format-command-help` is also usable on its own (without `dispatch`): pass
-`:table` (a `dispatch` table, or a tree from `table->tree`), `:cmds` (the command
+The function `format-command-help` is also usable on its own (without `dispatch`): pass
+`:table` (a `dispatch` [table or tree](#tree-format)), `:cmds` (the command
 path, default `[]`), `:prog`, and optional `:inherit`. It returns the help
 string.
 
