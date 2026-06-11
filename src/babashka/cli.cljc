@@ -947,7 +947,10 @@
 (defn- help-usage-line [prog node any-options?]
   (str "Usage: " prog
        (when any-options? " [options]")
-       (cond (seq (cmd-children node)) " <command>"
+       ;; `<command>` reflects the runtime contract (the node accepts/requires
+       ;; a subcommand), so it keys on the dispatchable children, not the
+       ;; visible ones: a node may hide all children and still demand one
+       (cond (seq (:cmd node)) " <command>"
              ;; a runnable command: show labeled positionals from :args->opts, if
              ;; any. We don't show a generic `[<args>]` placeholder otherwise
              ;; (matches argparse/clap/click/picocli/cli-tools).
@@ -1017,38 +1020,46 @@
     (when (= prefix a)
       suffix)))
 
-(defn- conj-cmd-order
-  "Record `child` in `node`'s `::cmd-order` on first appearance."
-  [node child]
-  (let [order (::cmd-order node [])]
-    (cond-> node
-      (not (some #{child} order)) (assoc ::cmd-order (conj order child)))))
-
 (defn- add-table-entry
   "Merge table entry `cfg` into `node` at path `cmds`, recording each child in
-  its parent's `::cmd-order` along the way. Empty `cmds` merges onto `node`
-  itself (the catch-all entry)."
+  its parent's `::cmd-order` along the way (duplicates are fine,
+  `normalize-node` dedupes). Empty `cmds` merges onto `node` itself (the
+  catch-all entry); a literal `:cmd` it carries merges with (not clobbers)
+  children from other entries, recorded like path-declared ones."
   [node cmds cfg]
   (if-let [[c & cs] (seq cmds)]
     (-> node
-        (conj-cmd-order c)
+        (update ::cmd-order (fnil conj []) c)
         (update-in [:cmd c] add-table-entry cs cfg))
-    (merge node cfg)))
+    (let [extra (:cmd cfg)]
+      (cond-> (merge node cfg)
+        extra (assoc :cmd (merge (:cmd node) extra))
+        extra (update ::cmd-order (fnil into []) (keys extra))))))
 
 (defn- normalize-node
-  "Normalize tree `node`, recursively: dedupe an explicit `:cmd-order` and
-  reconcile the recorded `::cmd-order` with the actual `:cmd` children -
+  "Normalize tree `node`, recursively. Rejects table-entry `:cmds` on a node,
+  dedupes an explicit `:cmd-order` and
+  reconciles the recorded `::cmd-order` with the actual `:cmd` children -
   stale names dropped, unrecorded children appended in `:cmd` map order
   (whatever order the map iterates in is at least stable from then on).
-  Idempotent."
+  Idempotent; an already-normalized node comes back `identical?` (subtrees
+  are shared, not copied)."
   [node]
+  (when (:cmds node)
+    (throw (ex-info "A tree node contains :cmds (table entry syntax): nest children under :cmd, or pass a table (vector of entries)"
+                    {:node node})))
   (if-let [m (:cmd node)]
-    (let [recorded (filterv #(contains? m %) (::cmd-order node []))
-          order (into recorded (remove (set recorded)) (keys m))]
-      (cond-> (assoc node
-                     :cmd (reduce-kv (fn [acc k v] (assoc acc k (normalize-node v))) {} m)
-                     ::cmd-order order)
-        (:cmd-order node) (update :cmd-order (comp vec distinct))))
+    (let [recorded (into [] (comp (distinct) (filter #(contains? m %))) (::cmd-order node))
+          order (into recorded (remove (set recorded)) (keys m))
+          m' (reduce-kv (fn [acc k v]
+                          (let [v' (normalize-node v)]
+                            (if (identical? v v') acc (assoc acc k v'))))
+                        m m)
+          deduped (when-let [co (:cmd-order node)] (vec (distinct co)))]
+      (cond-> node
+        (not (identical? m m')) (assoc :cmd m')
+        (not= order (::cmd-order node)) (assoc ::cmd-order order)
+        (and deduped (not= deduped (:cmd-order node))) (assoc :cmd-order deduped)))
     node))
 
 (defn table->tree
@@ -1623,7 +1634,8 @@ $env.config.completions.external.completer = {|spans|
   standard message and add your own output. `--help`/`-h` is not an error - it
   goes to the `:help-fn`, rendered by [[format-command-help]]."
   [{:keys [cause dispatch wrong-input msg prog inherit tree]}]
-  (let [path   (or dispatch [])
+  (let [tree   (table->tree tree)
+        path   (or dispatch [])
         ctx-at (fn [p] (command-help-context tree (vec p) prog inherit))
         hint  (str "Run \"" (str/join " " (cons prog path))
                    " --help\" for more information.")

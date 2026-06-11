@@ -481,19 +481,31 @@
                                "baz" {:fn identity}}}}}
            (cli/table->tree [{:cmds ["foo" "foo" "bar"] :fn identity}
                              {:cmds ["foo" "baz"] :fn identity}]))))
-  (testing "idempotent: converting a tree again is a no-op"
+  (testing "idempotent: converting a tree again is a no-op that shares structure"
     (let [tree (cli/table->tree [{:cmds ["a" "b"] :fn identity}
                                  {:cmds ["c"] :fn identity}])]
-      (is (= tree (cli/table->tree tree)))))
+      (is (= tree (cli/table->tree tree)))
+      (is (identical? tree (cli/table->tree tree)))))
   (testing "a single table entry (map with :cmds) throws instead of being taken
             for a tree"
     (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs :default)
                  (cli/table->tree {:cmds ["add"] :fn identity})))
     (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs :default)
                  (cli/dispatch {:cmds ["add"] :fn identity} ["add"]))))
-  (testing ":cmd merged in via a catch-all entry is recorded, not hidden"
-    (let [tree (cli/table->tree [{:cmds [] :cmd {"b" {:fn identity :doc "B"}}}])]
-      (is (= ["b"] (mapv first (#'cli/cmd-children tree)))))))
+  (testing ":cmds on a nested node (table syntax inside a tree) throws too"
+    (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs :default)
+                 (cli/table->tree {:cmd {"sub" {:cmds ["deep"] :fn identity}}}))))
+  (testing "a literal :cmd on the catch-all entry merges with path-declared
+            siblings, in table order"
+    (let [tree (cli/table->tree [{:cmds ["a"] :fn identity :doc "A"}
+                                 {:cmds [] :cmd {"b" {:fn identity :doc "B"}}}])]
+      (is (= ["a" "b"] (mapv first (#'cli/cmd-children tree))))
+      (is (submap? {:dispatch ["a"]} (cli/dispatch tree ["a"])))
+      (is (submap? {:dispatch ["b"]} (cli/dispatch tree ["b"]))))
+    (testing "catch-all first: its children list first"
+      (let [tree (cli/table->tree [{:cmds [] :cmd {"b" {:fn identity :doc "B"}}}
+                                   {:cmds ["a"] :fn identity :doc "A"}])]
+        (is (= ["b" "a"] (mapv first (#'cli/cmd-children tree))))))))
 
 (defn- run-dispatch
   "Run [[cli/dispatch]] capturing stdout+stderr and *exit-fn* calls. Returns
@@ -599,9 +611,14 @@
       (is (= ["pub"] (names [pub secret group])))))
   (testing "duplicate names in a hand-written :cmd-order render once"
     (let [tree {:cmd-order ["a" "a"] :cmd {"a" {:fn identity :doc "A"}}}]
-      (is (= ["a"] (listed-command-names (cli/format-command-help {:table tree :prog "p"}))))))
-  (testing "a node whose children are all hidden does not advertise <command>"
-    (is (= "Usage: p"
+      (is (= ["a"] (listed-command-names (cli/format-command-help {:table tree :prog "p"}))))
+      (testing "also in error suggestions (format-command-error normalizes too)"
+        (is (= ["a"] (listed-command-names
+                      (cli/format-command-error {:cause :no-match :wrong-input "x"
+                                                 :dispatch [] :prog "p" :tree tree})))))))
+  (testing "hiding all children does not change the usage line: a subcommand is
+            still expected at runtime"
+    (is (= "Usage: p <command>"
            (cli/format-command-help {:table {:cmd-order [] :cmd {"a" {:fn identity}}}
                                      :prog "p"}))))
   (testing ":help true does not change command order (sorted tree, >8 children)"
@@ -768,16 +785,12 @@
                (cli/format-command-help {:table t :prog "p"})))))
     (testing "a custom :help-fn can call format-command-help and add to it"
       (let [t [{:cmds [] :fn identity :doc "t" :spec {:a {:desc "A"}}}]
-            out (with-out-str
-                  (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
-                    (try (cli/dispatch t ["--help"]
-                                       {:prog "p" :help true
-                                        :help-fn (fn [{:keys [tree dispatch prog inherit]}]
-                                                   (println "BANNER")
-                                                   (println (cli/format-command-help
-                                                             {:table tree :cmds dispatch :prog prog :inherit inherit})))})
-                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
-                           (when-not (::exit (ex-data e)) (throw e))))))]
+            {:keys [out]} (run-dispatch t ["--help"]
+                                        {:prog "p" :help true
+                                         :help-fn (fn [{:keys [tree dispatch prog inherit]}]
+                                                    (println "BANNER")
+                                                    (println (cli/format-command-help
+                                                              {:table tree :cmds dispatch :prog prog :inherit inherit})))})]
         (is (str/includes? out "BANNER"))
         (is (str/includes? out "Usage: p"))))))
 
@@ -810,18 +823,16 @@
         (is (str/includes? s "Usage: tool dev"))
         (is (str/includes? s "Run \"tool dev --help\" for more information."))))
     (testing "a custom :error-fn can call format-command-error and add to it"
-      (let [exit (atom nil)
-            out (with-out-str
-                  (binding [cli/*exit-fn* (fn [m] (reset! exit m))]
-                    (cli/dispatch table ["nope"]
-                                  {:prog "tool" :help true
-                                   :error-fn (fn [data]
-                                               (println (cli/format-command-error data))
-                                               (println "See https://example.com/docs")
-                                               (cli/*exit-fn* {:exit 1 :cause (:cause data)}))})))]
+      (let [{:keys [out exit]}
+            (run-dispatch table ["nope"]
+                          {:prog "tool" :help true
+                           :error-fn (fn [data]
+                                       (println (cli/format-command-error data))
+                                       (println "See https://example.com/docs")
+                                       (cli/*exit-fn* {:exit 1 :cause (:cause data)}))})]
         (is (str/includes? out "Unknown command: nope"))
         (is (str/includes? out "See https://example.com/docs"))
-        (is (= {:exit 1 :cause :no-match} @exit))))))
+        (is (= {:exit 1 :cause :no-match} exit))))))
 
 (deftest help-option-test
   ;; `:help` on dispatch: help without :restrict, native --help interception
@@ -863,15 +874,10 @@
         (is (str/includes? out "Commands:"))
         (is (submap? {:exit 1 :cause :input-exhausted :dispatch ["deps"]} exit))))
     (testing ":help true works (no :prog; usage line omits it)"
-      (let [exit (atom nil)
-            out (with-out-str
-                  (binding [cli/*exit-fn* (fn [m] (reset! exit m) (throw (ex-info "x" {::exit true})))]
-                    (try (cli/dispatch [{:cmds [] :doc "t"} {:cmds ["go"] :fn identity :doc "Go"}]
-                                       ["--help"] {:help true})
-                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
-                           (when-not (::exit (ex-data e)) (throw e))))))]
+      (let [{:keys [out exit]} (run-dispatch [{:cmds [] :doc "t"} {:cmds ["go"] :fn identity :doc "Go"}]
+                                             ["--help"] {:help true})]
         (is (str/includes? out "Commands:"))
-        (is (nil? @exit))))
+        (is (nil? exit))))
     (testing "*exit-fn* codes can be remapped by :cause (e.g. group -> 0)"
       (let [calls (atom [])]
         (binding [cli/*exit-fn* (fn [m] (swap! calls conj m))]
@@ -885,11 +891,7 @@
     (testing "user controls --help position with an ordered (vec-of-pairs) spec"
       (let [t [{:cmds [] :fn identity :doc "t"
                 :spec [[:help {}] [:verbose {:coerce :boolean :desc "Verbose"}]]}]
-            out (with-out-str
-                  (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
-                    (try (cli/dispatch t ["--help"] {:prog "tool" :help true})
-                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
-                           (when-not (::exit (ex-data e)) (throw e))))))
+            out (:out (run-dispatch t ["--help"] {:prog "tool" :help true}))
             lines (str/split-lines out)
             idx (fn [s] (first (keep-indexed (fn [i l] (when (str/includes? l s) i)) lines)))]
         ;; :help {} placeholder -> --help rendered with defaults, before --verbose
@@ -898,26 +900,17 @@
     (testing "an explicit :order is left untouched: omit :help to hide it (still works)"
       (let [t [{:cmds [] :fn identity :doc "t"
                 :spec {:a {:desc "A"} :b {:desc "B"}} :order [:b :a]}]
-            exit (atom nil)
-            out (with-out-str
-                  (binding [cli/*exit-fn* (fn [m] (reset! exit m) (throw (ex-info "x" {::exit true})))]
-                    (try (cli/dispatch t ["--help"] {:prog "tool" :help true})
-                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
-                           (when-not (::exit (ex-data e)) (throw e))))))]
+            {:keys [out exit]} (run-dispatch t ["--help"] {:prog "tool" :help true})]
         ;; order honored verbatim, --help NOT listed (not in :order)...
         (is (str/includes? out "--b"))
         (is (str/includes? out "--a"))
         (is (not (str/includes? out "--help")))
         ;; ...but --help still triggers help (prints, returns; no *exit-fn*)
-        (is (nil? @exit))))
+        (is (nil? exit))))
     (testing "a subcommand that redefines an inherited option shows it under Options, not Inherited"
       (let [t [{:cmds [] :spec {:x {:inherit true :desc "global x"}}}
                {:cmds ["sub"] :fn identity :spec {:x {:desc "local x"}}}]
-            out (with-out-str
-                  (binding [cli/*exit-fn* (fn [_] (throw (ex-info "x" {::exit true})))]
-                    (try (cli/dispatch t ["sub" "--help"] {:prog "p" :help true})
-                         (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
-                           (when-not (::exit (ex-data e)) (throw e))))))]
+            out (:out (run-dispatch t ["sub" "--help"] {:prog "p" :help true}))]
         ;; child wins: --x shows the local desc; the ancestor's version is deduped out
         (is (re-find #"--x\s+local x" out))
         (is (not (str/includes? out "global x")))))))
@@ -931,17 +924,10 @@
   (let [table [{:cmds ["foo"]       :spec {:opt {:require true :coerce :long :desc "Opt"}}}
                {:cmds ["foo" "bar"] :fn identity :spec {:baz {:desc "Baz"}}}]
         run (fn [args]
-              (let [exit (atom nil)
-                    ran (atom nil)
-                    table (mapv (fn [e] (cond-> e (:fn e) (assoc :fn (fn [m] (reset! ran m))))) table)
-                    out (with-out-str
-                          (binding [cli/*exit-fn*
-                                    (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))]
-                            (try
-                              (cli/dispatch table args {:prog "tool" :help true})
-                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
-                                (when-not (::exit (ex-data e)) (throw e))))))]
-                {:out out :exit @exit :ran @ran}))]
+              (let [ran (atom nil)
+                    table (mapv (fn [e] (cond-> e (:fn e) (assoc :fn (fn [m] (reset! ran m))))) table)]
+                (assoc (run-dispatch table args {:prog "tool" :help true})
+                       :ran @ran)))]
     (testing "foo bar --help: help wins over an ancestor's missing required option"
       (let [{:keys [out exit ran]} (run ["foo" "bar" "--help"])]
         (is (str/includes? out "Usage: tool foo bar"))
