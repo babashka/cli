@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## v0.11.71 (2026-06-11)
 
 - `dispatch` now accepts a tree directly (as returned by `table->tree`). See [Tree format](https://github.com/babashka/cli#tree-format)
 - Subcommand table order is now preserved in printed help and completions
