@@ -4,6 +4,16 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- [#161](https://github.com/babashka/cli/issues/161), [#163](https://github.com/babashka/cli/issues/163): docs: review and update.
+Nomenclature change: subcommand->command.
+For babashka cli library users, we used the term "subcommand".
+For users of clis created with babashka cli we use the term "command".
+They are the same thing.
+We now use the term "command" for both audiences.
+([@lread](https://github.com/lread))
+
 ## v0.11.72 (2026-06-11)
 
 - [#131](https://github.com/babashka/cli/issues/131): Exclude `scratch.clj` from released jar

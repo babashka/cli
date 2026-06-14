@@ -199,7 +199,7 @@
 
 (defn parse-cmds
   "Parses sub-commands (arguments not starting with an option prefix). Returns a map with:
-  * `:cmds` - The parsed subcommands
+  * `:cmds` - The parsed commands
   * `:args` - The remaining (unparsed) arguments"
   ([args] (parse-cmds args nil))
   ([args {:keys [no-keyword-opts]}]
@@ -289,7 +289,7 @@
 
   Supported options:
   * `:coerce` - a map of option (keyword) names to type keywords (optionally wrapped in a collection).
-  * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
+  * `:spec` - a spec of options. See [spec](/README.md#spec).
   * `:error-fn` - error handler, called with a map containing `:cause` (`:coerce`), `:msg`, `:option`, `:value`, `:opts`, and `:flag` (when the option was typed).
 
   `:flag` is the literal option token as it appeared on the command line (e.g.
@@ -627,15 +627,15 @@
   Supported `opts`:
   * `:coerce` - a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
   * `:alias` - a map of short names to long names.
-  * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
+  * `:spec` - a spec of options. See [spec](/README.md#spec).
   * `:restrict` - `true` or coll of keys. Throw on first parsed option not in set of keys or keys of `:spec` and `:coerce` combined.
-  * `:require` - a coll of options that are required. See [require](https://github.com/babashka/cli#restrict).
-  * `:validate` - a map of validator functions. See [validate](https://github.com/babashka/cli#validate).
+  * `:require` - a coll of options that are required. See [require](/README.md#restrict).
+  * `:validate` - a map of validator functions. See [validate](/README.md#validate).
   * `:exec-args` - a map of default args. Will be overridden by args specified in `args`. Values from `:exec-args` are NOT coerced or auto-coerced; provide them in their final form. Not subject to `:restrict`.
   * `:no-keyword-opts` - `true`. Support only `--foo`-style opts (i.e. `:foo` will not work).
   * `:repeated-opts` - `true`. Forces writing the option name for every value, e.g. `--foo a --foo b`, rather than `--foo a b`
   * `:args->opts` - consume unparsed commands and args as options
-  * `:collect` - a map of collection fns. See [custom collection handling](https://github.com/babashka/cli#custom-collection-handling).
+  * `:collect` - a map of collection fns. See [custom collection handling](/README.md#custom-collection-handling).
 
   Examples:
 
@@ -789,9 +789,12 @@
                        (range max-lines))))
               rows))))
 
-(defn format-table [{:keys [rows indent divider wrap max-width-fn]
-                     :or {indent 2 divider " " wrap true max-width-fn default-width-fn}
-                     :as cfg}]
+(defn format-table
+  "Formats `rows` into a table (string).
+  See [Printing options](/README.md#printing-options)."
+  [{:keys [rows indent divider wrap max-width-fn]
+    :or {indent 2 divider " " wrap true max-width-fn default-width-fn}
+    :as cfg}]
   (let [rows (cond-> rows
                (and wrap (seq rows))
                ;; max-width-fn is called only here (lazy): no detection when not wrapping
@@ -838,7 +841,10 @@
   ;;     "                           r3c3 l3"]
   )
 
-(defn opts->table [{:keys [spec order columns]}]
+(defn opts->table
+  "Converts options to a table of rows.
+  See [Printing options](/README.md#printing-options)."
+  [{:keys [spec order columns]}]
   (let [columns (set (or columns (mapcat (fn [[_ s]] (keys s)) spec)))]
     (mapv (fn [[long-opt {:keys [alias default default-desc ref desc negatable]}]]
             (keep identity
@@ -872,7 +878,7 @@
                   (map (fn [k] [k (spec k)]) (or order (keys spec)))
                   spec)
         ;; `:no-doc` options still parse but are hidden from help, like `:no-doc`
-        ;; subcommands are hidden from the command list
+        ;; commands are hidden from the command list
         entries (remove (fn [[_ v]] (:no-doc v)) entries)
         ;; effective required set, matching validation: per-option `:require true`
         ;; or membership in a top-level `:require` coll (both fold into one set)
@@ -894,9 +900,13 @@
               [inv desc]))
           entries (map short entries))))
 
-(defn format-opts [{:as cfg
-                    :keys [indent wrap max-width-fn]
-                    :or {indent 2 wrap true max-width-fn default-width-fn}}]
+(defn format-opts
+  "Formats options into an options usage help string.
+
+  See [Printing options](/README.md#printing-options)."
+  [{:as cfg
+    :keys [indent wrap max-width-fn]
+    :or {indent 2 wrap true max-width-fn default-width-fn}}]
   (format-table {:rows (opts->help-rows cfg)
                  :indent indent
                  :divider "  "
@@ -931,7 +941,7 @@
           :else (recur (next s) (conj acc (str "<" (name k) ">")) k (inc n)))))))
 
 (defn- cmd-children
-  "Visible `[name child]` pairs of `node`'s subcommands, for display (help,
+  "Visible `[name child]` pairs of `node`'s commands, for display (help,
   completions, error suggestions): `:no-doc` children are dropped. An explicit
   node `:cmd-order` (vector of names) selects which children are shown and in
   what order, like `:order` does for options. Without it: the declaration
@@ -948,7 +958,7 @@
   (str "Usage: " prog
        (when any-options? " [options]")
        ;; `<command>` reflects the runtime contract (the node accepts/requires
-       ;; a subcommand), so it keys on the dispatchable children, not the
+       ;; a command), so it keys on the dispatchable children, not the
        ;; visible ones: a node may hide all children and still demand one
        (cond (seq (:cmd node)) " <command>"
              ;; a runnable command: show labeled positionals from :args->opts, if
@@ -1228,7 +1238,7 @@
                   (map (fn [[a l]] [(format-short-opt a) l]) aliases)))))
 
 (defn- command-candidates
-  "Subcommand candidates of `node` completing `to-complete`."
+  "Command candidates of `node` completing `to-complete`."
   [node to-complete]
   (keep (fn [[cmd subnode]]
           (when (true-prefix? to-complete cmd)
@@ -1253,7 +1263,7 @@
 
 (defn- descend
   "Walk the completed prefix `tokens` down dispatch tree `tree`, consuming
-  subcommands and options with their values, accumulating `:inherit`-ed spec
+  commands and options with their values, accumulating `:inherit`-ed spec
   entries like dispatch-tree' does. Returns
   `[[opts aliases known] deepest-node tokens-at-deepest-level end-of-options?]`."
   [tree global-opts tokens]
@@ -1328,7 +1338,7 @@
                    (positional-candidates node spec pos-args parsed raw-last))))))))
 
 ;; The stub a user installs. On each TAB it calls the program back with the
-;; hidden `org.babashka.cli/completions complete` subcommand, passing the
+;; hidden `org.babashka.cli/completions complete` command, passing the
 ;; shell-tokenized words up to the cursor, and renders the
 ;; `value<TAB>description` lines that come back.
 (defn- completion-shell-snippet [shell program-name]
@@ -1505,7 +1515,7 @@ $env.config.completions.external.completer = {|spans|
   `inherit` value, compute everything [[render-help]] needs: the target `:node`,
   its full `:prog` path, the `:inherited` options usable here (aggregated from
   ancestors) and the `:parents` pointers (ancestors with non-inherited options
-  that must precede the subcommand).
+  that must precede the command).
 
   Specs are mapified here for set reasoning (a standalone `format-command-help`
   spec may be a vec-of-pairs); display order is handled by `render-help`."
@@ -1524,7 +1534,7 @@ $env.config.completions.external.completer = {|spans|
                     {:pre pre :inh inh :own (apply dissoc spec (keys inh))})
         inherited (reduce merge {} (map :inh ancestors))
         ;; ancestors with non-inherited options that aren't also available here
-        ;; (those must be given before the subcommand)
+        ;; (those must be given before the command)
         parents (for [{:keys [pre own]} ancestors
                       :let [own (apply dissoc own here)]
                       :when (seq own)]
@@ -1537,7 +1547,7 @@ $env.config.completions.external.completer = {|spans|
 
 (defn format-command-help
   "Render conventional `--help` text (a string) for the command at path `cmds`
-  in a `dispatch` table or tree:
+  in a `dispatch` table or tree.
 
   ```
   Usage: <prog> [options] <command>
@@ -1580,12 +1590,12 @@ $env.config.completions.external.completer = {|spans|
 
 (defn ^:dynamic *exit-fn*
   "Terminates the process after `dispatch`'s `:help` option prints an *error*
-  (unknown/missing subcommand, flag error). `--help`/`-h` is not an error - it
+  (unknown/missing command, option error). `--help`/`-h` is not an error - it
   prints help and returns, so it does not call this. Called with a map:
 
   * `:exit` - exit code (always non-zero, `1`)
-  * `:cause` - the dispatch error cause: `:no-match` (unknown subcommand),
-    `:input-exhausted` (group with no subcommand), or the flag cause
+  * `:cause` - the dispatch error cause: `:no-match` (unknown command),
+    `:input-exhausted` (no command or incomplete multi-word command), or the option cause
     (`:restrict` / `:require` / `:validate` / `:coerce`)
   * `:dispatch` - the command path
   * `:data` - the original `dispatch` error data
@@ -1617,17 +1627,17 @@ $env.config.completions.external.completer = {|spans|
   (println (format-command-help {:table tree :cmds (or dispatch []) :prog prog :inherit inherit})))
 
 (defn format-command-error
-  "Render a terse, helpful message (a string) for a dispatch error, given the
-  data `dispatch` passes to its `:error-fn`:
+  "Render a terse, helpful message (a string) for a dispatch error.
+  It is given the data `dispatch` passes to its `:error-fn`:
 
-  * `:no-match` (unknown subcommand) -> message + commands + hint
-  * `:input-exhausted` (group, no subcommand) -> message + commands + hint
-  * flag error (`:restrict` / `:require` / `:validate` / `:coerce`) -> message
+  * `:no-match` (unknown command) -> message + commands + hint
+  * `:input-exhausted` (no command or incomplete multi-word command) -> message + commands + hint
+  *  option error (`:restrict` / `:require` / `:validate` / `:coerce`) -> message
     + usage + hint
 
   Reads the command tree, `:prog`, `:inherit`, `:dispatch` (the path), and for
-  flag errors `:msg` (and for `:no-match`, `:wrong-input`) from the data.
-  Messages name the flag as typed (`--foo`/`-x`), not `:foo`.
+  option errors `:msg` (and for `:no-match`, `:wrong-input`) from the data.
+  Messages name the option as typed (`--foo`/`-x`), not `:foo`.
 
   This is the renderer the `:help` option's default `:error-fn` uses (it prints
   this, then calls [[*exit-fn*]]). Call it from a custom `:error-fn` to keep the
@@ -1643,9 +1653,9 @@ $env.config.completions.external.completer = {|spans|
                 (let [{:keys [node prog inherited]} (ctx-at p)]
                   (help-usage-line prog node (or (seq (:spec node))
                                                  (seq inherited)))))
-        ;; subcommand-level error (unknown / missing): terse message + the
+        ;; command-level error (unknown / missing): terse message + the
         ;; available commands + a pointer to --help
-        subcommand-error
+        command-error
         (fn [message]
           (let [cmds (help-commands-table (:node (ctx-at path)))]
             (str/join "\n"
@@ -1655,13 +1665,13 @@ $env.config.completions.external.completer = {|spans|
                               [hint]))))]
     (cond
       (= :no-match cause)
-      (subcommand-error (str "Unknown command: " wrong-input))
+      (command-error (str "Unknown command: " wrong-input))
 
       (= :input-exhausted cause)
-      (subcommand-error "No subcommand given.")
+      (command-error "No command given.")
 
-      ;; genuine flag error (restrict / require / validate / coerce): terse.
-      ;; The lib message already names the flag the user typed.
+      ;; genuine option error (restrict / require / validate / coerce): terse.
+      ;; The lib message already names the option the user typed.
       :else
       (str/join "\n" [(str "Error: " msg) "" (usage path) "" hint]))))
 
@@ -1711,12 +1721,12 @@ $env.config.completions.external.completer = {|spans|
                         (assoc :spec (deep-merge (deep-merge (->spec-map (:spec opts))
                                                              inherited)
                                                  (->spec-map (:spec kwm)))))
-           ;; thread dispatch context into flag-level errors
+           ;; thread dispatch context into opotion-level errors
            ;; (restrict/require/validate/coerce) so an :error-fn can render help:
            ;; the current path, the program name, dispatch-level :inherit, and the
            ;; command tree
            user-error-fn (:error-fn parse-opts)
-           ;; With the `:help` option on, a flag error (require/validate/restrict/
+           ;; With the `:help` option on, a option error (require/validate/restrict/
            ;; coerce) is stashed rather than fired: a `--help`/`-h` further along
            ;; (e.g. `foo bar --help` where `foo` requires an option) parses at its
            ;; own level and routes to help, and `dispatch-tree` discards the stash.
@@ -1775,7 +1785,7 @@ $env.config.completions.external.completer = {|spans|
   ([tree args]
    (dispatch-tree tree args nil))
   ([tree args opts]
-   (let [;; with `:help` on, flag errors are deferred (stashed) during the walk
+   (let [;; with `:help` on, option errors are deferred (stashed) during the walk
          ;; so a `--help`/`-h` deeper in the args can win - see dispatch-tree'
          error-stash (when (::help opts) (atom []))
          opts (cond-> opts error-stash (assoc ::error-stash error-stash))
@@ -1786,12 +1796,12 @@ $env.config.completions.external.completer = {|spans|
                          (throw (ex-info msg data))))]
      (cond
        ;; --help/-h: success - print help via the :help-fn and return (no exit).
-       ;; Help wins over any stashed flag error.
+       ;; Help wins over any stashed option error.
        (= :help error)
        ((::help-fn opts) (thread-dispatch-context
                           (assoc (select-keys res [:dispatch]) :tree tree)
                           opts))
-       ;; a flag error was stashed during the walk and help did not win: fire the
+       ;; an option error was stashed during the walk and help did not win: fire the
        ;; first one (terse message via :error-fn, which exits non-zero)
        (and error-stash (seq @error-stash))
        ((first @error-stash))
@@ -1892,10 +1902,10 @@ $env.config.completions.external.completer = {|spans|
                      (pr-str sub))))))
 
 (defn dispatch
-  "Subcommand dispatcher.
+  "Command dispatcher.
 
   Dispatches on longest matching command entry in `table` by matching
-  subcommands to the `:cmds` vector and invoking the correspondig `:fn`.
+  commands to the `:cmds` vector and invoking the correspondig `:fn`.
 
   Table is in the form:
 
@@ -1916,7 +1926,7 @@ $env.config.completions.external.completer = {|spans|
                      :cmd {\"clean\" {:fn clean-cache}}}}}
   ```
 
-  The subcommands render in help and completions in the order specified. Map literals with
+  The commands render in help and completions in the order specified. Map literals with
   more than 8 entries lose insertion order, so put a `:cmd-order` (vector of
   child command names) on the map to control which children are shown and in
    what order (like `:order` does for options). A table keeps its entry order
@@ -1931,7 +1941,7 @@ $env.config.completions.external.completer = {|spans|
 
   Use an empty `:cmds` vector to always match or to provide global options.
 
-  For a single-command CLI (no subcommands), use a one-entry table whose `:cmds`
+  For a single-command CLI (no commands), use a one-entry table whose `:cmds`
   is `[]`:
 
   ```clojure
@@ -1945,7 +1955,7 @@ $env.config.completions.external.completer = {|spans|
 
   * `--help`/`-h` print help for the command they precede and return (no error,
     so the process ends with status 0). This goes through a `:help-fn`.
-  * an unknown/missing subcommand or a flag error prints a terse message and
+  * an unknown/missing command or a option error prints a terse message and
     exits non-zero (via [[*exit-fn*]]). This goes through the `:error-fn`.
 
   Both default handlers can be overridden: pass your own `:help-fn` (called with
@@ -1955,7 +1965,7 @@ $env.config.completions.external.completer = {|spans|
 
   Each entry in the table may have additional [[parse-args]] options.
 
-  For more information and examples, see [README.md](README.md#subcommands)."
+  For more information and examples, see [README.md](README.md#commands)."
   ([table args]
    (dispatch table args {}))
   ([table args opts]
@@ -1972,7 +1982,7 @@ $env.config.completions.external.completer = {|spans|
                         (assoc opts ::help true
                                ;; default :error-fn = print the message, then exit;
                                ;; :cause is the dispatch cause as-is (:no-match /
-                               ;; :input-exhausted / a flag cause)
+                               ;; :input-exhausted / an option cause)
                                :error-fn (or (:error-fn opts)
                                              (fn [{:keys [cause dispatch] :as data}]
                                                (print-command-error data)

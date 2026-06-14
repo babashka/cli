@@ -3,7 +3,7 @@
 [![Clojars Project](https://img.shields.io/clojars/v/org.babashka/cli.svg)](https://clojars.org/org.babashka/cli)
 [![bb built-in](https://raw.githubusercontent.com/babashka/babashka/master/logo/built-in-badge.svg)](https://book.babashka.org#badges)
 
-Turn Clojure functions into CLIs! This library can be used from:
+Turn Clojure functions into Command Line Interfaces! This library can be used from:
 - [babashka](https://github.com/babashka/babashka) - included as a built-in library
 - [Clojure on the JVM](https://www.clojure.org/guides/install_clojure) - we support Clojure 1.10.3 and above on Java 11 and above
 - [ClojureScript](https://clojurescript.org) - we test against the current release
@@ -12,39 +12,49 @@ Turn Clojure functions into CLIs! This library can be used from:
 
 ## Status
 
-This library is still in design phase and may still undergo breaking changes.
+This library is still in the design phase and may still undergo breaking changes.
 Check [breaking changes](CHANGELOG.md#breaking-changes) before upgrading!
 
 ## Installation
 
-Add to your `deps.edn` or `bb.edn` `:deps` entry:
+For Clojure and ClojureScript, include a `:deps` entry in your  `deps.edn` file:
 
 ``` clojure
 org.babashka/cli {:mvn/version "<latest-version>"}
 ```
 
+For babashka, no changes are needed; `org.babashka/cli` is a babashka built-in library.
+
 ## Intro
 
-Turn a Clojure function into a CLI that takes Unix-style command line arguments:
+Turn a Clojure function into a CLI that takes Unix-style command line arguments. E.g.:
 
 ``` clojure
-$ cli command --long-opt1 v1 -o v2
+$ prog command --flag --long-opt1 v1 -o v2 arg
 ```
+
+Where:
+- `prog` is your program (which will be launched by Clojure, ClojureScript, or babashka)
+- `command` is a single or multi-word command for your program
+- `--flag` is a boolean flag option
+- `--long-opt1 v1` is an option
+- `-o v2` is a short option
+- `arg` is a positional argument
 
 The main ideas:
 
-- Put as little effort as possible into turning a clojure function into a CLI,
-  similar to `-X` style invocations. For lazy people like me! If you are not
+- Put as little effort as possible into turning a Clojure function into a CLI,
+  similar to `-X` exec style invocations. For lazy people like me! If you are not
   familiar with `clj -X`, read the docs
   [here](https://clojure.org/reference/clojure_cli#use_fn).
-- But with a better UX by not having to use quotes on the command line as a
+- But with a better user experience by not having to use quotes on the command line as a
   result of having to pass EDN directly: `--dir foo` instead of `:dir '"foo"'` (or
-  who knows how to write the latter in `cmd.exe` or Powershell?).
-- By default, employ an open world assumption: passing extra arguments does not break and arguments
-  can be re-used in multiple contexts.
-- But also support incremental restrictions and validations as a form of polishing a CLI for production use.
+  who knows how to write the latter in Windows' `cmd.exe` or Powershell?).
+- By default, employ an open world assumption: passing extra arguments does not break, and arguments
+  can be reused in multiple contexts.
+- But also support incremental restrictions and validations as a way to polish a CLI for production use.
 
-See [clojure CLI](#clojure-cli) for how to turn your exec functions into CLIs.
+See [clojure CLI](#clojure-cli) for how to turn your `-X` exec functions into CLIs.
 
 ## Projects using babashka CLI
 
@@ -60,7 +70,7 @@ See [clojure CLI](#clojure-cli) for how to turn your exec functions into CLIs.
 - [Simple example](#simple-example)
 - [Options](#options)
 - [Arguments](#arguments)
-- [Subcommands](#subcommands)
+- [Commands](#commands)
 - [Completions](#completions)
 - [Adding Production Polish](#adding-production-polish)
 - [Babashka tasks](#babashka-tasks)
@@ -69,8 +79,8 @@ See [clojure CLI](#clojure-cli) for how to turn your exec functions into CLIs.
 
 ## Simple example
 
-Babashka CLI works in Clojure, ClojureScript and [babashka](https://book.babashka.org/).
-Here is an example babashka script to get you started!
+Babashka CLI works in Clojure, ClojureScript, and [babashka](https://book.babashka.org/).
+Here is an example babashka script to get you started! Save it to `try-me.clj`.
 
 ```clojure
 #!/usr/bin/env bb
@@ -104,13 +114,22 @@ Here is an example babashka script to get you started!
 (apply -main *command-line-args*)
 ```
 
-In the above example, `:help true` wires up automatic `--help`/`-h` support and terse error messages for you. See [Subcommands > Help](#help) for
-customizing it.
+The `:help true` option supplied to `dispatch` wires up automatic `--help`/`-h` support and terse error messages (as opposed to thrown exceptions) for you.
 
-The first argument to `dispatch` is a [tree](#tree-format) of subcommands. Since this CLI has no subcommands, this is all you need to write. See [Subcommands](#subcommands) for more info.
+Let's request usage help:
+```
+$ bb try-me.clj --help
+Usage: try-me [options]
 
-And this is how you run it:
+Options:
+  -n, --num  Number of some items (required)
+  -d, --dir  Directory name to do stuff
+      --flag I am just a flag
+  -h, --help Show this help
+```
+See [Commands > Help](#help) to customize help.
 
+Let's try running with some options:
 ```
 $ bb try-me.clj --num 1 --dir my_dir --flag
 Error: Directory does not exist: my_dir
@@ -119,25 +138,18 @@ Usage: try-me [options]
 
 Run "try-me --help" for more information.
 ```
+The directory was validated with `dir-exists?`. Because the directory does not exist, you see the custom error message produced by the `:ex-msg` function.
 
-The directory is validated with `dir-exists?`. A custom error message is
-produced by the `:ex-msg` function. Since the dir does not exist, let's create
-it and try again.
-
+Let's create `my_dir`, then try again:
 ```
 $ mkdir my_dir
 $ bb try-me.clj --num 1 --dir my_dir --flag
 Here are your cli args!: {:num 1, :dir my_dir, :flag true}
+```
+All validations passed, and the `run` function was invoked.
 
-$ bb try-me.clj --help
-Usage: try-me [options]
-
-Options:
-  -n, --num   Number of some items (required)
-  -d, --dir   Directory name to do stuff
-      --flag  I am just a flag
-  -h, --help  Show this help
-
+The `:num` option includes `:require true`, let's see what happens when we don't include it on the command line:
+```
 $ bb try-me.clj
 Error: Required option: --num
 
@@ -145,28 +157,33 @@ Usage: try-me [options]
 
 Run "try-me --help" for more information.
 ```
+We, appropriately, get a terse error message and an exit status of 1.
 
-### Adding subcommands
+### Adding commands
 
-To add subcommands to this CLI, we need to specify a subcommand structure. We'll just give an example here. See [Subcommands](#subcommands) for more info.
+To add commands to this CLI, we need to specify a command structure. We'll just give an example here. See [Commands](#commands) for more info.
 
+Alter `try-me.clj`:
 ``` clojure
+;; same as above
 (defn run [{:keys [opts]}]
   (println "Here are your cli args!:" opts))
 
+;; new
 (defn version [_]
   (println "try-me 1.0"))
 
+;; new
 (def tree
   {:cmd {"run"     {:fn run     :doc "Run the thing" :spec spec}
          "version" {:fn version :doc "Print version"}}})
 
+;; updated to use `tree` command structure
 (defn -main [& args]
   (cli/dispatch tree args {:prog "try-me" :help true}))
 ```
 
-`--help` now lists the commands:
-
+`--help` now lists the available commands:
 ```
 $ bb try-me.clj --help
 Usage: try-me [options] <command>
@@ -181,20 +198,29 @@ Options:
 Run "try-me <command> --help" for more information on a command.
 ```
 
-`bb try-me.clj run --num 1 --flag` calls `run`; `bb try-me.clj version` calls
-`version`. See [Subcommands](#subcommands) for shared options, inheritance and
-help customization.
+The `run` command calls the `run` function:
+```
+$ bb try-me.clj run --num 1 --flag
+Here are your cli args!: {:num 1, :flag true}
+```
+
+The `version` command calls the `version` function:
+```
+$ bb try-me.clj version
+try-me 1.0
+```
+
+See [Commands](#commands) for shared options, inheritance, and help customization.
 
 ## Options
 
-For parsing options, use either [`parse-opts`](/API.md#parse-opts) or [`parse-args`](/API.md#parse-args).
+If you'd like to parse options yourself (instead of using [`dispatch`](/API.md#dispatch)),
+use either lower-level [`parse-opts`](/API.md#parse-opts) or [`parse-args`](/API.md#parse-args). We will
+use these parse functions in this section to demonstrate how options parsing works.
 
-On the command line, a named option is written `--opt val`, or `-o val` using an
-[alias](#aliases). Babashka CLI also accepts a `:`-prefixed form, `:opt val`, to
-match the Clojure CLI `-X` invocation style. The two cannot be mixed in a single
-invocation. Use `--`/`-` or `:`, not both.
+On the command line, a named option is written as `--opt val` or short-form [alias](#aliases) `-o val`.
 
-Options are configured with a [spec](#spec) (short for "options spec", not
+Options are configured with a [spec](#spec) (short for "options specification", not
 `clojure.spec`): a map keyed by option name, each value a map of `:coerce`,
 `:alias`, `:validate`, `:require`, `:desc`, etc., passed under `:spec`:
 
@@ -236,28 +262,38 @@ Coerce values into a collection:
 ;;=> {:paths ["src" "test"]}
 ```
 
-Transforming to a collection of a certain type:
+Transforming into a collection of a certain type:
 
 ``` clojure
 (cli/parse-opts ["--foo" "bar" "--foo" "baz"] {:spec {:foo {:coerce [:keyword]}}})
 ;; => {:foo [:bar :baz]}
 ```
 
-Besides the built-in coercion keywords, `:coerce` accepts any function (called
-with the string value):
+In addition to the built-in coercion keywords, `:coerce` accepts any function (called
+with the option's value as a string):
 
 ``` clojure
 (cli/parse-opts ["--letter" "alpha"] {:spec {:letter {:coerce (fn [s] (subs s 0 1))}}})
 ;;=> {:letter "a"}
 ```
 
-Booleans need no explicit `true` value and `:coerce` option:
+Boolean flags are assumed by default, like so:
 
 ``` clojure
 (cli/parse-opts ["--verbose"])
 ;;=> {:verbose true}
 
 (cli/parse-opts ["-v" "-v" "-v"] {:spec {:verbose {:alias :v :coerce []}}})
+;;=> {:verbose [true true true]}
+```
+
+But you can explicitly specify `:boolean` coercion (and will sometimes need to, see [Arguments](#arguments)):
+
+``` clojure
+(cli/parse-opts ["--verbose"] {:spec {:coerce :boolean}})
+;;=> {:verbose true}
+
+(cli/parse-opts ["-v" "-v" "-v"] {:spec {:verbose {:alias :v :coerce [:boolean]}}})
 ;;=> {:verbose [true true true]}
 ```
 
@@ -275,22 +311,38 @@ Flags may be combined into a single short option:
 ;;=> {:a true :b true :c true}
 ```
 
-Arguments that start with `--no-` arg parsed as negative flags:
+Long options that start with `--no-` are parsed as negative flags:
 
 ``` clojure
 (cli/parse-opts ["--no-colors"])
 ;;=> {:colors false}
 ```
-
 This works for any option. For a boolean option where the negation is meaningful,
 set `:negatable true` in its spec to advertise it in help as `--[no-]colors`.
 
-## Spec
 
-A spec (short for "options spec", not `clojure.spec`) is a map keyed by option
+Babashka CLI also accepts a `:`-prefixed form, `:opt val`, to
+match the Clojure CLI `-X` invocation style. The two forms cannot be mixed in a single
+invocation. Use `--`/`-` or `:`, not both. If you prefer to only allow only `--`/`-` style options, specify `:no-keyword-opts true`:
+
+```clojure
+(cli/parse-args [":foo" "bar"])
+;; => {:opts {:foo "bar"}}
+
+(cli/parse-args [":foo" "bar"] {:no-keyword-opts true})
+;; => {:args [":foo" "bar"], :opts {}}
+
+(cli/parse-args ["--foo" "bar" ":no" "mixing"])
+;; => {:args [":no" "mixing"], :opts {:foo "bar"}}
+```
+Notice how unrecognized options are considered [Arguments](#arguments).
+
+### Spec
+
+A spec (short for options specification, not `clojure.spec`) is a map keyed by option
 name; each value configures one option.
-Alongside the parsing keys (`:coerce`, `:alias`, `:validate`, ...) it carries
-`:desc` and `:ref`, used when printing options (see [Printing options](#printing-options)). For
+Alongside the parsing keys (`:coerce`, `:alias`, `:validate`, ...), it carries
+`:desc`, `:ref`, and `:default-desc` used when printing options (see [Printing options](#printing-options)). For
 example:
 
 ``` clojure
@@ -314,22 +366,23 @@ example:
                     :default-desc "src test"}})
 ```
 
-You can pass the spec to `parse-opts` under the `:spec` key: `(parse-opts args {:spec spec})`.
+You can pass the spec to `parse-opts` under the `:spec` key: `(parse-opts args {:spec spec})`, or when using
+`dispatch`, in the entry for each command.
 An explanation of each key:
 
-- `:ref`: a name which can be used as a reference in the description (`:desc`)
+- `:ref`: a name that describes the option value, which is typically used as a reference in the description (`:desc`)
 - `:desc`: a description of the option.
 - `:coerce`: coerce a string value to a type. Built-in keywords: `:boolean`
   (`:bool`), `:int` (`:long`), `:double`, `:number`, `:symbol`, `:keyword`,
   `:string`, `:edn`, `:auto`. A collection collects repeated values: `[]`
-  (vector), `#{}` (set) or `()` (list); put a coercion keyword inside it to
-  coerce each element (e.g. `[:keyword]`, `#{:int}`). A function is also
-  accepted: it is called with the string and returns the value.
-- `:alias`: mapping of short name to long name.
+  (vector), `#{}` (set) or `()` (list); put a coercion keyword inside the collection to
+  coerce each element (e.g., `[:keyword]`, `#{:int}`). A function is also
+  accepted: it is called with the option value as a string and returns the coerced value.
+- `:alias`: an alternative short name; a synonym for the option name.
 - `:default`: default value.
 - `:default-desc`: a string representation of the default value.
 - `:require`: `true` make this opt required.
-- `:validate`: a function used to validate the value of this opt (as described
+- `:validate`: a function used to validate the value of this option (as described
   in the [Validate](#validate) section).
 - `:collect`: collect repeated values into a collection (`[]` vector, `#{}` set
   or `()` list), or a function `(fn [coll arg-value] ...)` for custom collection
@@ -337,7 +390,7 @@ An explanation of each key:
 
 ### Custom collection handling
 
-Usually the above will suffice, but for custom transformation to a collection, you can use `:collect`.
+For those rare cases when you need it, you can use a `:collect` function for custom collection.
 Here's an example of parsing out `,` separated multi-arg-values:
 
 ``` clojure
@@ -352,13 +405,28 @@ Here's an example of parsing out `,` separated multi-arg-values:
 
 Babashka CLI auto-coerces values that have no explicit coercion
 with [`auto-coerce`](/API.md#auto-coerce):
-it automatically tries to convert booleans, numbers and keywords.
+It automatically tries to convert booleans, numbers, and keywords.
+
+``` clojure
+(cli/parse-opts ["--num" "1339" "--kw" ":foo" "--bool" "false" "--str" "bar"])
+;; => {:num 1339, :kw :foo, :bool false, :str "bar"}
+
+;; the actual types...:
+(->> (cli/parse-opts ["--num" "1339" "--kw" ":foo" "--bool" "false" "--str" "bar"])
+     (reduce-kv (fn [m k v]
+               (assoc m k [v (type v)]))
+             {}))
+;; => {:num [1339 java.lang.Long],
+;;     :kw [:foo clojure.lang.Keyword],
+;;     :bool [false java.lang.Boolean],
+;;     :str ["bar" java.lang.String]}
+```
 
 ### Aliases
 
-An `:alias` specifies a mapping from short to long name.
+An `:alias` specifies a synonym short option name for the option name.
 
-The library can distinguish aliases with characters in common, so a way to implement the common `-v`/`-vv` unix pattern is:
+Babashka CLI distinguishes aliases with characters in common, so a way to implement the common `-v`/`-vv` Unix pattern is:
 ``` clojure
 (def spec {:verbose      {:alias :v
                           :desc  "Enable verbose output."}
@@ -390,7 +458,7 @@ user=> (cli/parse-opts ["-vvv"] {:spec spec})
 ## Arguments
 
 To parse positional arguments, you can use `parse-args` and/or the `:args->opts`
-option. E.g. to parse arguments for the `git push` command:
+option. E.g., to parse arguments for the `git push` command:
 
 ``` clojure
 (cli/parse-args ["--force" "ssh://foo"] {:spec {:force {:coerce :boolean}}})
@@ -400,7 +468,7 @@ option. E.g. to parse arguments for the `git push` command:
 ;;=> {:args ["ssh://foo"], :opts {:force true}}
 ```
 
-Note that this library can only disambiguate correctly between values for
+Note that babashka CLI can only disambiguate correctly between values for
 options and trailing arguments with enough `:coerce` information
 available. Without the `:coerce :boolean` info, we get:
 
@@ -433,7 +501,7 @@ To fold positional arguments into the parsed options, you can use `:args->opts`:
 ;;=> {:url "ssh://foo", :force true}
 ```
 
-If you want to fold a variable amount of arguments, you can coerce into a vector
+If you want to fold a variable number of arguments, you can coerce them into a vector
 and specify the variable number of arguments with `repeat`:
 
 ``` clojure
@@ -445,59 +513,102 @@ and specify the variable number of arguments with `repeat`:
 Options may be interspersed with the positional arguments:
 
 ``` clojure
-(def cli-opts {:spec {:bar {:coerce []} :force {:coerce :boolean}}
+(def cli-opts {:spec {:foo {:coerce :keyword}
+                      :bar {:coerce []}
+                      :force {:coerce :boolean}}
                :args->opts (cons :foo (repeat :bar))})
+
 (cli/parse-opts ["arg1" "arg2" "--force" "arg3"] cli-opts)
-;;=> {:foo "arg1", :bar ["arg2" "arg3"], :force true}
+;; => {:foo :arg1, :bar ["arg2" "arg3"], :force true}
 ```
 
-This also holds for a subcommand leaf in [dispatch](#subcommands): a command with
-variadic `:args->opts` parses options before, among or after its positional
-arguments. Without `:args->opts`, `dispatch` stops at the first positional (to
-route subcommands), so trailing options would not be parsed.
+This also holds for a command leaf in [dispatch](#commands): a command with
+variadic `:args->opts` parses options before, among, or after its positional
+arguments. Without `:args->opts`, `dispatch` stops at the first positional argument
+(to route commands), so trailing options would not be parsed.
 
-## Subcommands
+## Commands
 
-To handle subcommands, use
-[dispatch](/API.md#dispatch).
+Babashka CLI handles commands with [dispatch](/API.md#dispatch).
 
-Say we want a CLI called as:
+### Single-word Commands
+
+Say we want a CLI with a `copy` command, a `delete` command, and an undocumented `debug` command:
 
 ```
 $ example copy <file> --dry-run
 $ example delete <file> --recursive --depth 3
+$ example debug
 ```
 
-``` clojure
-(ns example
+Commands can be specified in two ways: as a tree or a table.
+The difference is more apparrent for [Multi-word Commands](#multi-word-commands).
+We'll use the tree structure for this example, save it to `try_cmds.clj`.
+
+```clojure
+(ns try-cmds
   (:require [babashka.cli :as cli]))
 
 (defn copy [{:keys [opts]}]
   (prn :copy opts))
 
 (defn delete [{:keys [opts]}]
-  (prn :delete opts))
 
+(def tree
+  {:cmd {"copy"   {:fn copy :doc "Copy a file\nMore details here" :args->opts [:file]
+                   :spec {:dry-run {:coerce :boolean :desc "Do a dry run"}}}
+         "delete" {:fn delete :doc "Delete a file" :args->opts [:file]
+                   :spec {:recursive {:coerce :boolean :desc "Recurse"}
+                          :depth     {:coerce :long    :desc "Max depth"}}}
+         "debug"  {:fn prn :doc "Dump internal state"}}
+   ;; specify which commands to show and in what order (we exclude hidden debug command)
+   :cmd-order ["copy" "delete"]}])
+
+(defn -main [& args]
+  (cli/dispatch tree args {:prog "try-cmds" :help true}))
+```
+
+The same command structure expressed as a table is:
+
+```clojure
 (def table
-  [{:cmds ["copy"]   :fn copy   :doc "Copy a file" :args->opts [:file]
+  [{:cmds ["copy"]   :fn copy   :doc "Copy a file\nMore details here" :args->opts [:file]
     :spec {:dry-run {:coerce :boolean :desc "Do a dry run"}}}
    {:cmds ["delete"] :fn delete :doc "Delete a file" :args->opts [:file]
     :spec {:recursive {:coerce :boolean :desc "Recurse"}
            :depth     {:coerce :long    :desc "Max depth"}}}
+   ;; hide debug command from usage help and completions with :no-doc
    {:cmds ["debug"]  :fn prn    :doc "Dump internal state" :no-doc true}])
 
 (defn -main [& args]
-  (cli/dispatch table args {:prog "example" :help true}))
+  (cli/dispatch table args {:prog "try-cmds" :help true}))
 ```
+The order of the entries in the table does not matter when matching commands, but it is used for `--help`.
 
-Run it with `clojure -M -m example ...` or `bb -m example ...`. `dispatch`
-matches the longest `:cmds` path in the args and calls that entry's `:fn` with
-the parsed result. `:help true` wires up `--help`/`-h` and terse errors (see
-[Help](#help)):
+Regardless of tree or table format, each command entry accepts any [parse-args](#options) option (`:spec`,
+`:args->opts`, `:alias`, `:restrict`, ...).
+
+> [!NOTE]
+> If you want to try `try_cmd.clj`  from your terminal:
+>
+> - For babashka, create `bb.edn` in the same dir:
+>     ```clojure
+>     {:paths ["."]}
+>     ```
+>   Then run with `bb -m try-cmds ...` (Our examples below use babashka).
+>
+> - For Clojure, create a `deps.edn` in the same dir:
+>     ```clojure
+>     {:paths ["."]  :deps {org.babashka/cli {:mvn/version "<latest-version>"}}}
+>     ```
+>   Then run with `clojure -M -m try-cmds ...`
+
+`dispatch` matches the given command line args against specified commands and calls the matching entry's `:fn` with the parsed result.
+`:help true` wires up `--help`/`-h` and prints terse errors instead of throwing exceptions (see [Help](#help)):
 
 ```
-$ example --help
-Usage: example [options] <command>
+$ bb -m try-cmds --help
+Usage: try-cmds [options] <command>
 
 Commands:
   copy   Copy a file
@@ -506,67 +617,259 @@ Commands:
 Options:
   -h, --help Show this help
 
-Run "example <command> --help" for more information on a command.
+Run "try-cmds <command> --help" for more information on a command.
 ```
 
-The `Commands:` summaries above come from each entry's `:doc`, a string
-documenting that (sub)command. Its first line is shown in the parent's command
-list. The `debug` command is absent from that list because `:no-doc true` hides a
-command from `--help` and from completions. The same `:no-doc true` on a spec
-option hides that option the same way. The option still parses, so it works for
-deprecated or internal flags. The full text of `:doc` is shown as
-the description on the command's own `--help` output, between the usage line and
-`Options:`:
+The `Commands:` descriptions come from each command entry's `:doc` key.
+The first line of `:doc` is used as a summary for the command.
+
+The `debug` command is absent in the help because it is absent from `:cmd-order` (it was suppressed in table format via `:no-doc true`). This also hides `debug` from [completions](#completions).
+
+> [!TIP]
+> Like `:cmd-order`, options can be hidden with `:order`.
+> And `:no-doc true` can also be used on an option to hide it.
+> Hiding works well for deprecated or internal commands and options.
+
+The full text of `:doc` is shown as the description on the command's `--help` output, between the usage line and `Options:`:
 
 ```
-$ example copy --help
-Usage: example copy [options] <file>
+$ bb -m try-cmds copy --help
+Usage: try-cmds copy [options] <file>
 
 Copy a file
+More details here
 
 Options:
       --dry-run  Do a dry run
   -h, --help     Show this help
 ```
 
-Running `example copy the-file --dry-run` calls `copy`, which prints:
+Running `bb -m try-cmds copy the-file --dry-run` calls `copy`, which prints:
 
 ``` clojure
 :copy {:file "the-file", :dry-run true}
 ```
 
-The `:fn` is called with a map of the parsed result:
+The `copy` command entry `:fn` is called with a map of the parsed result:
 
 - `:opts`: the parsed options (`{:file "the-file" :dry-run true}`; `:file` comes
   from `:args->opts`)
-- `:dispatch`: the matched command path (`["copy"]`)
+- `:dispatch`: the matched command path `["copy"]` from the given `dispatch` command structure.
 - `:args`: any leftover positional args (`nil` here)
 
-An unknown or missing subcommand prints a terse message and exits 1:
+An unknown or missing command prints a terse message and exits the process with a status of 1:
 
 ```
-$ example bogus
+$ bb -m try-cmds bogus
 Unknown command: bogus
 
 Commands:
-  copy
-  delete
+  copy   Copy a file
+  delete Delete a file
 
-Run "example --help" for more information.
+Run "try-cmds --help" for more information.
 ```
 
-See [neil](https://github.com/babashka/neil) for a real-world CLI using subcommands.
+### Multi-word Commands
 
-Each table entry accepts any [parse-args](#options) option (`:spec`,
-`:args->opts`, `:alias`, `:restrict`, ...). The order of entries in the table
-doesn't matter for invocation on the command line, but is used for `--help`
-output and completions.
+Sometimes a command can be made up of multiple words.
+Think of `git`, for example. We have `git remote`, `git remote add ...`, `git remote delete ...`, etc.
 
-### Tree format
+The command hierarchy is:
+- `remote` (level 1) is a parent of both:
+  - `remote add` (level 2)
+  - `remote delete` (level 2)
 
-Subcommands can also be specified in a tree format. The root accepts a `:spec`
-for top-level options. The first level of subcommands is specified under `:cmd`
-in a map of strings to subcommand options, which are the same as in the table
+A `dispatch` tree might be expressed as:
+```clojure
+{:cmd {"remote"
+       {:fn remotes-list :doc "show list of remotes"
+        :cmd {"add"   {:fn remote-add    :doc "add a new remote"}
+              "delete" {:fn remote-delete :doc "delete a remote"}}
+        :cmd-order ["add" "delete"]}}}
+```
+
+The same commands, expressed as a `dispatch` table:
+```clojure
+[{:cmds ["remote"]          :fn remotes-list  :doc "show list of remotes"}
+ {:cmds ["remote" "add"]    :fn remote-add    :doc "add a new remote"}
+ {:cmds ["remote" "delete"] :fn remote-delete :doc "delete a remote"}]
+```
+
+Multi-word commands are matched from the command line in the specified order, and the longest matching entry's `:fn` is called.
+So `git remote add` would result in a call to the `remote-add` `:fn` and not the `remotes-list` `:fn`.
+
+A command line can have options before and between commands and command hierarchy levels.
+
+Root-level options are specified in the root spec.
+A contrived example to illustrate:
+
+``` clojure
+(def root-spec {:foo {:coerce #(str "global-" %)}})
+(def level1-spec {:bar {:coerce #(str "sub1-" %)}})
+(def level2-spec {:baz {:coerce #(str "sub2-" %)}})
+
+(def tree
+  {:spec root-spec
+   :cmd {"sub1" {:fn identity :spec sub1-spec
+                 :cmd {"sub2" {:fn identity :spec sub2-spec}}}}})
+
+(cli/dispatch tree ["--foo" "a" "sub1" "--bar" "b" "sub2" "--baz" "c" "arg"])
+;; => {:dispatch ["sub1" "sub2"],
+;;     :opts {:foo "global-a", :bar "sub1-b", :baz "sub2-c"},
+;;     :args ["arg"]}
+```
+
+<details>
+<summary>For reference, the equivalent command table structure:</summary>
+
+```clojure
+(def table
+  [{:cmds [] :spec root-spec} ;; root spec specified with `:cmds []`
+   {:cmds ["sub1"] :fn identity :spec sub1-spec}
+   {:cmds ["sub1" "sub2"] :fn identity :spec sub2-spec}])
+```
+</details>
+
+Specs are not merged across command hierarchy levels.
+An option is parsed with the spec of the current matching command (while parsing the command line from left to right):
+- `--foo a` appears before any matching command, so is coerced with `root-spec`
+- `--bar b` appears after a matching `sub1` but before `sub2`, so is coerced with `sub1`'s `sub1-spec`
+- `--baz c` appears after matching `sub1` and `sub2`, so is coerced with `sub2`s `sub2-spec`
+
+Let's compare with a different ordering on the command line:
+```clojure
+(cli/dispatch tree ["--foo" "a" "sub1" "sub2" "--bar" "b" "--baz" "c" "arg"])
+;; => {:dispatch ["sub1" "sub2"],
+;;     :opts {:foo "global-a", :bar "b", :baz "sub2-c"},
+;;     :args ["arg"]}
+```
+Notice that `--bar` is now after `sub1` and `sub2` and gets default string coercion treatment.
+This is because it was processed with `sub2-spec`, which has no specific coercion for `:bar`.
+
+Let's explore how `:restrict` works with command hierarchies.
+``` clojure
+(def tree
+  {:cmd {"group"
+         {:spec {:registry {}}
+          :cmd {"sub"
+                {:fn identity :spec {:format {}}}}}}})
+```
+<details>
+<summary>Equivalent table syntax</summary>
+
+```clojure
+(def table
+  [{:cmds ["group"]       :spec {:registry {}}}
+   {:cmds ["group" "sub"] :fn identity :spec {:format {}}}])
+```
+</details>
+
+Because `:registry` belongs to the `group` command, it is expected only to be used with the `group` command:
+```clojure
+(cli/dispatch tree ["group" "--registry" "X" "sub"] {:restrict true})
+;; => {:dispatch ["group" "sub"], :opts {:registry "X"}, :args nil}
+```
+and not the `group sub` command:
+```clojure
+(cli/dispatch tree ["group" "sub" "--registry" "X"] {:restrict true})
+;; throws: Unknown option: --registry
+```
+
+Mark an option with `:inherit true` to also accept it at any command hierarchy descendant level.
+The option is coerced and restrict-checked wherever it appears:
+``` clojure
+(def tree
+  {:cmd {"group"
+         {:spec {:registry {:inherit true}} ;; <--
+          :cmd {"sub"
+                {:fn identity :spec {:format {}}}}}}})
+
+(cli/dispatch tree ["group" "sub" "--registry" "X"] {:restrict true})
+;; => {:dispatch ["group" "sub"], :opts {:registry "X"}, :args nil}
+```
+
+<details>
+<summary>Equivalent table syntax</summary>
+
+```clojure
+(def table
+  [{:cmds ["group"]       :spec {:registry {:inherit true}}} ;; <--
+   {:cmds ["group" "sub"] :fn identity :spec {:format {}}}])
+```
+</details>
+
+A descendant command may redefine an option in its own spec, in which case the descendant's spec wins.
+
+Instead of marking individual options, you can pass an `:inherit` option to `dispatch`.
+Specify `true` to inherit all options, or a set of keys to inherit only those options:
+
+``` clojure
+(def tree
+  {:cmd {"group"
+         {:spec {:registry {}}
+          :cmd {"sub"
+                {:fn identity :spec {:format {}}}}}}})
+
+(cli/dispatch tree ["group" "sub" "--registry" "X"] {:inherit true})
+;; => {:dispatch ["group" "sub"], :opts {:registry "X"}, :args nil}
+(cli/dispatch tree ["group" "sub" "--registry" "X"] {:inherit #{:registry}})
+;; => {:dispatch ["group" "sub"], :opts {:registry "X"}, :args nil}
+```
+
+You can use `:args->opts`, but command matching is always prioritized first:
+``` clojure
+(def tree
+  {:cmd {"sub1"
+         {:fn identity :spec sub1-spec :args->opts [:some-opt]
+          :cmd {"sub2"
+                {:fn identity :spec sub2-spec}}}}})
+
+(cli/dispatch tree ["sub1" "dude"])
+;; => {:dispatch ["sub1"], :opts {:some-opt "dude"}, :args nil}
+(cli/dispatch tree ["sub1" "sub2"])
+;; => {:dispatch ["sub1" "sub2"], :opts {}, :args nil}
+```
+
+<details>
+<summary>Equivalent table syntax</summary>
+
+```clojure
+(def table
+  [{:cmds ["sub1"] :fn identity :spec sub1-spec :args->opts [:some-opt]}
+   {:cmds ["sub1" "sub2"] :fn identity :spec sub2-spec}])
+```
+</details>
+
+See [neil](https://github.com/babashka/neil) for a real-world CLI using multi-word commands.
+
+### Command formats
+Commands can be specified in a tree or table format.
+Both formats are supported; use the format that best suits you.
+
+The difference between formats becomes apparent when multi-word commands are used.
+For example, let's say we have a CLI with commands:
+- `copy` (hierarchy level 1)
+- `cache` (hierarchy level 1)
+- `cache clean` (hierarchy level 2)
+
+The table format represents this structure flatly:
+
+```clojure
+(def table
+  [{:cmds [] :spec {:verbose {coerce :boolean :inherit true :desc "Verbose output"}}} ;; top-level options
+   {:cmds ["copy"] :fn copy :doc "Copy a file" :args->opts [:file]
+                   :spec {:dry-run {:coerce :boolean :desc "Do a dry run"}}}
+   {:cmds ["cache" :doc "Manage the cache"]}
+   {:cmds ["cache clean"] :fn clean :doc "Clean the cache"}])
+
+(cli/dispatch table args {:prog "example" :help true})
+```
+
+The tree format, as you would guess, uses nesting.
+The root accepts a `:spec` for top-level options.
+The first level of commands is specified under `:cmd`
+in a map of strings to command options, which are the same as in the table
 above, minus the `:cmds` entry. You can nest arbitrarily deep.
 
 ``` clojure
@@ -575,6 +878,7 @@ above, minus the `:cmds` entry. You can nest arbitrarily deep.
    :cmd {"copy" {:fn copy :doc "Copy a file" :args->opts [:file]
                  :spec {:dry-run {:coerce :boolean :desc "Do a dry run"}}}
          "cache" {:doc "Manage the cache"
+                  ;; clean is nested under cache
                   :cmd {"clean" {:fn clean :doc "Clean the cache"}}}}})
 
 (cli/dispatch tree args {:prog "example" :help true})
@@ -583,10 +887,10 @@ above, minus the `:cmds` entry. You can nest arbitrarily deep.
 The table or tree format can be used interchangeably in `dispatch`,
 `format-command-help` and the like.
 
-The map's order is used for help output. This can be problematic with more than
-8 entries since those maps turn into unordered hash-maps. In that case you can
-use `:cmd-order` to specify the order for printing. Commands not mentioned in
-`:cmd-order` are left out of printed output, but are still callable on the
+You'll want consistent ordering for help output.
+The tree format uses a map; the nature of Clojure maps is that they become unordered hash-maps after 8 entries.
+You probably don't want to rely on this implementation detail and can explicitly control order with `:cmd-order`.
+Commands not mentioned in `:cmd-order` are left out of printed output, but are still callable on the
 command line.
 
 ``` clojure
@@ -595,148 +899,114 @@ command line.
        "cache" {...}}}
 ```
 
-Options can be supplied at each level, before and between the subcommands. The
-root level (`:cmds []`) holds options available to every command. For example:
-
-``` clojure
-(def global-spec {:foo {:coerce :keyword}})
-(def sub1-spec {:bar {:coerce :keyword}})
-(def sub2-spec {:baz {:coerce :keyword}})
-
-(def table
-  [{:cmds [] :spec global-spec}
-   {:cmds ["sub1"] :fn identity :spec sub1-spec}
-   {:cmds ["sub1" "sub2"] :fn identity :spec sub2-spec}])
-
-(cli/dispatch table ["--foo" "a" "sub1" "--bar" "b" "sub2" "--baz" "c" "arg"])
-
-;;=>
-
-{:dispatch ["sub1" "sub2"],
- :opts {:foo :a, :bar :b, :baz :c},
- :args ["arg"]}
-```
-
-It is possible to use `:args->opts`, but subcommands are always prioritized over
-arguments:
-
-``` clojure
-(def table
-  [{:cmds ["sub1"] :fn identity :spec sub1-spec :args->opts [:some-opt]}
-   {:cmds ["sub1" "sub2"] :fn identity :spec sub2-spec}])
-
-(cli/dispatch table ["sub1" "dude"]) ;;=> {:dispatch ["sub1"], :opts {:some-opt "dude"}}
-(cli/dispatch table ["sub1" "sub2"]) ;;=> {:dispatch ["sub1" "sub2"], :opts {}}
-```
-
-Specs are not merged across levels: an option is parsed with the spec of the
-level it appears at, so it must be supplied before its subcommand. With
-`:restrict`, supplying it after the subcommand is an error:
-
-``` clojure
-(def table
-  [{:cmds ["group"]       :spec {:registry {}}}
-   {:cmds ["group" "sub"] :fn identity :spec {:format {}}}])
-
-(cli/dispatch table ["group" "--registry" "X" "sub"] {:restrict true})
-;;=> {:dispatch ["group" "sub"], :opts {:registry "X"}}
-
-(cli/dispatch table ["group" "sub" "--registry" "X"] {:restrict true})
-;; throws: Unknown option: --registry
-```
-
-Mark an option with `:inherit true` to also accept it at any descendant level (after
-the subcommand). It is coerced and restrict-checked wherever it appears:
-
-``` clojure
-(def table
-  [{:cmds ["group"]       :spec {:registry {:inherit true}}}
-   {:cmds ["group" "sub"] :fn identity :spec {:format {}}}])
-
-(cli/dispatch table ["group" "sub" "--registry" "X"] {:restrict true})
-;;=> {:dispatch ["group" "sub"], :opts {:registry "X"}}
-```
-
-A descendant may redefine it in its own spec, in which case the descendant's
-definition wins.
-
-Instead of marking individual options, pass `:inherit` to `dispatch`: `true` to
-inherit all options, or a set of keys to inherit only those:
-
-``` clojure
-(cli/dispatch table ["group" "sub" "--registry" "X"] {:inherit true})
-(cli/dispatch table ["group" "sub" "--registry" "X"] {:inherit #{:registry}})
-```
-
 ### Help
 
 Pass `:help true` to `dispatch` (and `:prog`, the program name) to add help to a
-CLI, no `:restrict` needed:
+CLI:
 
 ``` clojure
-(cli/dispatch table args {:prog "example" :help true})
+(cli/dispatch tree args {:prog "some-prog" :help true})
 ```
 
-- `--help`/`-h` print help for the command in front of them and return (the
-  process ends with status 0). So `example deps outdated --help` shows help for
-  `deps outdated`.
-- A mistyped or missing subcommand prints a terse message and exits with 1.
-- `-h, --help` is listed in each command's options, appended last. To control
+- `--help`/`-h` alone prints help for all commands (or usage help for a command-less CLI) and exits with status 0.
+- `some-command --help`/`some-command -h` prints help for `some-command` and exits with status 0.
+This also works for multi-word commands, e.g., `some-prog deps outdated --help` would show help for the `deps outdated` command.
+- A mistyped or missing command prints a terse message and exits with a status of 1.
+- `-h, --help` is listed in each command's available options, appended last. To control
   the order, give the command entry an `:order` (a vector of option keys); it
   is used verbatim, so you decide the order, which options to list, and whether
-  to list `--help` at all (omit `:help` to hide it; it still works):
+  to list `--help` at all (omit `:help` from `:order` to hide it; but note, it will still work).
+  An example `dispatch` command entry that lists `--help` first:
 
-  ``` clojure
-  {:cmds [...] :spec {...} :order [:help :port :verbose]}   ; --help first
-  ```
+  - tree format
+    ```clojure
+    {:cmd {"foo" {:spec {...} :order [:help :port :verbose]}}}
+    ```
+  - table format
+    ``` clojure
+    {:cmds ["foo"] :spec {...} :order [:help :port :verbose]}
+    ```
 
   Without `:order`, the order is taken from the spec (a vec-of-pairs spec keeps
   its order; a map follows its key order, which Clojure does not guarantee), and
   `--help` is appended.
-- `--help`/`-h` are reserved while `:help` is on (a command may still define its
+- `--help`/`-h` are reserved when `:help true` is specified (a command may still define its
   own `:help`).
-- An entry's `:epilog` (a string) is rendered verbatim after that command's
-  options, for examples, notes or links. Put it on the root entry (`:cmds []`)
-  for the top-level help.
+- A command entry's `:epilog` (a string) is rendered verbatim after that command's
+  options, for examples, notes or links. Specify it at the root of the commands tree format (or `:cmds []` entry for commands table format) for the top-level help.
 
-It works for a single-command CLI too: a one-entry table whose `:cmds` is `[]`.
-`example --help` then shows Usage + Options:
+The `:help true` option works for a command-less CLI too.
+`some-prog --help` then shows Usage + Options:
 
-``` clojure
-(cli/dispatch [{:cmds [] :fn run :spec {:port {:coerce :long :desc "Port"}}}]
-              args
-              {:prog "example" :help true})
-```
+- tree format
+  ```clojure
+  (cli/dispatch {:fn run :spec {:port {:coerce :long :desc "Port"}}}
+                args
+                {:prog "some-prog" :help true})
+  ```
+- table format
+  ``` clojure
+  (cli/dispatch [{:cmds [] :fn run :spec {:port {:coerce :long :desc "Port"}}}]
+                args
+                {:prog "some-prog" :help true})
+  ```
 
-`--help`/`-h` are a success path: they print help and return (no exit call), so
-your `-main` ends and the process exits 0, like a normal command. Errors go
+`--help`/`-h` are success paths: they print help and return naturally (no exit call), so
+your `-main` ends and the process exits with a status of 0, like a normal command. Errors go
 through the dynamic `*exit-fn*`, which exits non-zero:
 
 | invocation | outcome |
 |---|---|
 | `--help` / `-h` | print help, return (status 0), no `*exit-fn*` |
-| group, no subcommand | terse message, `*exit-fn*` exit 1, `:cause :input-exhausted` |
-| unknown subcommand | terse message, `*exit-fn*` exit 1, `:cause :no-match` |
-| flag error | terse message, `*exit-fn*` exit 1, `:cause` = the babashka.cli cause |
+| no command or incomplete multi-word command | terse message, `*exit-fn*` exit 1, `:cause :input-exhausted` |
+| unknown command | terse message, `*exit-fn*` exit 1, `:cause :no-match` |
+| option error | terse message, `*exit-fn*` exit 1, `:cause` = the babashka.cli cause |
 
-A bare group is a usage error (exit 1), like `git bisect` with no subcommand;
-its full help is one keystroke away via `--help`. `*exit-fn*` is called only on
-errors, with `{:exit :cause :dispatch :data}` (`:cause` is the dispatch cause:
-`:no-match`, `:input-exhausted`, or a flag cause; `:data` holds the raw
-`dispatch` error data). The default exits the process (`System/exit` on JVM,
-`js/process.exit` on Node); rebind it to not exit (tests, REPL) or to remap
-codes by `:cause`:
+You can include a `:doc` without a `:fn` to describe a grouping of multi-word commands.
+For example, `git bisect` is not something we can invoke, but we can get `--help` for it:
+```clojure
+(cli/dispatch
+  {:cmd {"bisect"
+         {:doc "general bisect help"
+          :cmd {"start" {:fn identity :doc "start the bisect"}
+                "good"  {:fn identity :doc "commit is good"}
+                "bad"   {:fn identity :doc "commit is bad"}}}}}
+  ["bisect" "--help"]
+  {:prog "git" :help true})
+```
+Outputs:
+```
+Usage: git bisect [options] <command>
 
-``` clojure
-;; treat a bare group as success (exit 0) instead of a usage error
-(binding [cli/*exit-fn* (fn [{:keys [exit cause]}]
-                          (System/exit (if (= :input-exhausted cause) 0 exit)))]
-  (cli/dispatch table args {:prog "example" :help true}))
+general bisect help
+
+Commands:
+  start start the bisect
+  good  commit is good
+  bad   commit is bad
+
+Options:
+  -h, --help  Show this help
+
+Run "git bisect <command> --help" for more information on a command.
 ```
 
-Both handlers are overridable: pass your own `:help-fn` (called with
-`{:tree :dispatch :prog :inherit}`) and/or `:error-fn` to `dispatch`. To render
-the standard help and add to it, call `format-command-help`, the same renderer
+`*exit-fn*` is called on errors, with map `{:exit :some-dispatch-cause :dispatch :some-data}`
+- `:some-dipatch-cause` can be`:no-match`, `:input-exhausted`, or an option cause.
+- `:some-data` holds the raw `dispatch` error data.
+- the default implementation exits the process (`System/exit` on JVM, `js/process.exit` on Node)
+- rebind it to not exit (for tests, REPL use) or to remap codes by `:cause`
+
+  ``` clojure
+  ;; treat an incomplete multi-word command as success (exit 0) instead of a usage error
+  (binding [cli/*exit-fn* (fn [{:keys [exit cause]}]
+                            (System/exit (if (= :input-exhausted cause) 0 exit)))]
+    (cli/dispatch table args {:prog "example" :help true}))
+  ```
+
+You can optionally override help and error handlers via `dispatch` `:help-fn` and `:error-fn` options.
+
+To render the standard help and add to it, call `format-command-help`, the same renderer
 the default uses:
 
 ``` clojure
@@ -775,13 +1045,13 @@ The `dispatch` function can generate dynamic shell completions for `bash`,
 each TAB to generate completions. The `:prog` (program name) value is essential
 in the `dispatch` call. The generated snippet registers completion for that
 name, so it must match the command you type, and it must be a plain command name
-consisting of only alphanumeric characters, `.`, `_` or `-`.
+consisting of only alphanumeric characters, `.`, `_`, or `-`.
 
 ``` clojure
 (cli/dispatch table args {:prog "mycli" :help true})
 ```
 
-If the installed command has a different name, e.g. when a distro renames it, pass
+If the installed command has a different name, e.g., when a distro renames it, pass
 `--prog <name>` when generating the snippet to register that name instead:
 
 ``` bash
@@ -789,17 +1059,17 @@ mycli org.babashka.cli/completions snippet --shell zsh --prog sq
 ```
 
 The completions call goes through a hidden `org.babashka.cli/completions`
-subcommand group that `dispatch` adds for you. Running `mycli
+command group that `dispatch` adds for you. Running `mycli
 org.babashka.cli/completions snippet --shell <shell>` prints the install snippet
 for that specific shell to stdout. It does not write files or edit your shell
 config for you.
 
-Subcommands and options come with completion support out of the box. Descriptions come from the
-same `:desc` (options) and `:doc` (subcommands) you already write for `--help`. A
-`:no-doc` subcommand or option is hidden. Options that already appeared are filtered
-out of later suggestions, except repeatable options (e.g. `:coerce [:string]`).
+Commands and options come with completion support out of the box. Descriptions come from the
+same `:desc` (options) and `:doc` (commands) you already write for `--help`. A
+`:no-doc` command or option is hidden. Options that already appeared are filtered
+out of later suggestions, except repeatable options (e.g., `:coerce [:string]`).
 
-Here follow the instructions to enable auto-completions in your shell.
+Instructions follow to enable auto-completions in your shell.
 
 ### Bash
 
@@ -821,7 +1091,7 @@ Add this to your zsh init file, after `compinit`:
 source <(mycli org.babashka.cli/completions snippet --shell zsh)
 ```
 
-or save the output as `_mycli` on your `$fpath`. Option and subcommand
+or save the output as `_mycli` on your `$fpath`. Option and command
 descriptions show inline. Completions also fire when the program is invoked by
 path, such as `./mycli`.
 
@@ -831,7 +1101,7 @@ path, such as `./mycli`.
 mycli org.babashka.cli/completions snippet --shell fish | source
 ```
 
-Option and subcommand descriptions show inline. Completion also fires on a path
+Option and command descriptions show inline. Completion also fires on a path
 invocation.
 
 ### Powershell
@@ -870,7 +1140,7 @@ than `mycli`, so several tools can install side by side.
 Completions are registered for the command name `:prog`, so the command you type must
 match it. During development you usually invoke the build directly, e.g.
 `./run.clj`, under a different name. Make the dev build callable under your `:prog`
-name on `PATH`. On unix shells, symlink it and prepend its directory:
+name on `PATH`. On Unix shells, symlink it and prepend its directory:
 
 ``` bash
 ln -sf "$PWD/run.clj" /tmp/mycli                   # name the link :prog
@@ -886,9 +1156,9 @@ its section above, and re-source it after each change to your CLI so new command
 options show up.
 
 Now `mycli <TAB>` completes commands and `mycli sub --<TAB>` its options. To see the
-completer's raw output directly, without a shell, call the hidden subcommand
+completer's raw output directly, without a shell, call the hidden command
 yourself. The tokens after `--` are what the shell would pass on TAB, here the
-subcommand `sub` and a `--` to complete its options. It prints one candidate per
+command `sub` and a `--` to complete its options. It prints one candidate per
 line, as the value, a tab, then the description:
 
 ``` bash
@@ -935,11 +1205,11 @@ shell's own file completion the same way. So `:args->opts [:file]` with a bare
 out here too.
 
 ## Adding Production Polish
-Babashka cli lets you get up and running quickly.
+Babashka CLI lets you get up and running quickly.
 As you move toward production quality, it's helpful to let users know when their inputs are invalid.
 Strict validation can be introduced with [:restrict](#restrict), [:require](#require), and [:validate](#validate).
 
-As you add polish, you'll likely make use of a [:spec](#spec), a custom [:error_fn](#error-handling), and maybe [subcommand dispatching](#subcommands).
+As you add polish, you'll likely make use of a [:spec](#spec) and maybe a custom [:error_fn](#error-handling). Even if your program does not use [commands](#commands), consider using `dispatch` with the `:help true` option (as shown in [Simple Example](#simple-example)) for printed terse error messages (instead of exceptions), and automatic `--help` generation.
 
 ## Restrict
 
@@ -949,7 +1219,7 @@ Use the `:restrict` option to restrict options to only those explicitly mentione
 (cli/parse-args ["--foo"] {:spec {:bar {}} :restrict true})
 ;;=>
 Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:357).
-Unknown option: :foo
+Unknown option: --foo
 ```
 
 ## Require
@@ -961,7 +1231,7 @@ when it is not present:
 (cli/parse-args ["--foo"] {:spec {:bar {:require true}}})
 ;;=>
 Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:363).
-Required option: :bar
+Required option: --bar
 ```
 
 Required options are shown as `(required)` in `--help`, in the slot a default
@@ -972,7 +1242,7 @@ would otherwise occupy.
 ``` clojure
 (cli/parse-args ["--foo" "0"] {:spec {:foo {:validate pos?}}})
 Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:378).
-Invalid value for option :foo: 0
+Invalid value for option --foo: 0
 ```
 
 To gain more control over the error message, use `:pred` and `:ex-msg`:
@@ -1018,7 +1288,7 @@ The following keys are present depending on `:cause`:
 - `:cause :coerce`
   - `:value` - the value of the option that failed coercion.
 
-By default, babashka cli will throw exception on errors it detects.
+By default, babashka CLI will throw exceptions on errors it detects.
 You can do the same from your custom error handler.
 
 For a more polished user experience, you might choose to have your custom error handler print the error and exit. For example:
@@ -1047,7 +1317,7 @@ Missing required argument:
   --foo <val> You know what this is.
 ```
 
-You can also choose collect and then report all detected errors (see `babashka.cli-test/error-fn-test` for an example of this).
+You can also choose to collect and then report all detected errors (see `babashka.cli-test/error-fn-test` for an example of this).
 
 ## Adding default args
 
@@ -1083,7 +1353,7 @@ This will print:
   -p, --pretty         Pretty-print output.
 ```
 
-As options can often be re-used in multiple subcommands, you can determine the
+As options can often be reused in multiple commands, you can determine the
 order _and_ selection of printed options with `:order`. If you don't want to use
 `:order` and simply want to present the options as written, you can also use a
 vector of vectors for the spec:
@@ -1098,8 +1368,8 @@ vector of vectors for the spec:
 ```
 
 If you need more flexibility, you can also use `opts->table`, which turns a spec into a vector of vectors, representing rows of a table.
-You can then use`format-table` to produce a table as returned by `format-opts`.
-For example to add a header row with labels for each column, you could do something like:
+You can then use `format-table` to produce a table as returned by `format-opts`.
+For example, to add a header row with labels for each column, you could do something like:
 
 ``` clojure
 (cli/format-table
@@ -1156,14 +1426,16 @@ book](https://book.babashka.org/#cli).
 
 ## Clojure CLI
 
+The Clojure CLI supports [invoking a function with a single map arg](https://clojure.org/reference/clojure_cli#use_fn) via the `-X` command line option.
+Because `-X` does no automatic coercion of values, getting the command-line correct can be, at best, awkward on macOS and Linux, and often an exercise of real frustration on Windows.
+
 You can control parsing behavior by adding `:org.babashka/cli` metadata to
 Clojure functions. It does not introduce a dependency on `babashka.cli`
 itself. Not adding any metadata will result in string values, which in many
 cases may already be a reasonable default.
 
-Adding support for this library will cause less friction with shell usage,
-especially on Windows since you need less quoting. You can support the same
-function for both `clojure -X` and `clojure -M` style invocations without
+Adding support for babashka CLI will cause less friction with shell usage.
+You can support the same function for both `clojure -X` and `clojure -M` style invocations without
 writing extra boilerplate.
 
 In your `deps.edn` `:aliases` entry, add:
