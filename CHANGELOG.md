@@ -13,6 +13,8 @@ For users of clis created with babashka cli we use the term "command".
 They are the same thing.
 We now use the term "command" for both audiences.
 ([@lread](https://github.com/lread))
+- [#168](https://github.com/babashka/cli/issues/168): Hide `number-char?` from the public API, it was accidentally included.
+([@lread](https://github.com/lread))
 
 ## v0.11.72 (2026-06-11)
 
