@@ -4,6 +4,11 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- [#168](https://github.com/babashka/cli/issues/168): Hide `number-char?` from the public API, it was accidentally included.
+([@lread](https://github.com/lread))
+
 ## v0.11.72 (2026-06-11)
 
 - [#131](https://github.com/babashka/cli/issues/131): Exclude `scratch.clj` from released jar

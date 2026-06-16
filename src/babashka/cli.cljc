@@ -50,7 +50,8 @@
                v
                (throw-unexpected x)))))
 
-(defn number-char? [c]
+(defn ^:no-doc ;; was accidentally left in the public API for a long while. Mark as no-doc to hide (but avoid breaking anyone who might be using it).
+  number-char? [c]
   (try (parse-number (str c))
        (catch #?(:clj Exception :cljs :default) _ nil)))
 
