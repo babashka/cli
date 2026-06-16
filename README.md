@@ -992,14 +992,17 @@ Options:
 Run "git bisect <command> --help" for more information on a command.
 ```
 
-`*exit-fn*` is called on errors, with map `{:exit :some-dispatch-cause :dispatch :some-data}`
-- `:some-dipatch-cause` can be`:no-match`, `:input-exhausted`, or an option cause.
-- `:some-data` holds the raw `dispatch` error data.
-- the default implementation exits the process (`System/exit` on JVM, `js/process.exit` on Node)
-- rebind it to not exit (for tests, REPL use) or to remap codes by `:cause`
+`*exit-fn*` is called on errors, with a map with keys:
+- `:exit` exit code
+- `:cause` can be`:no-match`, `:input-exhausted`, or an option cause.
+- `:dispatch` the matched  command
+- `:data` raw dispatch error data
+
+The default `*exit-fn*` implementation exits the process (`System/exit` on JVM, `js/process.exit` on Node).
+Rebind it to not exit (for tests, REPL use) or to remap codes by `:cause`, for example:
 
   ``` clojure
-  ;; treat an incomplete multi-word command as success (exit 0) instead of a usage error
+  ;; treat a missing command or incomplete multi-word command as success (exit 0) instead of a usage error
   (binding [cli/*exit-fn* (fn [{:keys [exit cause]}]
                             (System/exit (if (= :input-exhausted cause) 0 exit)))]
     (cli/dispatch table args {:prog "example" :help true}))
