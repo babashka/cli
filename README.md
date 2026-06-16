@@ -858,11 +858,11 @@ The table format represents this structure flatly:
 
 ```clojure
 (def table
-  [{:cmds [] :spec {:verbose {coerce :boolean :inherit true :desc "Verbose output"}}} ;; top-level options
+  [{:cmds [] :spec {:verbose {:coerce :boolean :inherit true :desc "Verbose output"}}} ;; top-level options
    {:cmds ["copy"] :fn copy :doc "Copy a file" :args->opts [:file]
                    :spec {:dry-run {:coerce :boolean :desc "Do a dry run"}}}
-   {:cmds ["cache" :doc "Manage the cache"]}
-   {:cmds ["cache clean"] :fn clean :doc "Clean the cache"}])
+   {:cmds ["cache"] :doc "Manage the cache"}
+   {:cmds ["cache" "clean"] :fn clean :doc "Clean the cache"}])
 
 (cli/dispatch table args {:prog "example" :help true})
 ```
