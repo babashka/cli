@@ -707,8 +707,8 @@ A contrived example to illustrate:
 
 ``` clojure
 (def root-spec {:foo {:coerce #(str "global-" %)}})
-(def level1-spec {:bar {:coerce #(str "sub1-" %)}})
-(def level2-spec {:baz {:coerce #(str "sub2-" %)}})
+(def sub1-spec {:bar {:coerce #(str "sub1-" %)}})
+(def sub2-spec {:baz {:coerce #(str "sub2-" %)}})
 
 (def tree
   {:spec root-spec
