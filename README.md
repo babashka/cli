@@ -553,6 +553,7 @@ We'll use the tree structure for this example, save it to `try_cmds.clj`.
   (prn :copy opts))
 
 (defn delete [{:keys [opts]}]
+  (prn :delete opts))
 
 (def tree
   {:cmd {"copy"   {:fn copy :doc "Copy a file\nMore details here" :args->opts [:file]
@@ -562,7 +563,7 @@ We'll use the tree structure for this example, save it to `try_cmds.clj`.
                           :depth     {:coerce :long    :desc "Max depth"}}}
          "debug"  {:fn prn :doc "Dump internal state"}}
    ;; specify which commands to show and in what order (we exclude hidden debug command)
-   :cmd-order ["copy" "delete"]}])
+   :cmd-order ["copy" "delete"]})
 
 (defn -main [& args]
   (cli/dispatch tree args {:prog "try-cmds" :help true}))
