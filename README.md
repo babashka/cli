@@ -542,7 +542,7 @@ $ example debug
 ```
 
 Commands can be specified in two ways: as a tree or a table.
-The difference is more apparrent for [Multi-word Commands](#multi-word-commands).
+The difference is more apparent for [Multi-word Commands](#multi-word-commands).
 We'll use the tree structure for this example, save it to `try_cmds.clj`.
 
 ```clojure
@@ -590,7 +590,7 @@ Regardless of tree or table format, each command entry accepts any [parse-args](
 `:args->opts`, `:alias`, `:restrict`, ...).
 
 > [!NOTE]
-> If you want to try `try_cmd.clj`  from your terminal:
+> If you want to try `try_cmds.clj`  from your terminal:
 >
 > - For babashka, create `bb.edn` in the same dir:
 >     ```clojure

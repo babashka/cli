@@ -1722,12 +1722,12 @@ $env.config.completions.external.completer = {|spans|
                         (assoc :spec (deep-merge (deep-merge (->spec-map (:spec opts))
                                                              inherited)
                                                  (->spec-map (:spec kwm)))))
-           ;; thread dispatch context into opotion-level errors
+           ;; thread dispatch context into option-level errors
            ;; (restrict/require/validate/coerce) so an :error-fn can render help:
            ;; the current path, the program name, dispatch-level :inherit, and the
            ;; command tree
            user-error-fn (:error-fn parse-opts)
-           ;; With the `:help` option on, a option error (require/validate/restrict/
+           ;; With the `:help` option on, an option error (require/validate/restrict/
            ;; coerce) is stashed rather than fired: a `--help`/`-h` further along
            ;; (e.g. `foo bar --help` where `foo` requires an option) parses at its
            ;; own level and routes to help, and `dispatch-tree` discards the stash.
@@ -1956,7 +1956,7 @@ $env.config.completions.external.completer = {|spans|
 
   * `--help`/`-h` print help for the command they precede and return (no error,
     so the process ends with status 0). This goes through a `:help-fn`.
-  * an unknown/missing command or a option error prints a terse message and
+  * an unknown/missing command or an option error prints a terse message and
     exits non-zero (via [[*exit-fn*]]). This goes through the `:error-fn`.
 
   Both default handlers can be overridden: pass your own `:help-fn` (called with

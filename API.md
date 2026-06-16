@@ -198,7 +198,7 @@ Command dispatcher.
 
   * `--help`/`-h` print help for the command they precede and return (no error,
     so the process ends with status 0). This goes through a `:help-fn`.
-  * an unknown/missing command or a option error prints a terse message and
+  * an unknown/missing command or an option error prints a terse message and
     exits non-zero (via [`*exit-fn*`](#babashka.cli/*exit-fn*)). This goes through the `:error-fn`.
 
   Both default handlers can be overridden: pass your own `:help-fn` (called with
