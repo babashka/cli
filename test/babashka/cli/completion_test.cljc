@@ -287,7 +287,27 @@
       (is (registers? (snippet-via-cmd cmd-table {:prog "squint"} "bash" "--prog" "sq") "sq")))
     (testing "non-identifier chars in the name are sanitized in the function name"
       (is (str/includes? (snippet-via-cmd cmd-table {:prog "x"} "bash" "--prog" "node_cli.js")
-                         "_babashka_cli_complete_node_cli_js")))))
+                         "_babashka_cli_complete_node_cli_js")))
+    (testing "--prog repeats to register several names (aliases)"
+      ;; function named after the first name; every name registered
+      (is (str/includes? (snippet-via-cmd cmd-table {:prog "x"} "bash" "--prog" "sq" "--prog" "squint")
+                         "complete -F _babashka_cli_complete_sq sq squint"))
+      (is (str/includes? (snippet-via-cmd cmd-table {:prog "x"} "zsh" "--prog" "sq" "--prog" "squint")
+                         "compdef _babashka_cli_complete_sq sq squint")))
+    #?(:clj
+       (testing "the running script's file name is also registered (dev/path invocation)"
+         (let [prev (System/getProperty "babashka.file")]
+           (try
+             (System/setProperty "babashka.file" "/some/dir/my-cli.clj")
+             (is (str/includes? (snippet-via-cmd cmd-table {:prog "my-cli"} "bash")
+                                "complete -F _babashka_cli_complete_my_cli my-cli my-cli.clj"))
+             (testing "explicit --prog suppresses the auto file name"
+               (is (not (str/includes? (snippet-via-cmd cmd-table {:prog "my-cli"} "bash" "--prog" "my-cli")
+                                       "my-cli.clj"))))
+             (finally
+               (if prev
+                 (System/setProperty "babashka.file" prev)
+                 (System/clearProperty "babashka.file")))))))))
 
 (deftest positional-completion-test
   ;; :args->opts maps positionals to spec keys, so a positional completes that

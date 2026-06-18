@@ -1058,11 +1058,18 @@ consisting of only alphanumeric characters, `.`, `_`, or `-`.
 (cli/dispatch table args {:prog "mycli" :help true})
 ```
 
+Under babashka the snippet also registers the running script's own file name (from
+the `babashka.file` system property), so a script invoked directly by path
+(`./mycli.clj`, `/abs/mycli.clj`) completes without a `:prog`-named symlink. See
+[Developing completions](#developing-completions).
+
 If the installed command has a different name, e.g., when a distro renames it, pass
-`--prog <name>` when generating the snippet to register that name instead:
+`--prog <name>` when generating the snippet to register that name instead. `--prog`
+may be repeated to register several names (aliases):
 
 ``` bash
 mycli org.babashka.cli/completions snippet --shell zsh --prog sq
+mycli org.babashka.cli/completions snippet --shell zsh --prog squint --prog sq
 ```
 
 The completions call goes through a hidden `org.babashka.cli/completions`
@@ -1144,10 +1151,24 @@ than `mycli`, so several tools can install side by side.
 
 ### Developing completions
 
-Completions are registered for the command name `:prog`, so the command you type must
-match it. During development you usually invoke the build directly, e.g.
-`./run.clj`, under a different name. Make the dev build callable under your `:prog`
-name on `PATH`. On Unix shells, symlink it and prepend its directory:
+Under babashka, the snippet registers completion for the running script's file
+name (read from the `babashka.file` system property) in addition to `:prog`. A
+dev build invoked directly completes as-is, by bare name or by path, with no
+symlink to the `:prog` name required:
+
+``` bash
+./run.clj <TAB>
+/abs/path/to/run.clj <TAB>
+run.clj <TAB>            # when its directory is on PATH
+```
+
+Source the snippet for the shell you are testing, using the install command from
+its section above, and re-source it after each change to your CLI so new commands
+and options show up.
+
+When `babashka.file` is not set (e.g. running via `clojure` or an uberjar) the
+script file name is unknown, so completion is registered for `:prog` only. Make
+the build callable under that name on `PATH`, for example with a symlink:
 
 ``` bash
 ln -sf "$PWD/run.clj" /tmp/mycli                   # name the link :prog
@@ -1158,9 +1179,8 @@ In fish use `set -gx PATH /tmp $PATH`, in nushell
 `$env.PATH = ($env.PATH | prepend /tmp)`. On Windows, put a `mycli` wrapper
 script on your `PATH` instead of a symlink.
 
-Then source the snippet in the shell you are testing, using the install command from
-its section above, and re-source it after each change to your CLI so new commands and
-options show up.
+You can also register one or more explicit names by passing `--prog` (repeatable)
+when generating the snippet, e.g. `--prog mycli --prog mc`.
 
 Now `mycli <TAB>` completes commands and `mycli sub --<TAB>` its options. To see the
 completer's raw output directly, without a shell, call the hidden command

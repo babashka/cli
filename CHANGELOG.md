@@ -6,6 +6,7 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
+- Shell completions: register the running script's file name (from `babashka.file`) in addition to `:prog`, so path invocations (e.g. `./script.clj`) complete without a `:prog`-named symlink. `--prog` may be repeated to register alias names.
 - [#161](https://github.com/babashka/cli/issues/161), [#163](https://github.com/babashka/cli/issues/163): docs: review and update.
 Nomenclature change: subcommand->command.
 For babashka cli library users, we used the term "subcommand".

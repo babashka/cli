@@ -4,7 +4,7 @@
 let _babashka_cli_complete_myprogram_prev = $env.config.completions?.external?.completer?
 $env.config.completions.external.enable = true
 $env.config.completions.external.completer = {|spans|
-    if ($spans | first | path basename) == "myprogram" {
+    if ($spans | first | path basename) in ["myprogram"] {
         let res = (do { ^($spans | first) org.babashka.cli/completions complete --shell nushell -- ...($spans | skip 1) } | complete)
         let lines = (if $res.exit_code == 0 { $res.stdout | lines } else { [] })
         if "org.babashka.cli/file-completion" in $lines {

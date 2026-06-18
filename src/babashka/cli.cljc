@@ -1342,9 +1342,15 @@
 ;; hidden `org.babashka.cli/completions complete` command, passing the
 ;; shell-tokenized words up to the cursor, and renders the
 ;; `value<TAB>description` lines that come back.
-(defn- completion-shell-snippet [shell program-name]
-  ;; function named after the program so multiple CLIs don't collide
-  (let [fn (str "_babashka_cli_complete_" (str/replace program-name #"[^a-zA-Z0-9_]+" "_"))]
+(defn- completion-shell-snippet [shell names]
+  ;; `names` are the command names to register completion for (primary first,
+  ;; e.g. the :prog plus the script's own file name for dev/path invocations).
+  ;; function named after the primary name so multiple CLIs don't collide
+  (let [program-name (first names)
+        fn (str "_babashka_cli_complete_" (str/replace program-name #"[^a-zA-Z0-9_]+" "_"))
+        names-sp (str/join " " names)
+        names-csv (str/join "," names)
+        names-nu (str "[" (str/join " " (map #(str "\"" % "\"") names)) "]")]
    (case shell
     :bash (str fn "()
 {
@@ -1392,9 +1398,9 @@
         fi
     done
 }
-complete -F " fn " " program-name "
+complete -F " fn " " names-sp "
 ")
-    :zsh (str "#compdef " program-name "
+    :zsh (str "#compdef " names-sp "
 " fn "() {
     local -a lines described
     lines=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions complete --shell zsh -- \"${(@)words[2,CURRENT]}\" 2>/dev/null)}\")
@@ -1409,14 +1415,16 @@ complete -F " fn " " program-name "
         described+=(\"$v${d:+:$d}\")
     done
     local ret=1
-    (( $#described )) && { _describe -t values completion described && ret=0; }
+    # claim success whenever we produced candidates: _describe's own exit status
+    # is not reliably 0 under a user matcher-list / multi-completer setup, and a
+    # non-zero return makes zsh retry other completers (_match, _approximate, ...)
+    # and re-list everything with detached descriptions
+    (( $#described )) && { _describe -t values completion described; ret=0; }
     [[ -n $do_files ]] && { _files; ret=0; }
-    # return success when we added completions, else zsh retries other completers
-    # (_match, _approximate, ...) and re-lists everything
     return $ret
 }
-# register for the bare name and for path invocations (./prog, /abs/prog)
-compdef " fn " '*/" program-name "' " program-name "
+# register the bare name(s); zsh's _normal completes ./name and /abs/name via the basename
+compdef " fn " " names-sp "
 ")
     :fish (str "function " fn "
     set -l toks (commandline --tokenize --cut-at-cursor)
@@ -1432,9 +1440,9 @@ compdef " fn " '*/" program-name "' " program-name "
         end
     end
 end
-complete --command " program-name " --no-files --arguments \"(" fn ")\"
+" (str/join "\n" (map #(str "complete --command " % " --no-files --arguments \"(" fn ")\"") names)) "
 ")
-    :powershell (str "Register-ArgumentCompleter -Native -CommandName " program-name " -ScriptBlock {
+    :powershell (str "Register-ArgumentCompleter -Native -CommandName " names-csv " -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
     $exe = $commandAst.CommandElements[0].Value
     $toks = @()
@@ -1465,7 +1473,7 @@ complete --command " program-name " --no-files --arguments \"(" fn ")\"
 let " fn "_prev = $env.config.completions?.external?.completer?
 $env.config.completions.external.enable = true
 $env.config.completions.external.completer = {|spans|
-    if ($spans | first | path basename) == \"" program-name "\" {
+    if ($spans | first | path basename) in " names-nu " {
         let res = (do { ^($spans | first) org.babashka.cli/completions complete --shell nushell -- ...($spans | skip 1) } | complete)
         let lines = (if $res.exit_code == 0 { $res.stdout | lines } else { [] })
         if \"org.babashka.cli/file-completion\" in $lines {
@@ -1862,6 +1870,16 @@ $env.config.completions.external.completer = {|spans|
           (recur (if (next s) acc (conj acc "")) (next s))
           (recur (conj acc t) (next s)))))))
 
+(defn- script-basename
+  "The file name (no directory) of the script babashka is running, or nil.
+  Used to also register completions under the name a script is invoked by
+  (e.g. `./my-cli.clj`), so dev/path invocations work without a `:prog`-named
+  symlink on PATH."
+  []
+  (some-> #?(:clj (System/getProperty "babashka.file") :cljs nil)
+          (str/split #"[/\\]")
+          last))
+
 (defn- completions-command
   "Handle the hidden `org.babashka.cli/completions` command: `snippet` prints
   the per-shell install snippet, `complete` completes the tokens after `--`
@@ -1872,22 +1890,28 @@ $env.config.completions.external.completer = {|spans|
   (let [[sub & more] args
         [pre toks] (split-with #(not= "--" %) more)
         {{:keys [shell prog fresh]} :opts}
-        (parse-args (vec pre) {:coerce {:shell :keyword :fresh :boolean}})
+        ;; --prog may repeat to register several names (aliases); collect to a vec
+        (parse-args (vec pre) {:coerce {:shell :keyword :fresh :boolean :prog []}})
         toks (vec (rest toks))]
     (case sub
       "snippet"
-      (let [prog (or prog (:prog opts))]
+      ;; explicit --prog (repeatable) registers only those names; otherwise
+      ;; register the :prog and (for dev/path invocations) the script file name
+      (let [names (if (seq prog)
+                    (vec prog)
+                    (distinct (filter some? [(:prog opts) (script-basename)])))
+            bad (remove #(re-matches #"[A-Za-z0-9_.-]+" %) names)]
         (cond
-          (not prog)
+          (empty? names)
           (eprintln (str "[babashka.cli] Set :prog in opts, or pass --prog,"
                          " to generate a completion snippet"))
-          (not (re-matches #"[A-Za-z0-9_.-]+" prog))
+          (seq bad)
           (eprintln (str "[babashka.cli] Cannot register completions for program name "
-                         (pr-str prog) ", expected letters, digits, '.', '_' or '-'"))
+                         (pr-str (first bad)) ", expected letters, digits, '.', '_' or '-'"))
           (not (#{:bash :zsh :fish :powershell :nushell} shell))
           (eprintln (str "[babashka.cli] Unknown --shell " (pr-str shell)
                          ", expected one of: bash zsh fish powershell nushell"))
-          :else (print (completion-shell-snippet shell prog))))
+          :else (print (completion-shell-snippet shell names))))
       "complete"
       (let [toks (cond-> toks
                    (= :bash shell) drop-lone-eq
