@@ -994,8 +994,8 @@ Run "git bisect <command> --help" for more information on a command.
 
 `*exit-fn*` is called on errors, with a map with keys:
 - `:exit` exit code
-- `:cause` can be`:no-match`, `:input-exhausted`, or an option cause.
-- `:dispatch` the matched  command
+- `:cause` can be `:no-match`, `:input-exhausted`, or an option cause.
+- `:dispatch` the matched command
 - `:data` raw dispatch error data
 
 The default `*exit-fn*` implementation exits the process (`System/exit` on JVM, `js/process.exit` on Node).

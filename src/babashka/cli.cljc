@@ -1906,7 +1906,7 @@ $env.config.completions.external.completer = {|spans|
   "Command dispatcher.
 
   Dispatches on longest matching command entry in `table` by matching
-  commands to the `:cmds` vector and invoking the correspondig `:fn`.
+  commands to the `:cmds` vector and invoking the corresponding `:fn`.
 
   Table is in the form:
 
