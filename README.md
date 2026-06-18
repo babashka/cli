@@ -10,11 +10,6 @@ Turn Clojure functions into Command Line Interfaces! This library can be used fr
 
 ## [API](API.md)
 
-## Status
-
-This library is still in the design phase and may still undergo breaking changes.
-Check [breaking changes](CHANGELOG.md#breaking-changes) before upgrading!
-
 ## Installation
 
 For Clojure and ClojureScript, include a `:deps` entry in your  `deps.edn` file:
