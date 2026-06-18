@@ -1896,18 +1896,17 @@ $env.config.completions.external.completer = {|spans|
     (case sub
       "snippet"
       ;; explicit --prog (repeatable) registers only those names; otherwise
-      ;; register the :prog and (for dev/path invocations) the script file name
+      ;; register the :prog and (for dev/path invocations) the script file name.
+      ;; The name is used as-is for shell registration (like cobra/clap/argcomplete);
+      ;; only the derived completion function name is sanitized, so non-ASCII
+      ;; program names (e.g. a CLI named in a non-Latin script) are supported.
       (let [names (if (seq prog)
                     (vec prog)
-                    (distinct (filter some? [(:prog opts) (script-basename)])))
-            bad (remove #(re-matches #"[A-Za-z0-9_.-]+" %) names)]
+                    (distinct (filter some? [(:prog opts) (script-basename)])))]
         (cond
           (empty? names)
           (eprintln (str "[babashka.cli] Set :prog in opts, or pass --prog,"
                          " to generate a completion snippet"))
-          (seq bad)
-          (eprintln (str "[babashka.cli] Cannot register completions for program name "
-                         (pr-str (first bad)) ", expected letters, digits, '.', '_' or '-'"))
           (not (#{:bash :zsh :fish :powershell :nushell} shell))
           (eprintln (str "[babashka.cli] Unknown --shell " (pr-str shell)
                          ", expected one of: bash zsh fish powershell nushell"))

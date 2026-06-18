@@ -480,11 +480,14 @@
            (->> (complete-via-cmd t {:prog "p"} "p deploy --env ")
                 str/split-lines (remove str/blank?) set)))))
 
-(deftest prog-validation-test
-  ;; :prog is embedded in the snippet's registration lines; a multi-word or
-  ;; metachar name would register completions for the wrong command (or inject)
-  (is (= "" (snippet-via-cmd cmd-table {:prog "bb tasks"} "bash")))
-  (is (= "" (snippet-via-cmd cmd-table {:prog "x$(rm -rf .)"} "bash"))))
+(deftest prog-name-test
+  ;; the program name is used as-is for shell registration (like cobra/clap/
+  ;; argcomplete); only the derived completion function name is sanitized. So a
+  ;; non-ASCII program name registers fine. (No injection concern: generating a
+  ;; snippet requires running the program, so a hostile name already executed.)
+  (let [s (snippet-via-cmd cmd-table {:prog "工具"} "zsh")]
+    (is (str/includes? s "compdef _babashka_cli_complete__ 工具"))
+    (is (str/includes? s "#compdef 工具"))))
 
 (deftest all-no-doc-help-test
   ;; an all-:no-doc spec must not render a dangling empty Options: header
