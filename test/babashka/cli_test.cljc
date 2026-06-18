@@ -433,7 +433,7 @@
                   {:cmds ["foo" "bar"]
                    :fn identity
                    :spec {:version {:coerce :string}}}])
-      (testing "subcommand wins from args->opts"
+      (testing "command wins from args->opts"
         (is (= {:dispatch ["foo" "bar"], :opts {:version "2000"}, :args ["some-arg"]}
                (-> (cli/dispatch
                     table
@@ -536,7 +536,7 @@
                    (cli/dispatch tree ["dev" "--port" "1234"])))
       (is (submap? {:dispatch ["deps" "outdated"] :opts {}}
                    (cli/dispatch tree ["deps" "outdated"]))))
-    (testing "a root :inherit option is accepted after a subcommand"
+    (testing "a root :inherit option is accepted after a command"
       (is (submap? {:dispatch ["dev"] :opts {:verbose true :port 80}}
                    (cli/dispatch tree ["dev" "--verbose" "--port" "80"]))))
     (testing "--help at every level"
@@ -546,13 +546,13 @@
         (is (nil? exit)))
       (is (str/includes? (:out (run ["deps" "--help"])) "Usage: tool deps"))
       (is (str/includes? (:out (run ["deps" "outdated" "--help"])) "Usage: tool deps outdated")))
-    (testing "unknown subcommand exits via the :error-fn"
+    (testing "unknown command exits via the :error-fn"
       (let [{:keys [out exit]} (run ["nope"])]
         (is (str/includes? out "Unknown command: nope"))
         (is (submap? {:exit 1 :cause :no-match} exit))))
     (testing "bare group exits via the :error-fn"
       (let [{:keys [out exit]} (run ["deps"])]
-        (is (str/includes? out "No subcommand given."))
+        (is (str/includes? out "No command given."))
         (is (submap? {:exit 1 :cause :input-exhausted} exit))))
     (testing "flag error exits via the :error-fn"
       (let [{:keys [out exit]} (run ["dev" "--port" "nan"])]
@@ -582,7 +582,7 @@
        (mapv #(first (str/split (str/trim %) #" +")))))
 
 (deftest cmd-order-test
-  (testing "a table with more than 8 subcommands keeps entry order in help"
+  (testing "a table with more than 8 commands keeps entry order in help"
     (let [table (mapv (fn [i] {:cmds [(str "cmd" i)] :fn identity :doc (str "Cmd " i)})
                       (range 10))
           help (cli/format-command-help {:table table :prog "p"})]
@@ -616,7 +616,7 @@
         (is (= ["a"] (listed-command-names
                       (cli/format-command-error {:cause :no-match :wrong-input "x"
                                                  :dispatch [] :prog "p" :tree tree})))))))
-  (testing "hiding all children does not change the usage line: a subcommand is
+  (testing "hiding all children does not change the usage line: a command is
             still expected at runtime"
     (is (= "Usage: p <command>"
            (cli/format-command-help {:table {:cmd-order [] :cmd {"a" {:fn identity}}}
@@ -808,11 +808,11 @@
                     "Commands:\n  dev  Start dev.\n  deps Dep tools\n\n"
                     "Run \"tool --help\" for more information.")
                s))))
-    (testing ":input-exhausted (bare group) renders the group's subcommands"
+    (testing ":input-exhausted (incomplete multi-word command) renders the group's commands"
       (let [s (cli/format-command-error {:cause :input-exhausted
                                          :dispatch ["deps"] :prog "tool"
                                          :tree (cli/table->tree table)})]
-        (is (str/includes? s "No subcommand given."))
+        (is (str/includes? s "No command given."))
         (is (str/includes? s "outdated"))
         (is (str/includes? s "Run \"tool deps --help\" for more information."))))
     (testing "a flag error renders Error + usage + hint"
@@ -853,7 +853,7 @@
         (is (str/includes? out "Usage: tool [options] <command>"))
         (is (str/includes? out "Commands:"))
         (is (nil? exit))))                  ; help is not an error - *exit-fn* not called
-    (testing "--help after a subcommand renders that command's help"
+    (testing "--help after a command renders that command's help"
       (let [{:keys [out exit]} (run ["deps" "outdated" "--help"])]
         (is (str/includes? out "Usage: tool deps outdated"))
         (is (nil? exit))))
@@ -865,7 +865,7 @@
       (let [{:keys [ran exit]} (run ["dev" "--sync"])]
         (is (nil? exit))
         (is (= {:sync true} (:opts ran)))))
-    (testing "bad subcommand renders help via the installed error-fn, exit 1"
+    (testing "bad command renders help via the installed error-fn, exit 1"
       (let [{:keys [out exit]} (run ["nope"])]
         (is (str/includes? out "Unknown command: nope"))
         (is (submap? {:exit 1 :cause :no-match} exit))))
@@ -907,7 +907,7 @@
         (is (not (str/includes? out "--help")))
         ;; ...but --help still triggers help (prints, returns; no *exit-fn*)
         (is (nil? exit))))
-    (testing "a subcommand that redefines an inherited option shows it under Options, not Inherited"
+    (testing "a command that redefines an inherited option shows it under Options, not Inherited"
       (let [t [{:cmds [] :spec {:x {:inherit true :desc "global x"}}}
                {:cmds ["sub"] :fn identity :spec {:x {:desc "local x"}}}]
             out (:out (run-dispatch t ["sub" "--help"] {:prog "p" :help true}))]
@@ -1133,7 +1133,7 @@
 
 (deftest dispatch-flag-error-includes-dispatch-path-test
   (testing "flag-level errors during dispatch carry the :dispatch path so an
-            :error-fn can render help for the right subcommand"
+            :error-fn can render help for the right command"
     ;; capture the first error and halt (mirrors a real error-fn that exits)
     (let [capture (fn [table args opts]
                     (let [err (atom nil)]
@@ -1151,7 +1151,7 @@
         (let [e (capture table ["--bogus"] {:restrict true})]
           (is (= :restrict (:cause e)))
           (is (= [] (:dispatch e)))))
-      (testing ":restrict at nested subcommand -> full :dispatch path"
+      (testing ":restrict at nested command -> full :dispatch path"
         (let [e (capture table ["foo" "bar" "--bogus"] {:restrict true})]
           (is (= :restrict (:cause e)))
           (is (= ["foo" "bar"] (:dispatch e)))))
@@ -1192,10 +1192,10 @@
   (testing ":inherit options propagate to descendant levels"
     (let [table [{:cmds ["deps"]            :spec {:registry {:alias :r :inherit true}}}
                  {:cmds ["deps" "outdated"] :fn identity :spec {:format {}}}]]
-      (testing "accepted after the subcommand"
+      (testing "accepted after the command"
         (is (= {:dispatch ["deps" "outdated"] :opts {:registry "X" :format "edn"} :args nil}
                (cli/dispatch table ["deps" "outdated" "--registry" "X" "--format" "edn"] {:restrict true}))))
-      (testing "still accepted before the subcommand"
+      (testing "still accepted before the command"
         (is (= {:dispatch ["deps" "outdated"] :opts {:registry "X"} :args nil}
                (cli/dispatch table ["deps" "--registry" "X" "outdated"] {:restrict true}))))
       (testing "alias propagates too"
@@ -1216,7 +1216,7 @@
       (is (= {:tag false}
              (:opts (cli/dispatch table ["ver" "set" "--tag" "false"]
                                   {:spec {:tag {:coerce :string}}}))))))
-  (testing "options without :inherit do NOT propagate (rejected after subcommand)"
+  (testing "options without :inherit do NOT propagate (rejected after command)"
     (let [table [{:cmds ["deps"]            :spec {:registry {}}}
                  {:cmds ["deps" "outdated"] :fn identity :spec {:format {}}}]]
       (is (thrown-with-msg?

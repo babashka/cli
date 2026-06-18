@@ -95,7 +95,7 @@
   (testing "no completions for full command"
     (is (= #{} (set (complete cmd-table ["foo"])))))
 
-  (testing "complete subcommands and options"
+  (testing "complete commands and options"
     (is (= #{"bar" "-f" "--foo-opt" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" ""])))))
 
   (testing "complete suboption"
@@ -130,7 +130,7 @@
   (is (= #{"-f" "--foo-opt" "--foo-opt2"} (set (complete cmd-table ["foo" "--foo-flag" "-"]))))
   (is (= #{"bar"} (set (complete cmd-table ["foo" "--foo-flag" "b"]))))
 
-  (testing "complete subcommand"
+  (testing "complete command"
     (is (= #{"--bar-opt" "--bar-flag"} (set (complete cmd-table ["foo" "--foo-flag" "bar" ""]))))
     (is (= #{"--bar-opt" "--bar-flag"} (set (complete cmd-table ["foo" "--foo-flag" "bar" "-"]))))
     (is (= #{"--bar-opt" "--bar-flag"} (set (complete cmd-table ["foo" "--foo-flag" "bar" "--"]))))
@@ -159,7 +159,7 @@
 (deftest dispatch-completion-test
   (testing "output is shell-agnostic value<TAB>description data"
     (is (= #{"foo"} (complete-out "myprogram f"))))
-  (testing "descriptions: subcommand :doc and option :desc are surfaced"
+  (testing "descriptions: command :doc and option :desc are surfaced"
     (is (= #{"bar\tThe bar command" "bar-baz"} (complete-out "myprogram ba")))
     (is (= #{"--foo-opt\tThe foo option" "--foo-opt2" "--foo-flag\tEnable foo"}
            (complete-out "myprogram foo --foo")))
@@ -190,7 +190,7 @@
       (is (= ["c" "a"]
              (-> (complete-via-cmd tree {:prog "p"} "p ")
                  str/split-lines)))))
-  (testing "a table with more than 8 subcommands completes in entry order"
+  (testing "a table with more than 8 commands completes in entry order"
     (let [table (mapv (fn [i] {:cmds [(str "cmd" i)] :fn identity}) (range 10))]
       (is (= (mapv #(str "cmd" %) (range 10))
              (complete table [""]))))))
@@ -331,7 +331,7 @@
 
 (deftest no-doc-option-test
   ;; a :no-doc option still parses but is hidden from completion and --help, like a
-  ;; :no-doc subcommand is hidden from the command list
+  ;; :no-doc command is hidden from the command list
   (let [t [{:cmds ["deploy"] :fn identity
             :spec {:env {:coerce :string} :secret {:coerce :string :no-doc true :alias :s}}}]]
     (testing "hidden from completion (long form and alias)"
@@ -409,7 +409,7 @@
 (deftest inherit-completion-test
   (let [t [{:cmds [] :fn identity :spec {:verbose {:coerce :boolean :inherit true}}}
            {:cmds ["sub"] :fn identity :spec {:opt {}}}]]
-    (testing "inherited options are offered at subcommand levels"
+    (testing "inherited options are offered at command levels"
       (is (= #{"--opt" "--verbose"} (set (complete t ["sub" "--"])))))
     (testing "a typed inherited flag is recognized as a flag"
       (is (= #{"--opt"} (set (complete t ["sub" "--verbose" "--"]))))))

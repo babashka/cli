@@ -6,6 +6,13 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
+- [#161](https://github.com/babashka/cli/issues/161), [#163](https://github.com/babashka/cli/issues/163): docs: review and update.
+Nomenclature change: subcommand->command.
+For babashka cli library users, we used the term "subcommand".
+For users of clis created with babashka cli we use the term "command".
+They are the same thing.
+We now use the term "command" for both audiences.
+([@lread](https://github.com/lread))
 - [#168](https://github.com/babashka/cli/issues/168): Hide `number-char?` from the public API, it was accidentally included.
 ([@lread](https://github.com/lread))
 

@@ -1,18 +1,18 @@
 # Table of contents
 -  [`babashka.cli`](#babashka.cli) 
-    -  [`*exit-fn*`](#babashka.cli/*exit-fn*) - Terminates the process after <code>dispatch</code>'s <code>:help</code> option prints an *error* (unknown/missing subcommand, flag error).
+    -  [`*exit-fn*`](#babashka.cli/*exit-fn*) - Terminates the process after <code>dispatch</code>'s <code>:help</code> option prints an *error* (unknown/missing command, option error).
     -  [`apply-defaults`](#babashka.cli/apply-defaults) - Fills missing keys in <code>m</code> from defaults.
     -  [`auto-coerce`](#babashka.cli/auto-coerce) - Auto-coerces <code>s</code> to data.
     -  [`coerce`](#babashka.cli/coerce) - Coerce string <code>s</code> using <code>f</code>.
     -  [`coerce-opts`](#babashka.cli/coerce-opts) - Coerces values in the map <code>m</code> using the provided configuration.
     -  [`default-width-fn`](#babashka.cli/default-width-fn) - The default <code>:max-width-fn</code> for [<code>format-table</code>](#babashka.cli/format-table)/[<code>format-opts</code>](#babashka.cli/format-opts).
-    -  [`dispatch`](#babashka.cli/dispatch) - Subcommand dispatcher.
-    -  [`format-command-error`](#babashka.cli/format-command-error) - Render a terse, helpful message (a string) for a dispatch error, given the data <code>dispatch</code> passes to its <code>:error-fn</code>: * <code>:no-match</code> (unknown subcommand) -> message + commands + hint * <code>:input-exhausted</code> (group, no subcommand) -> message + commands + hint * flag error (<code>:restrict</code> / <code>:require</code> / <code>:validate</code> / <code>:coerce</code>) -> message + usage + hint Reads the command tree, <code>:prog</code>, <code>:inherit</code>, <code>:dispatch</code> (the path), and for flag errors <code>:msg</code> (and for <code>:no-match</code>, <code>:wrong-input</code>) from the data.
-    -  [`format-command-help`](#babashka.cli/format-command-help) - Render conventional <code>--help</code> text (a string) for the command at path <code>cmds</code> in a <code>dispatch</code> table or tree: <code></code>` Usage: <prog> [options] <command> <description> ; the entry's :doc (first line, then the rest) Commands: ; child commands with their one-line :doc ...
-    -  [`format-opts`](#babashka.cli/format-opts)
-    -  [`format-table`](#babashka.cli/format-table)
+    -  [`dispatch`](#babashka.cli/dispatch) - Command dispatcher.
+    -  [`format-command-error`](#babashka.cli/format-command-error) - Render a terse, helpful message (a string) for a dispatch error.
+    -  [`format-command-help`](#babashka.cli/format-command-help) - Render conventional <code>--help</code> text (a string) for the command at path <code>cmds</code> in a <code>dispatch</code> table or tree.
+    -  [`format-opts`](#babashka.cli/format-opts) - Formats options into an options usage help string.
+    -  [`format-table`](#babashka.cli/format-table) - Formats <code>rows</code> into a table (string).
     -  [`merge-opts`](#babashka.cli/merge-opts) - Merges babashka CLI options.
-    -  [`opts->table`](#babashka.cli/opts->table)
+    -  [`opts->table`](#babashka.cli/opts->table) - Converts options to a table of rows.
     -  [`parse-args`](#babashka.cli/parse-args) - Same as [<code>parse-opts</code>](#babashka.cli/parse-opts) with return data reshaped.
     -  [`parse-cmds`](#babashka.cli/parse-cmds) - Parses sub-commands (arguments not starting with an option prefix).
     -  [`parse-keyword`](#babashka.cli/parse-keyword) - Parse keyword from <code>s</code>.
@@ -40,12 +40,12 @@
 Function.
 
 Terminates the process after `dispatch`'s `:help` option prints an *error*
-  (unknown/missing subcommand, flag error). `--help`/`-h` is not an error - it
+  (unknown/missing command, option error). `--help`/`-h` is not an error - it
   prints help and returns, so it does not call this. Called with a map:
 
   * `:exit` - exit code (always non-zero, `1`)
-  * `:cause` - the dispatch error cause: `:no-match` (unknown subcommand),
-    `:input-exhausted` (group with no subcommand), or the flag cause
+  * `:cause` - the dispatch error cause: `:no-match` (unknown command),
+    `:input-exhausted` (no command or incomplete multi-word command), or the option cause
     (`:restrict` / `:require` / `:validate` / `:coerce`)
   * `:dispatch` - the command path
   * `:data` - the original `dispatch` error data
@@ -61,7 +61,7 @@ Terminates the process after `dispatch`'s `:help` option prints an *error*
   Must exit or throw.
 
   Default: `System/exit` (JVM), `js/process.exit` (Node), `throw` (browser).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1582-L1609">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1592-L1619">Source</a></sub></p>
 
 ## <a name="babashka.cli/apply-defaults">`apply-defaults`</a>
 ``` clojure
@@ -116,7 +116,7 @@ Coerces values in the map `m` using the provided configuration.
 
   Supported options:
   * `:coerce` - a map of option (keyword) names to type keywords (optionally wrapped in a collection).
-  * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
+  * `:spec` - a spec of options. See [spec](/README.md#spec).
   * `:error-fn` - error handler, called with a map containing `:cause` (`:coerce`), `:msg`, `:option`, `:value`, `:opts`, and `:flag` (when the option was typed).
 
   `:flag` is the literal option token as it appeared on the command line (e.g.
@@ -145,10 +145,10 @@ The default `:max-width-fn` for [`format-table`](#babashka.cli/format-table)/[`f
 ```
 Function.
 
-Subcommand dispatcher.
+Command dispatcher.
 
   Dispatches on longest matching command entry in `table` by matching
-  subcommands to the `:cmds` vector and invoking the correspondig `:fn`.
+  commands to the `:cmds` vector and invoking the corresponding `:fn`.
 
   Table is in the form:
 
@@ -169,7 +169,7 @@ Subcommand dispatcher.
                      :cmd {"clean" {:fn clean-cache}}}}}
   ```
 
-  The subcommands render in help and completions in the order specified. Map literals with
+  The commands render in help and completions in the order specified. Map literals with
   more than 8 entries lose insertion order, so put a `:cmd-order` (vector of
   child command names) on the map to control which children are shown and in
    what order (like `:order` does for options). A table keeps its entry order
@@ -184,7 +184,7 @@ Subcommand dispatcher.
 
   Use an empty `:cmds` vector to always match or to provide global options.
 
-  For a single-command CLI (no subcommands), use a one-entry table whose `:cmds`
+  For a single-command CLI (no commands), use a one-entry table whose `:cmds`
   is `[]`:
 
   ```clojure
@@ -198,7 +198,7 @@ Subcommand dispatcher.
 
   * `--help`/`-h` print help for the command they precede and return (no error,
     so the process ends with status 0). This goes through a `:help-fn`.
-  * an unknown/missing subcommand or a flag error prints a terse message and
+  * an unknown/missing command or an option error prints a terse message and
     exits non-zero (via [`*exit-fn*`](#babashka.cli/*exit-fn*)). This goes through the `:error-fn`.
 
   Both default handlers can be overridden: pass your own `:help-fn` (called with
@@ -208,8 +208,8 @@ Subcommand dispatcher.
 
   Each entry in the table may have additional [`parse-args`](#babashka.cli/parse-args) options.
 
-  For more information and examples, see [README.md](README.md#subcommands).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1895-L1983">Source</a></sub></p>
+  For more information and examples, see [README.md](README.md#commands).
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1905-L1993">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-command-error">`format-command-error`</a>
 ``` clojure
@@ -217,23 +217,23 @@ Subcommand dispatcher.
 ```
 Function.
 
-Render a terse, helpful message (a string) for a dispatch error, given the
-  data `dispatch` passes to its `:error-fn`:
+Render a terse, helpful message (a string) for a dispatch error.
+  It is given the data `dispatch` passes to its `:error-fn`:
 
-  * `:no-match` (unknown subcommand) -> message + commands + hint
-  * `:input-exhausted` (group, no subcommand) -> message + commands + hint
-  * flag error (`:restrict` / `:require` / `:validate` / `:coerce`) -> message
+  * `:no-match` (unknown command) -> message + commands + hint
+  * `:input-exhausted` (no command or incomplete multi-word command) -> message + commands + hint
+  *  option error (`:restrict` / `:require` / `:validate` / `:coerce`) -> message
     + usage + hint
 
   Reads the command tree, `:prog`, `:inherit`, `:dispatch` (the path), and for
-  flag errors `:msg` (and for `:no-match`, `:wrong-input`) from the data.
-  Messages name the flag as typed (`--foo`/`-x`), not `:foo`.
+  option errors `:msg` (and for `:no-match`, `:wrong-input`) from the data.
+  Messages name the option as typed (`--foo`/`-x`), not `:foo`.
 
   This is the renderer the `:help` option's default `:error-fn` uses (it prints
   this, then calls [`*exit-fn*`](#babashka.cli/*exit-fn*)). Call it from a custom `:error-fn` to keep the
   standard message and add your own output. `--help`/`-h` is not an error - it
   goes to the `:help-fn`, rendered by [`format-command-help`](#babashka.cli/format-command-help).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1620-L1667">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1630-L1677">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-command-help">`format-command-help`</a>
 ``` clojure
@@ -242,7 +242,7 @@ Render a terse, helpful message (a string) for a dispatch error, given the
 Function.
 
 Render conventional `--help` text (a string) for the command at path `cmds`
-  in a `dispatch` table or tree:
+  in a `dispatch` table or tree.
 
   ```
   Usage: <prog> [options] <command>
@@ -278,14 +278,18 @@ Render conventional `--help` text (a string) for the command at path `cmds`
   This is the renderer the `:help` option uses; call it from a custom `:help-fn`
   to render the standard help and then add your own output. An entry may carry
   `:no-doc true` to be omitted from `Commands:`.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1539-L1580">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1549-L1590">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-opts">`format-opts`</a>
 ``` clojure
 (format-opts {:as cfg, :keys [indent wrap max-width-fn], :or {indent 2, wrap true, max-width-fn default-width-fn}})
 ```
 Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L898-L905">Source</a></sub></p>
+
+Formats options into an options usage help string.
+
+  See [Printing options](/README.md#printing-options).
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L904-L915">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-table">`format-table`</a>
 ``` clojure
@@ -295,7 +299,10 @@ Function.
   :as cfg})
 ```
 Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L793-L812">Source</a></sub></p>
+
+Formats `rows` into a table (string).
+  See [Printing options](/README.md#printing-options).
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L793-L815">Source</a></sub></p>
 
 ## <a name="babashka.cli/merge-opts">`merge-opts`</a>
 ``` clojure
@@ -311,7 +318,10 @@ Merges babashka CLI options.
 (opts->table {:keys [spec order columns]})
 ```
 Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L842-L862">Source</a></sub></p>
+
+Converts options to a table of rows.
+  See [Printing options](/README.md#printing-options).
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L845-L868">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-args">`parse-args`</a>
 ``` clojure
@@ -335,7 +345,7 @@ Same as [`parse-opts`](#babashka.cli/parse-opts) with return data reshaped.
 Function.
 
 Parses sub-commands (arguments not starting with an option prefix). Returns a map with:
-  * `:cmds` - The parsed subcommands
+  * `:cmds` - The parsed commands
   * `:args` - The remaining (unparsed) arguments
 <p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L201-L211">Source</a></sub></p>
 
@@ -364,15 +374,15 @@ Returns a map of options parsed from command line arguments `args`, a seq of str
   Supported `opts`:
   * `:coerce` - a map of option (keyword) names to type keywords (optionally wrapped in a collection.)
   * `:alias` - a map of short names to long names.
-  * `:spec` - a spec of options. See [spec](https://github.com/babashka/cli#spec).
+  * `:spec` - a spec of options. See [spec](/README.md#spec).
   * `:restrict` - `true` or coll of keys. Throw on first parsed option not in set of keys or keys of `:spec` and `:coerce` combined.
-  * `:require` - a coll of options that are required. See [require](https://github.com/babashka/cli#restrict).
-  * `:validate` - a map of validator functions. See [validate](https://github.com/babashka/cli#validate).
+  * `:require` - a coll of options that are required. See [require](/README.md#restrict).
+  * `:validate` - a map of validator functions. See [validate](/README.md#validate).
   * `:exec-args` - a map of default args. Will be overridden by args specified in `args`. Values from `:exec-args` are NOT coerced or auto-coerced; provide them in their final form. Not subject to `:restrict`.
   * `:no-keyword-opts` - `true`. Support only `--foo`-style opts (i.e. `:foo` will not work).
   * `:repeated-opts` - `true`. Forces writing the option name for every value, e.g. `--foo a --foo b`, rather than `--foo a b`
   * `:args->opts` - consume unparsed commands and args as options
-  * `:collect` - a map of collection fns. See [custom collection handling](https://github.com/babashka/cli#custom-collection-handling).
+  * `:collect` - a map of collection fns. See [custom collection handling](/README.md#custom-collection-handling).
 
   Examples:
 
@@ -435,7 +445,7 @@ Converts a `dispatch` table into a tree. Each `:cmds` becomes a path of
   ```
 
   A tree passed in is normalized and returned, so the function is idempotent.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1066-L1088">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1076-L1098">Source</a></sub></p>
 
 ## <a name="babashka.cli/validate-opts">`validate-opts`</a>
 ``` clojure
