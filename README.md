@@ -290,7 +290,7 @@ Boolean flags are assumed by default, like so:
 But you can explicitly specify `:boolean` coercion (and will sometimes need to, see [Arguments](#arguments)):
 
 ``` clojure
-(cli/parse-opts ["--verbose"] {:spec {:coerce :boolean}})
+(cli/parse-opts ["--verbose"] {:spec {:verbose {:coerce :boolean}}})
 ;;=> {:verbose true}
 
 (cli/parse-opts ["-v" "-v" "-v"] {:spec {:verbose {:alias :v :coerce [:boolean]}}})
