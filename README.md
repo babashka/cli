@@ -531,6 +531,9 @@ arguments. Without `:args->opts`, `dispatch` stops at the first positional argum
 
 Babashka CLI handles commands with [dispatch](/API.md#dispatch).
 
+> [!NOTE]
+> When we use the word "command" in this README or other documentation in this library, it's the same concept as what many CLI libraries call "subcommands". We use "command" for consistency since technically a single-word command is not a _sub_-command.
+
 ### Single-word Commands
 
 Say we want a CLI with a `copy` command, a `delete` command, and an undocumented `debug` command:
