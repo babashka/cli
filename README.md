@@ -10,11 +10,6 @@ Turn Clojure functions into Command Line Interfaces! This library can be used fr
 
 ## [API](API.md)
 
-## Status
-
-This library is still in the design phase and may still undergo breaking changes.
-Check [breaking changes](CHANGELOG.md#breaking-changes) before upgrading!
-
 ## Installation
 
 For Clojure and ClojureScript, include a `:deps` entry in your  `deps.edn` file:
@@ -29,17 +24,27 @@ For babashka, no changes are needed; `org.babashka/cli` is a babashka built-in l
 
 Turn a Clojure function into a CLI that takes Unix-style command line arguments. E.g.:
 
-``` clojure
-$ prog command --flag --long-opt1 v1 -o v2 arg
+```shell
+$ program command --flag --long-opt1 v1 -o v2 arg
 ```
 
 Where:
-- `prog` is your program (which will be launched by Clojure, ClojureScript, or babashka)
-- `command` is a single or multi-word command for your program
+- `program` is your executable program, which will be launched by Clojure, ClojureScript, or babashka. (other libraries might call this "command")
+- `command` is a single or multi-word command for your program (other libraries might call this "subcommand")
 - `--flag` is a boolean flag option
 - `--long-opt1 v1` is an option
 - `-o v2` is a short option
 - `arg` is a positional argument
+
+> [!NOTE]
+> To explain terminology choices, a concrete example:
+> ```shell
+> git remote show
+> ```
+> Some CLI libraries call `git` the `command`, and `remote show` the `subcommand`.
+> These same libraries typically use the term `command` when describing `remote show`  in usage help.
+> To keep terminology consistent for CLI users and CLI developers, we avoid `subcommand` entirely.
+> We use `program` for `git` and `command` for `remote show`.
 
 The main ideas:
 
@@ -530,9 +535,6 @@ arguments. Without `:args->opts`, `dispatch` stops at the first positional argum
 ## Commands
 
 Babashka CLI handles commands with [dispatch](/API.md#dispatch).
-
-> [!NOTE]
-> When we use the word "command" in this README or other documentation in this library, it's the same concept as what many CLI libraries call "subcommands". We use "command" for consistency since technically a single-word command is not a _sub_-command.
 
 ### Single-word Commands
 
