@@ -287,7 +287,27 @@
       (is (registers? (snippet-via-cmd cmd-table {:prog "squint"} "bash" "--prog" "sq") "sq")))
     (testing "non-identifier chars in the name are sanitized in the function name"
       (is (str/includes? (snippet-via-cmd cmd-table {:prog "x"} "bash" "--prog" "node_cli.js")
-                         "_babashka_cli_complete_node_cli_js")))))
+                         "_babashka_cli_complete_node_cli_js")))
+    (testing "--prog repeats to register several names (aliases)"
+      ;; function named after the first name; every name registered
+      (is (str/includes? (snippet-via-cmd cmd-table {:prog "x"} "bash" "--prog" "sq" "--prog" "squint")
+                         "complete -F _babashka_cli_complete_sq sq squint"))
+      (is (str/includes? (snippet-via-cmd cmd-table {:prog "x"} "zsh" "--prog" "sq" "--prog" "squint")
+                         "compdef _babashka_cli_complete_sq sq squint")))
+    #?(:clj
+       (testing "the running script's file name is also registered (dev/path invocation)"
+         (let [prev (System/getProperty "babashka.file")]
+           (try
+             (System/setProperty "babashka.file" "/some/dir/my-cli.clj")
+             (is (str/includes? (snippet-via-cmd cmd-table {:prog "my-cli"} "bash")
+                                "complete -F _babashka_cli_complete_my_cli my-cli my-cli.clj"))
+             (testing "explicit --prog suppresses the auto file name"
+               (is (not (str/includes? (snippet-via-cmd cmd-table {:prog "my-cli"} "bash" "--prog" "my-cli")
+                                       "my-cli.clj"))))
+             (finally
+               (if prev
+                 (System/setProperty "babashka.file" prev)
+                 (System/clearProperty "babashka.file")))))))))
 
 (deftest positional-completion-test
   ;; :args->opts maps positionals to spec keys, so a positional completes that
@@ -460,11 +480,14 @@
            (->> (complete-via-cmd t {:prog "p"} "p deploy --env ")
                 str/split-lines (remove str/blank?) set)))))
 
-(deftest prog-validation-test
-  ;; :prog is embedded in the snippet's registration lines; a multi-word or
-  ;; metachar name would register completions for the wrong command (or inject)
-  (is (= "" (snippet-via-cmd cmd-table {:prog "bb tasks"} "bash")))
-  (is (= "" (snippet-via-cmd cmd-table {:prog "x$(rm -rf .)"} "bash"))))
+(deftest prog-name-test
+  ;; the program name is used as-is for shell registration (like cobra/clap/
+  ;; argcomplete); only the derived completion function name is sanitized. So a
+  ;; non-ASCII program name registers fine. (No injection concern: generating a
+  ;; snippet requires running the program, so a hostile name already executed.)
+  (let [s (snippet-via-cmd cmd-table {:prog "工具"} "zsh")]
+    (is (str/includes? s "compdef _babashka_cli_complete__ 工具"))
+    (is (str/includes? s "#compdef 工具"))))
 
 (deftest all-no-doc-help-test
   ;; an all-:no-doc spec must not render a dangling empty Options: header

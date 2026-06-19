@@ -18,6 +18,9 @@ trap "rm -rf $tmp" EXIT
 
 cat > $tmp/bbtest <<EOF
 #!/usr/bin/env bash
+# log every 'complete' callback so a test can assert the completer fires once per
+# TAB (a '*/name' pattern on top of the basename-resolved literal double-fires)
+[[ "\$*" == *"completions complete"* ]] && echo x >> "$tmp/callcount"
 exec bb --classpath "$repo/src" "$repo/test-resources/completion/fixture.clj" "\$@"
 EOF
 chmod +x $tmp/bbtest
@@ -87,6 +90,21 @@ check () { # <command line> <expected candidate>...
 }
 
 check "bbtest " deploy status
+# path invocation: zsh's _normal resolves the compspec by basename, so an
+# absolute (or ./) path completes like the bare name. Registering a '*/name'
+# pattern on top of this double-fires the completer; keep literal-only.
+check "$tmp/bbtest " deploy status
+# regression: the completer must fire exactly once per TAB. A '*/name' pattern
+# registered alongside the basename-resolved literal makes a path invocation run
+# it twice (doubled listing, detached descriptions).
+check_once () { # <command line>
+  : > $tmp/callcount
+  capture "$1"
+  local n=$( [[ -f $tmp/callcount ]] && wc -l < $tmp/callcount || echo 0 )
+  if (( n == 1 )); then print "ok   [fires once: $1]"
+  else print "FAIL [fires $n times: $1]"; fail=1; fi
+}
+check_once "$tmp/bbtest "
 check "bbtest de" deploy
 check "bbtest deploy --" --env --force
 check "bbtest deploy --env " dev staging prod

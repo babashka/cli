@@ -13,11 +13,13 @@ _babashka_cli_complete_myprogram() {
         described+=("$v${d:+:$d}")
     done
     local ret=1
-    (( $#described )) && { _describe -t values completion described && ret=0; }
+    # claim success whenever we produced candidates: _describe's own exit status
+    # is not reliably 0 under a user matcher-list / multi-completer setup, and a
+    # non-zero return makes zsh retry other completers (_match, _approximate, ...)
+    # and re-list everything with detached descriptions
+    (( $#described )) && { _describe -t values completion described; ret=0; }
     [[ -n $do_files ]] && { _files; ret=0; }
-    # return success when we added completions, else zsh retries other completers
-    # (_match, _approximate, ...) and re-lists everything
     return $ret
 }
-# register for the bare name and for path invocations (./prog, /abs/prog)
-compdef _babashka_cli_complete_myprogram '*/myprogram' myprogram
+# register the bare name(s); zsh's _normal completes ./name and /abs/name via the basename
+compdef _babashka_cli_complete_myprogram myprogram
