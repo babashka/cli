@@ -908,6 +908,9 @@ command line.
 
 ### Help
 
+> For a guided walkthrough of automatic help and shell completions, see this
+> [blog post](https://blog.michielborkent.nl/babashka-cli-help-and-completions.html).
+
 Pass `:help true` to `dispatch` (and `:prog`, the program name) to add help to a
 CLI:
 
