@@ -85,7 +85,8 @@ See [clojure CLI](#clojure-cli) for how to turn your `-X` exec functions into CL
 ## Simple example
 
 Babashka CLI works in Clojure, ClojureScript, and [babashka](https://book.babashka.org/).
-Here is an example babashka script to get you started! Save it to `try-me.clj`.
+Here is an example babashka script to get you started. We'll write a small
+stand-in for `git`. Save it to `mygit.clj`.
 
 ```clojure
 #!/usr/bin/env bb
@@ -96,25 +97,25 @@ Here is an example babashka script to get you started! Save it to `try-me.clj`.
   (fs/directory? path))
 
 (def spec
-  {:num  {:coerce :long
-          :alias :n                  ; adds -n alias for --num
-          :desc "Number of some items"
-          :validate pos?             ; tests if supplied --num > 0
-          :require true}             ; --num,-n is required
-   :dir  {:alias :d
-          :desc "Directory name to do stuff"
-          :validate                  ; tests if --dir exists,
-          {:pred dir-exists?         ; with a custom error message
-           :ex-msg (fn [{:keys [value]}]
-                     (str "Directory does not exist: " value))}}
-   :flag {:coerce :boolean           ; defines a boolean flag
-          :desc "I am just a flag"}})
+  {:depth {:coerce :long
+           :alias :d                  ; adds -d alias for --depth
+           :desc "Number of commits to fetch"
+           :validate pos?             ; tests if supplied --depth > 0
+           :require true}             ; --depth,-d is required
+   :dir   {:alias :C                  ; like git's own -C
+           :desc "Run as if git was started in <dir>"
+           :validate                  ; tests if --dir exists,
+           {:pred dir-exists?         ; with a custom error message
+            :ex-msg (fn [{:keys [value]}]
+                      (str "Directory does not exist: " value))}}
+   :bare  {:coerce :boolean           ; defines a boolean flag
+           :desc "Create a bare repository"}})
 
 (defn run [{:keys [opts]}]
   (println "Here are your cli args!:" opts))
 
 (defn -main [& args]
-  (cli/dispatch {:fn run :spec spec} args {:prog "try-me" :help true}))
+  (cli/dispatch {:fn run :spec spec} args {:prog "mygit" :help true}))
 
 (apply -main *command-line-args*)
 ```
@@ -123,44 +124,44 @@ The `:help true` option supplied to `dispatch` wires up automatic `--help`/`-h` 
 
 Let's request usage help:
 ```
-$ bb try-me.clj --help
-Usage: try-me [options]
+$ bb mygit.clj --help
+Usage: mygit [options]
 
 Options:
-  -n, --num  Number of some items (required)
-  -d, --dir  Directory name to do stuff
-      --flag I am just a flag
-  -h, --help Show this help
+  -d, --depth  Number of commits to fetch (required)
+  -C, --dir    Run as if git was started in <dir>
+      --bare   Create a bare repository
+  -h, --help   Show this help
 ```
 See [Commands > Help](#help) to customize help.
 
 Let's try running with some options:
 ```
-$ bb try-me.clj --num 1 --dir my_dir --flag
+$ bb mygit.clj --depth 1 --dir my_dir --bare
 Error: Directory does not exist: my_dir
 
-Usage: try-me [options]
+Usage: mygit [options]
 
-Run "try-me --help" for more information.
+Run "mygit --help" for more information.
 ```
 The directory was validated with `dir-exists?`. Because the directory does not exist, you see the custom error message produced by the `:ex-msg` function.
 
 Let's create `my_dir`, then try again:
 ```
 $ mkdir my_dir
-$ bb try-me.clj --num 1 --dir my_dir --flag
-Here are your cli args!: {:num 1, :dir my_dir, :flag true}
+$ bb mygit.clj --depth 1 --dir my_dir --bare
+Here are your cli args!: {:depth 1, :dir my_dir, :bare true}
 ```
 All validations passed, and the `run` function was invoked.
 
-The `:num` option includes `:require true`, let's see what happens when we don't include it on the command line:
+The `:depth` option includes `:require true`, let's see what happens when we don't include it on the command line:
 ```
-$ bb try-me.clj
-Error: Required option: --num
+$ bb mygit.clj
+Error: Required option: --depth
 
-Usage: try-me [options]
+Usage: mygit [options]
 
-Run "try-me --help" for more information.
+Run "mygit --help" for more information.
 ```
 We, appropriately, get a terse error message and an exit status of 1.
 
@@ -168,51 +169,51 @@ We, appropriately, get a terse error message and an exit status of 1.
 
 To add commands to this CLI, we need to specify a command structure. We'll just give an example here. See [Commands](#commands) for more info.
 
-Alter `try-me.clj`:
+Alter `mygit.clj`:
 ``` clojure
-;; same as above
-(defn run [{:keys [opts]}]
+;; renamed from `run`
+(defn clone [{:keys [opts]}]
   (println "Here are your cli args!:" opts))
 
 ;; new
 (defn version [_]
-  (println "try-me 1.0"))
+  (println "mygit 1.0"))
 
 ;; new
 (def tree
-  {:cmd {"run"     {:fn run     :doc "Run the thing" :spec spec}
+  {:cmd {"clone"   {:fn clone   :doc "Clone a repository" :spec spec}
          "version" {:fn version :doc "Print version"}}})
 
 ;; updated to use `tree` command structure
 (defn -main [& args]
-  (cli/dispatch tree args {:prog "try-me" :help true}))
+  (cli/dispatch tree args {:prog "mygit" :help true}))
 ```
 
 `--help` now lists the available commands:
 ```
-$ bb try-me.clj --help
-Usage: try-me [options] <command>
+$ bb mygit.clj --help
+Usage: mygit [options] <command>
 
 Commands:
-  run     Run the thing
+  clone   Clone a repository
   version Print version
 
 Options:
   -h, --help  Show this help
 
-Run "try-me <command> --help" for more information on a command.
+Run "mygit <command> --help" for more information on a command.
 ```
 
-The `run` command calls the `run` function:
+The `clone` command calls the `clone` function:
 ```
-$ bb try-me.clj run --num 1 --flag
-Here are your cli args!: {:num 1, :flag true}
+$ bb mygit.clj clone --depth 1 --bare
+Here are your cli args!: {:depth 1, :bare true}
 ```
 
 The `version` command calls the `version` function:
 ```
-$ bb try-me.clj version
-try-me 1.0
+$ bb mygit.clj version
+mygit 1.0
 ```
 
 See [Commands](#commands) for shared options, inheritance, and help customization.
