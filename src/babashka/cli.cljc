@@ -492,7 +492,7 @@
   (let [aliases (or (:alias opts) (:aliases opts))
         spec (:spec opts)
         spec-map (if (map? spec) spec (when spec (into {} spec)))
-        alias-keys (set (concat (keys aliases) (map :alias (vals spec-map))))
+        alias-keys (set (concat (keys aliases) (keep :alias (vals spec-map))))
         known-keys (set (concat (keys spec-map) (vals aliases) (keys coerce)))
         bool? (fn [k] (#{:boolean :bool} (coerce-coerce-fn (get coerce k))))
         track-itk (fn [itk current-opt added]
