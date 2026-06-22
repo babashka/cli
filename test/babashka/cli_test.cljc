@@ -1389,8 +1389,8 @@
     (is (nil? (:babashka.cli/implicit-true-keys (meta (cli/parse-opts ["--foo"]))))))
   (testing "::keys-order not in parse-opts result meta"
     (is (nil? (:babashka.cli/keys-order (meta (cli/parse-opts ["--foo" "--bar" "1"]))))))
-  (testing "::key->flag not in parse-opts result meta"
-    (is (nil? (:babashka.cli/key->flag (meta (cli/parse-opts ["--foo" "--bar" "1"])))))))
+  (testing "::opt->as-provided not in parse-opts result meta"
+    (is (nil? (:babashka.cli/opt->as-provided (meta (cli/parse-opts ["--foo" "--bar" "1"])))))))
 
 (deftest coerce-error-order-test
   (testing "coerce errors fire in parse order, not hash order, for >8 keys"
@@ -1405,11 +1405,11 @@
 (deftest parse-opts-star-test
   (testing "parse-opts* returns raw strings (no coercion)"
     (is (= {:foo "1"} (cli/parse-opts* ["--foo" "1"] {}))))
-  (testing "parse-opts* exposes ::implicit-true-keys + ::keys-order + ::key->flag in meta"
+  (testing "parse-opts* exposes ::implicit-true-keys + ::keys-order + ::opt->as-provided in meta"
     (let [r (cli/parse-opts* ["--foo" "--bar" "1"] {})]
       (is (= #{:foo} (:babashka.cli/implicit-true-keys (meta r))))
       (is (= [:foo :bar] (:babashka.cli/keys-order (meta r))))
-      (is (= {:foo "--foo" :bar "--bar"} (:babashka.cli/key->flag (meta r))))))
+      (is (= {:foo "--foo" :bar "--bar"} (:babashka.cli/opt->as-provided (meta r))))))
   (testing "parse-opts* skips :restrict / :require / :validate"
     (is (= {:bar "1"} (cli/parse-opts* ["--bar" "1"]
                                        {:restrict #{:foo} :require [:foo]})))))
