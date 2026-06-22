@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [parse-boolean parse-long parse-double])
   (:require
    #?(:clj [clojure.edn :as edn]
+      :cljd [cljd.edn :as edn]
       :cljs [cljs.reader :as edn])
    [babashka.cli.internal :as internal]
    [clojure.string :as str])
@@ -19,6 +20,7 @@
 
 (defn- parse-boolean [x]
   #?(:clj (Boolean/parseBoolean x)
+     :cljd (case x ("true" "TRUE" "True") true false)
      :cljs (let [v (js/JSON.parse x)]
              (if (boolean? v)
                v
@@ -26,6 +28,7 @@
 
 (defn- parse-long [x]
   #?(:clj (Long/parseLong x)
+     :cljd (or (dart:core/int.tryParse x) (throw-unexpected x))
      :cljs (let [v (js/JSON.parse x)]
              (if (int? v)
                v
@@ -33,6 +36,7 @@
 
 (defn- parse-double [x]
   #?(:clj (Double/parseDouble x)
+     :cljd (or (dart:core/double.tryParse x) (throw-unexpected x))
      :cljs (let [v (js/JSON.parse x)]
              (if (double? v)
                v
@@ -45,6 +49,10 @@
             (if (and eof? (number? v))
               v
               (throw-unexpected x)))
+     :cljd (let [v (edn/read-string x)]
+             (if (number? v)
+               v
+               (throw-unexpected x)))
      :cljs (let [v (js/JSON.parse x)]
              (if (number? v)
                v
