@@ -133,6 +133,4 @@ jobs:
         sdk: stable
 
     - name: Run tests
-      run: |
-        dart pub get
-        clojure -M:cljd test babashka.cli-test babashka.cli.completion-test
+      run: bb cljd-test
