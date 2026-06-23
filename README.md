@@ -7,12 +7,13 @@ Turn Clojure functions into Command Line Interfaces! This library can be used fr
 - [babashka](https://github.com/babashka/babashka) - included as a built-in library
 - [Clojure on the JVM](https://www.clojure.org/guides/install_clojure) - we support Clojure 1.10.3 and above on Java 11 and above
 - [ClojureScript](https://clojurescript.org) - we test against the current release
+- [ClojureDart](https://github.com/Tensegritics/ClojureDart) - we test against the current release
 
 ## [API](API.md)
 
 ## Installation
 
-For Clojure and ClojureScript, include a `:deps` entry in your  `deps.edn` file:
+For Clojure, ClojureScript, and ClojureDart include a `:deps` entry in your  `deps.edn` file:
 
 ``` clojure
 org.babashka/cli {:mvn/version "<latest-version>"}
@@ -29,7 +30,7 @@ $ program command --verbose --long-opt1 v1 -o v2 arg
 ```
 
 Where:
-- `program` is your executable program, which will be launched by Clojure, ClojureScript, or babashka. (other libraries might call this "command")
+- `program` is your executable program, which will be launched by Clojure, ClojureScript, babashka, or the native target created by ClojureDart. (other libraries might call this "command")
 - `command` is a single or multi-word command for your program (other libraries might call this "subcommand")
 - `--verbose` is a boolean option
 - `--long-opt1 v1` is an option
