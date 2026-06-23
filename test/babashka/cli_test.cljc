@@ -518,7 +518,7 @@
         out (with-out-str
               (binding [cli/*exit-fn*
                         (fn [m] (reset! exit m) (throw (ex-info "exit" {::exit true})))
-                        #?@(:clj [*err* *out*] :cljs [*print-err-fn* *print-fn*])]
+                        #?@(:cljd [*err* *out*] :clj [*err* *out*] :cljs [*print-err-fn* *print-fn*])]
                 (try
                   (cli/dispatch table args opts)
                   (catch #?(:cljd cljd.core/ExceptionInfo :clj clojure.lang.ExceptionInfo :cljs :default) e
