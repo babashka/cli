@@ -1363,7 +1363,7 @@
     (str/split token #"=" 2)
     [token]))
 
-(defn- complete-tree*
+(defn #?(:cljd ^:no-doc complete-tree* :default ^:private complete-tree*)
   "Returns completion candidate maps (`{:value :description}`) for dispatch tree
   `cmd-tree` and `args` (a vector of tokens, last = the token being completed).
   `global-opts` are the dispatch-level opts, accepted at every level like
