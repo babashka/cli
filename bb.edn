@@ -20,6 +20,12 @@
   cljs-test {:doc "Run CLJS tests"
              :task (apply clojure "-M:test:cljs-test" *command-line-args*)}
 
+  cljd-test {:doc "Run ClojureDart tests"
+             :task (do (shell "dart pub get")
+                       (apply clojure "-M:cljd" "test"
+                              "babashka.cli-test" "babashka.cli.completion-test"
+                              *command-line-args*))}
+
   quickdoc {:doc "Invoke quickdoc"
             :requires ([quickdoc.api :as api])
             :task (api/quickdoc (merge {:git/branch "main"

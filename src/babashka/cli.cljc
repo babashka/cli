@@ -2,10 +2,12 @@
   (:refer-clojure :exclude [parse-boolean parse-long parse-double])
   (:require
    #?(:clj [clojure.edn :as edn]
+      :cljd [cljd.edn :as edn]
       :cljs [cljs.reader :as edn])
+   #?@(:cljd [["dart:io" :as io]])
    [babashka.cli.internal :as internal]
    [clojure.string :as str])
-  #?(:clj (:import (clojure.lang ExceptionInfo))))
+  #?@(:cljd [] :clj [(:import (clojure.lang ExceptionInfo))]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -19,6 +21,7 @@
 
 (defn- parse-boolean [x]
   #?(:clj (Boolean/parseBoolean x)
+     :cljd (= "true" x)
      :cljs (let [v (js/JSON.parse x)]
              (if (boolean? v)
                v
@@ -26,6 +29,7 @@
 
 (defn- parse-long [x]
   #?(:clj (Long/parseLong x)
+     :cljd (or (dart:core/int.tryParse x .radix 10) (throw-unexpected x))
      :cljs (let [v (js/JSON.parse x)]
              (if (int? v)
                v
@@ -33,6 +37,7 @@
 
 (defn- parse-double [x]
   #?(:clj (Double/parseDouble x)
+     :cljd (or (dart:core/double.tryParse x) (throw-unexpected x))
      :cljs (let [v (js/JSON.parse x)]
              (if (double? v)
                v
@@ -45,6 +50,9 @@
             (if (and eof? (number? v))
               v
               (throw-unexpected x)))
+     :cljd (or (dart:core/int.tryParse x .radix 10)
+               (dart:core/double.tryParse x)
+               (throw-unexpected x))
      :cljs (let [v (js/JSON.parse x)]
              (if (number? v)
                v
@@ -53,13 +61,13 @@
 (defn ^:no-doc ;; was accidentally left in the public API for a long while. Mark as no-doc to hide (but avoid breaking anyone who might be using it).
   number-char? [c]
   (try (parse-number (str c))
-       (catch #?(:clj Exception :cljs :default) _ nil)))
+       (catch #?(:clj Exception :cljd Object :cljs :default) _ nil)))
 
-(defn- first-char ^Character [^String arg]
+(defn- first-char #?(:cljd [arg] :default ^Character [^String arg])
   (when (string? arg)
     (nth arg 0 nil)))
 
-(defn- second-char ^Character [^String arg]
+(defn- second-char #?(:cljd [arg] :default ^Character [^String arg])
   (when (string? arg)
     (nth arg 1 nil)))
 
@@ -84,22 +92,27 @@
   [s]
   (if (string? s)
     (try
-      (let [s ^String s
+      (let [s #?(:cljd s :default ^String s)
             fst-char (first-char s)
-            #?@(:clj [leading-num-char (if (= \- fst-char)
+            #?@(:cljd [leading-num-char (if (= \- fst-char)
+                                          (second-char s)
+                                          fst-char)]
+                :clj [leading-num-char (if (= \- fst-char)
                                          (second-char s)
                                          fst-char)])]
         (cond (or (= "true" s)
                   (= "false" s))
               (parse-boolean s)
               (= "nil" s) nil
-              #?(:clj (some-> leading-num-char (Character/isDigit))
+              #?(:cljd (and leading-num-char (re-matches #"[0-9]" leading-num-char))
+                 :clj (some-> leading-num-char (Character/isDigit))
                  :cljs (not (js/isNaN s)))
               (parse-number s)
               (and (= \: fst-char) (re-matches #"\:[a-zA-Z][a-zA-Z0-9_/\.-]*" s))
               (parse-keyword s)
               :else s))
       (catch #?(:clj Exception
+                :cljd Object
                 :cljs :default) _ s))
     s))
 
@@ -140,7 +153,7 @@
              f)
         res (if (string? s)
               (try (f* s)
-                   (catch #?(:clj Exception :cljs :default) e
+                   (catch #?(:clj Exception :cljd Object :cljs :default) e
                      (throw-coerce s implicit-true? f e)))
               s)]
     (if (and implicit-true? (not (true? res)))
@@ -339,7 +352,7 @@
                       (assoc acc k (into (empty v) (map #(coerce-1 % cf it?)) v))
                       :else
                       (assoc acc k (coerce-1 v cf it?)))
-                    (catch #?(:clj ExceptionInfo :cljs :default) e
+                    (catch #?(:cljd cljd.core/ExceptionInfo :clj ExceptionInfo :cljs :default) e
                       (let [data (ex-data e)
                             km (::opt->flag m-meta)
                             flag (get km k)]
@@ -785,7 +798,13 @@
   provider probe (clj, when JLine is on the classpath, e.g. babashka), else nil
   (the caller then falls back to 80)."
   [_cfg]
-  #?(:cljs (when (and (exists? js/process) js/process.stdout
+  #?(:cljd (or (when-let [c (get io/Platform.environment "COLUMNS")]
+                 (dart:core/int.tryParse c))
+               (try (when io/stdout.hasTerminal
+                      (let [w io/stdout.terminalColumns]
+                        (when (pos? w) w)))
+                    (catch Object _ nil)))
+     :cljs (when (and (exists? js/process) js/process.stdout
                       (pos-int? (.-columns js/process.stdout)))
              (.-columns js/process.stdout))
      :clj (or (when-let [c (System/getenv "COLUMNS")]
@@ -994,7 +1013,7 @@
           (= k prev) (conj (pop acc) (str "<" (name prev) ">..."))
           :else (recur (next s) (conj acc (str "<" (name k) ">")) k (inc n)))))))
 
-(defn- cmd-children
+(defn #?(:cljd ^:no-doc cmd-children :default ^:private cmd-children)
   "Visible `[name child]` pairs of `node`'s commands, for display (help,
   completions, error suggestions): `:no-doc` children are dropped. An explicit
   node `:cmd-order` (vector of names) selects which children are shown and in
@@ -1276,7 +1295,7 @@
   (try (parse-args args (-> opts
                             (dissoc :exec-args)
                             (assoc :error-fn (fn [_]) ::resolved true)))
-       (catch #?(:clj ExceptionInfo :cljs :default) _ {:args nil :opts nil})))
+       (catch #?(:cljd cljd.core/ExceptionInfo :clj ExceptionInfo :cljs :default) _ {:args nil :opts nil})))
 
 (defn- option-candidates
   "Option candidates completing `to-complete`, minus the single-value options
@@ -1351,7 +1370,7 @@
     (str/split token #"=" 2)
     [token]))
 
-(defn- complete-tree*
+(defn #?(:cljd ^:no-doc complete-tree* :default ^:private complete-tree*)
   "Returns completion candidate maps (`{:value :description}`) for dispatch tree
   `cmd-tree` and `args` (a vector of tokens, last = the token being completed).
   `global-opts` are the dispatch-level opts, accepted at every level like
@@ -1560,8 +1579,8 @@ $env.config.completions.external.completer = {|spans|
       (println (if desc (str value \tab desc) value)))))
 
 (defn- eprintln [s]
-  #?(:clj (binding [*out* *err*] (println s))
-     :cljs (binding [*print-fn* *print-err-fn*] (println s))))
+  #?(:cljs (binding [*print-fn* *print-err-fn*] (println s))
+     :default (binding [*out* *err*] (println s))))
 
 (defn- has-parse-opts? [m]
   (some #{:spec :coerce :require :restrict :validate :args->opts :exec-args} (keys m)))
@@ -1674,7 +1693,8 @@ $env.config.completions.external.completer = {|spans|
 
   Default: `System/exit` (JVM), `js/process.exit` (Node), `throw` (browser)."
   [{:keys [exit]}]
-  #?(:clj (System/exit exit)
+  #?(:cljd (io/exit exit)
+     :clj (System/exit exit)
      :cljs (if (and (exists? js/process) (fn? (.-exit js/process)))
              (js/process.exit exit)
              (throw (ex-info "exit" {:exit exit})))))
@@ -1929,7 +1949,7 @@ $env.config.completions.external.completer = {|spans|
   (e.g. `./my-cli.clj`), so dev/path invocations work without a `:prog`-named
   symlink on PATH."
   []
-  (some-> #?(:clj (System/getProperty "babashka.file") :cljs nil)
+  (some-> #?(:cljd nil :clj (System/getProperty "babashka.file") :cljs nil)
           (str/split #"[/\\]")
           last))
 

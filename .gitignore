@@ -11,3 +11,8 @@ target
 cljs-test-runner-out
 scratch.clj
 README.html
+.dart_tool
+.clojuredart
+pubspec.lock
+lib/cljd-out
+test/cljd-out

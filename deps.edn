@@ -28,4 +28,15 @@
   {:extra-deps {olical/cljs-test-runner {:mvn/version "3.8.1"}
                 org.clojure/clojurescript {:mvn/version "1.12.145"}}
    :extra-paths ["test" "cljs-test-runner-out/gen"]
-   :main-opts ["-m" "cljs-test-runner.main" "-d" "test"]}}}
+   :main-opts ["-m" "cljs-test-runner.main" "-d" "test"]}
+
+  :cljd
+  {:extra-paths ["test"]
+   :extra-deps {org.clojure/clojure {:mvn/version "1.11.4"}
+                tensegritics/clojuredart
+                {:git/url "https://github.com/tensegritics/ClojureDart.git"
+                 :sha "4cdb4be7240bcb3e62c65d7fa160175c70336c3b"}
+                io.github.borkdude/deflet {:mvn/version "0.1.0"}}
+   :main-opts ["-m" "cljd.build"]}}
+ :cljd/opts {:kind :dart
+             :main babashka.cli}}
