@@ -6,6 +6,7 @@ For breaking changes, check [here](#breaking-changes).
 
 ## v0.11.74 (2026-06-23)
 
+- Readability improvements in code ([@lread](https://github.com/lread))
 - [#180](https://github.com/babashka/cli/issues/180): ClojureDart support
 
 ## v0.11.73 (2026-06-19)
