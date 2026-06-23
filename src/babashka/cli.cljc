@@ -164,16 +164,20 @@
     (when f
       (if (coll? f) (fnil conj f) f))))
 
-(defn- process-previous [acc current-opt added cf]
-  (if (not= current-opt added)
-    (let [v (if cf (cf (get acc current-opt) true) true)]
-      (assoc acc current-opt v))
+(defn- maybe-close-open-opt
+  "Give `open-opt` an implicit `true` if we've moved on to a different opt"
+  [acc open-opt valued-opt opt-val-collector]
+  (if (not= open-opt valued-opt)
+    (let [v (if opt-val-collector
+              (opt-val-collector (get acc open-opt) true)
+              true)]
+      (assoc acc open-opt v))
     acc))
 
-(defn- add-val [acc current-opt cf arg]
-  (if cf
-    (update acc current-opt cf arg)
-    (assoc acc current-opt arg)))
+(defn- add-val-to-opt [acc opt opt-val-collector val]
+  (if opt-val-collector
+    (update acc opt opt-val-collector val)
+    (assoc acc opt val)))
 
 (defn spec->opts
   "Converts spec into opts format. Pass existing opts as optional second argument."
@@ -211,24 +215,24 @@
       :args args})))
 
 (defn- args->opts
-  ([args args->opts-map] (args->opts args args->opts-map #{}))
-  ([args args->opts-map ignored-args]
+  ([args args->opt-keys] (args->opts args args->opt-keys #{}))
+  ([args args->opt-keys ignored-args]
    (let [[new-args args->opts]
-         (if args->opts-map
+         (if args->opt-keys
            (if (and (seq args)
                     (not (contains? ignored-args (first args))))
              (let [arg-count (count args)
                    cnt (min arg-count
-                            (bounded-count arg-count args->opts-map))]
-               [(concat (interleave args->opts-map args)
+                            (bounded-count arg-count args->opt-keys))]
+               [(concat (interleave args->opt-keys args)
                         (drop cnt args))
-                (drop cnt args->opts-map)])
-             [args args->opts-map])
-           [args args->opts-map])]
+                (drop cnt args->opt-keys)])
+             [args args->opt-keys])
+           [args args->opt-keys])]
      {:args new-args
       :args->opts args->opts})))
 
-(defn- parse-key [arg mode current-opt boolean-opt? added known-keys alias-keys]
+(defn- analyze-arg [arg mode open-opt boolean-opt? valued-opt known-keys alias-keys]
   (let [fst-char (first-char arg)
         snd-char (second-char arg)
         hyphen-opt? (and (not= :keywords mode)
@@ -244,18 +248,18 @@
         kwd-opt? (and (not= :hyphens mode)
                       fst-colon?
                       (or boolean-opt?
-                          (not current-opt)
-                          (= added current-opt)))
+                          (not open-opt)
+                          (= valued-opt open-opt)))
         mode (or mode
                  (when kwd-opt?
                    :keywords))
         composite-opt? (when hyphen-opt?
                          (and snd-char (not= \- snd-char)
                               (> (count arg) 2)))]
-    {:mode mode
-     :hyphen-opt hyphen-opt?
-     :composite-opt composite-opt?
-     :kwd-opt kwd-opt?
+    {:mode mode                    ;; :hyphen, :keywords, nil when undetermined
+     :hyphen-opt hyphen-opt?       ;; --foo/-f
+     :composite-opt composite-opt? ;; -abc
+     :kwd-opt kwd-opt?             ;; :foo
      :fst-colon fst-colon?}))
 
 (defn- ->error-fn [spec error-fn-opt]
@@ -276,12 +280,12 @@
   (subs (str kw) 1))
 
 (defn- option-label
-  "User-facing name for option `k` in an error message: the literal flag the
-  user typed (from `key->flag`, e.g. `\"-f\"` or `\":foo\"`), else the canonical
+  "User-facing name for option `opt` in an error message: the literal flag the
+  user typed (from `opt->flag`, e.g. `\"-f\"` or `\":foo\"`), else the canonical
   `--name` (a required or standalone-checked option was never typed). Uses
   `kw->str` so a namespaced key like `:foo/bar` renders as `--foo/bar`."
-  [key->flag k]
-  (or (get key->flag k) (str "--" (kw->str k))))
+  [opt->flag opt]
+  (or (get opt->flag opt) (str "--" (kw->str opt))))
 
 (defn coerce-opts
   "Coerces values in the map `m` using the provided configuration.
@@ -337,7 +341,7 @@
                       (assoc acc k (coerce-1 v cf it?)))
                     (catch #?(:clj ExceptionInfo :cljs :default) e
                       (let [data (ex-data e)
-                            km (::key->flag m-meta)
+                            km (::opt->flag m-meta)
                             flag (get km k)]
                         (error-fn (cond-> {:cause :coerce
                                            ;; same shape as validate: name the option, then the reason.
@@ -404,8 +408,8 @@
          ;; `:restrict` must not flag them as unknown options.
          exec-args (:exec-args opts)
          ;; literal flag tokens the user typed, by key (see parse-opts*)
-         key->flag (::key->flag (meta m))
-         flag-for (fn [k] (option-label key->flag k))
+         opt->flag (::opt->flag (meta m))
+         flag-for (fn [k] (option-label opt->flag k))
          error-fn (->error-fn spec (:error-fn opts))]
      (when restrict
        (doseq [k (keys m)]
@@ -413,7 +417,7 @@
                     (not (contains? inherited k))
                     (not (contains? exec-args k))
                     (not= "babashka.cli" (namespace k)))
-           (let [flag (get key->flag k)]
+           (let [flag (get opt->flag k)]
              (error-fn (cond-> {:cause :restrict
                                 :msg (str "Unknown option: " (flag-for k))
                                 :restrict restrict
@@ -423,7 +427,7 @@
      (when require
        (doseq [k require]
          (when-not (find m k)
-           (let [flag (get key->flag k)]
+           (let [flag (get opt->flag k)]
              (error-fn (cond-> {:cause :require
                                 :msg (str "Required option: " (flag-for k))
                                 :require require
@@ -443,7 +447,7 @@
                (let [ex-msg-fn (or (:ex-msg vf)
                                    (fn [{:keys [flag value]}]
                                      (str "Invalid value for option " flag ": " value)))
-                     flag (get key->flag k)]
+                     flag (get opt->flag k)]
                  (error-fn (cond-> {:cause :validate
                                     :msg (ex-msg-fn {:option k :value v :flag (flag-for k)})
                                     :validate validate
@@ -474,7 +478,6 @@
 ;;
 ;; Parsing
 ;;
-
 (defn parse-opts*
   "Parses CLI `args` into a raw opts map. Returns string values unchanged
   (no coercion), does not apply `:exec-args` defaults, does not run
@@ -489,134 +492,184 @@
   Supported options (subset of `parse-opts`): `:alias`/`:aliases`, `:coerce`,
   `:collect`, `:no-keyword-opts`, `:repeated-opts`, `:args->opts`, `:spec`."
   [args {:keys [coerce collect no-keyword-opts repeated-opts] :as opts}]
-  (let [aliases (or (:alias opts) (:aliases opts))
-        spec (:spec opts)
+  ;; terminology: given cli args ["--foo" "x" "bar"]
+  ;;  --foo becomes an "opt"
+  ;;  x becomes an option "value"
+  ;;  bar remains an "arg"
+  ;; parsed "arg"s can only be leading or trailing.
+  (let [parse-opts opts ;; disambiguate from cli opts (without making fn sig odd-looking)
+        aliases (or (:alias parse-opts) (:aliases parse-opts))
+        spec (:spec parse-opts)
         spec-map (if (map? spec) spec (when spec (into {} spec)))
         alias-keys (set (concat (keys aliases) (keep :alias (vals spec-map))))
         known-keys (set (concat (keys spec-map) (vals aliases) (keys coerce)))
-        bool? (fn [k] (#{:boolean :bool} (coerce-coerce-fn (get coerce k))))
+        expects-bool-val? (fn [opt-key] (#{:boolean :bool} (coerce-coerce-fn (get coerce opt-key))))
         track-itk (fn [itk current-opt added]
                     (cond-> itk (not= current-opt added) (conj current-opt)))
-        track-kpo (fn [kpo k]
-                    (if (and k (not (some #{k} kpo)))
-                      (conj kpo k)
+        track-kpo (fn [kpo opt]
+                    (if (and opt (not (some #{opt} kpo)))
+                      (conj kpo opt)
                       kpo))
-        ;; remember each key's `:flag`: the literal option token as typed (e.g.
-        ;; "--foo", "-f", ":foo"), in `::key->flag` metadata, so error messages
-        ;; can echo what the user typed instead of reconstructing it from the
-        ;; normalized keyword (`-x` and `--x` both parse to `:x`)
-        stamp (fn [m k lit] (if lit (vary-meta m assoc-in [::key->flag k] lit) m))
-        {:keys [cmds args]} (parse-cmds args)
-        {new-args :args a->o :args->opts}
-        (if-let [a->o (or (:args->opts opts) (:cmds-opts opts))]
-          (args->opts cmds a->o (::dispatch-tree-ignored-args opts))
+        ;; remember each parsed option as it was provided/typed by the user in `::opt->flag`
+        ;; metadata (e.g., parsed option :foo might have been typed as :foo, --foo or -f),
+        ;; so error messages can echo what the user actually typed
+        stamp (fn [m k lit] (if lit (vary-meta m assoc-in [::opt->flag k] lit) m))
+        ;; inject leading positional args (in CLIs these are typically commands)
+        ;; as options as per :args->opts
+        {leading-pos-args :cmds args :args} (parse-cmds args)
+        {new-leading-pos-args :args a->o :args->opts}
+        (if-let [a->o (or (:args->opts parse-opts)
+                          ;; :cmd-opts is the old name for :args->opts, left in for backward compat
+                          (:cmds-opts parse-opts))]
+          (args->opts leading-pos-args a->o (::dispatch-tree-ignored-args parse-opts))
           {:args->opts nil :args args})
-        [cmds args] (if (not= new-args args)
-                      [nil (concat new-args args)]
-                      [cmds args])
-        [parsed last-opt added itk kpo]
-        (if (and (::dispatch-tree opts) (seq cmds))
-          [(vary-meta {} assoc-in [:org.babashka/cli :args] (into (vec cmds) args)) nil nil #{} []]
+        [leading-pos-args args] (if (not= new-leading-pos-args args)
+                                  [nil (concat new-leading-pos-args args)]
+                                  [leading-pos-args args])
+        [parsed last-open-opt last-valued-opt implicit-true-keys key-parse-order]
+        (if (and (::dispatch-tree parse-opts) (seq leading-pos-args))
+          [(vary-meta {} assoc-in [:org.babashka/cli :args] (into (vec leading-pos-args) args)) nil nil #{} []]
           (loop [acc {}
-                 current-opt nil
-                 added nil
-                 mode (when no-keyword-opts :hyphens)
-                 args (seq args)
-                 a->o a->o
-                 itk #{}
-                 kpo []]
+                 #_{:clj-kondo/ignore [:unused-binding]}
+                 recur-action nil                     ;; for debugging only
+                 open-opt nil                         ;; the cli option keyword we are working on
+                 valued-opt nil                       ;; the cli option keyword that has been given value(s) (but not necessarily all values)
+                 mode (when no-keyword-opts :hyphens) ;; :hyphens --foo/-f else :keywords :foo
+                 args (seq args)                      ;; remaining cli args
+                 a->o a->o                            ;; requested args->opts
+                 implicit-true-keys #{}
+                 opt-parse-order []]
+            #_(println (format "loop %-31s o: %-10s v: %-10s a: %s" recur-action open-opt valued-opt args))
             (if-not args
-              [acc current-opt added itk kpo]
+              ;; exit loop: no command line args left
+              [acc open-opt valued-opt implicit-true-keys opt-parse-order]
               (let [raw-arg (first args)
-                    opt? (keyword? raw-arg)]
-                (if opt?
-                  (recur (process-previous acc current-opt added nil)
-                         raw-arg added mode (next args) a->o
-                         (track-itk itk current-opt added)
-                         (track-kpo kpo raw-arg))
-                  (let [implicit-true? (true? raw-arg)
+                    opt-injected? (keyword? raw-arg)]
+                (if opt-injected?
+                  ;; continue loop: this opt and its value was injected by args->opts
+                  ;; opt-val-collector does not apply for injected opts, so is `nil`
+                  (recur (maybe-close-open-opt acc open-opt valued-opt nil)
+                         :found-injected-opt
+                         raw-arg valued-opt
+                         mode (next args) a->o
+                         (track-itk implicit-true-keys open-opt valued-opt)
+                         (track-kpo opt-parse-order raw-arg))
+                  (let [implicit-true? (true? raw-arg) ;; injected implicit true
                         arg (str raw-arg)
-                        cf (collect-fn collect coerce current-opt)
-                        boolean-opt? (bool? current-opt)
+                        opt-val-collector (collect-fn collect coerce open-opt)
+                        boolean-opt? (expects-bool-val? open-opt)
                         {:keys [hyphen-opt composite-opt kwd-opt mode fst-colon]}
-                        (parse-key arg mode current-opt boolean-opt? added known-keys alias-keys)]
+                        (analyze-arg arg mode open-opt boolean-opt? valued-opt known-keys alias-keys)]
                     (if (or hyphen-opt kwd-opt)
+                      ;; arg is -f/-foo or :foo
                       (let [long-opt? (str/starts-with? arg "--")
-                            the-end? (and long-opt? (= "--" arg))]
-                        (if the-end?
+                            eo-all-opts? (and long-opt? (= "--" arg))]
+                        (if eo-all-opts?
+                          ;; exit loop: only args left
                           (let [nargs (next args)]
                             [(cond-> acc
                                nargs (vary-meta assoc-in [:org.babashka/cli :args] (vec nargs)))
-                             current-opt added itk kpo])
-                          (let [kname (if long-opt?
-                                        (subs arg 2)
-                                        (str/replace arg #"^(:|-|)" ""))
+                             open-opt valued-opt implicit-true-keys opt-parse-order])
+                          (let [opt-name (if long-opt?
+                                           (subs arg 2)
+                                           (str/replace arg #"^(:|-|)" ""))
                                 ;; split on the first = only: --header=k=v binds "k=v"
-                                [kname arg-val] (if long-opt?
-                                                  (str/split kname #"=" 2)
-                                                  [kname])
-                                raw-k (keyword kname)
-                                alias (when-not long-opt? (get aliases raw-k))
-                                k (or alias raw-k)
-                                ;; the literal flag the user typed (sans any =value)
-                                literal (if long-opt? (str "--" kname) arg)]
-                            (if arg-val
-                              (recur (stamp (process-previous acc current-opt added cf) k literal)
-                                     k nil mode (cons arg-val (rest args)) a->o
-                                     (track-itk itk current-opt added)
-                                     (track-kpo kpo k))
+                                [opt-name opt-val] (if long-opt?
+                                                     (str/split opt-name #"=" 2)
+                                                     [opt-name])
+                                opt-kw (keyword opt-name)
+                                opt-kw-for-alias (when-not long-opt? (get aliases opt-kw))
+                                parsed-opt (or opt-kw-for-alias opt-kw)
+                                ;; the literal option the user typed (sans any =value)
+                                literal-opt (if long-opt? (str "--" opt-name) arg)]
+                            (if opt-val
+                              ;; continue loop: inject val for --foo=val into args
+                              (recur (stamp (maybe-close-open-opt acc open-opt valued-opt opt-val-collector) parsed-opt literal-opt)
+                                     :injected-bound-val
+                                     parsed-opt nil
+                                     mode (cons opt-val (rest args)) a->o
+                                     (track-itk implicit-true-keys open-opt valued-opt)
+                                     (track-kpo opt-parse-order parsed-opt))
                               (let [next-args (next args)
                                     next-arg (first next-args)
-                                    m (parse-key next-arg mode current-opt boolean-opt? added known-keys alias-keys)
-                                    negative? (when-not (contains? known-keys k)
-                                                (str/starts-with? (str k) ":no-"))]
-                                (if (or (:hyphen-opt m) (empty? next-args) negative?)
-                                  ;; implicit true
-                                  (if (and (not alias) composite-opt)
-                                    (let [expanded (mapcat (fn [c] [(str "-" c) true]) (name k))]
-                                      (recur acc nil nil mode (concat expanded next-args) a->o itk kpo))
-                                    (let [k (if negative?
-                                              (keyword (str/replace (str k) ":no-" ""))
-                                              k)]
-                                      (recur (stamp (process-previous acc current-opt added cf) k literal)
-                                             k added mode (cons (not negative?) next-args) a->o
-                                             (track-itk itk current-opt added)
-                                             (track-kpo kpo k))))
-                                  (recur (stamp (process-previous acc current-opt added cf) k literal)
-                                         k nil mode next-args a->o
-                                         (track-itk itk current-opt added)
-                                         (track-kpo kpo k))))))))
-                      (let [the-end? (or
-                                      (and boolean-opt?
-                                           (not= "true" arg)
-                                           (not= "false" arg))
-                                      (and (= added current-opt)
-                                           (or (not cf)
-                                               repeated-opts
-                                               (contains? (::dispatch-tree-ignored-args opts) (first args)))))]
-                        (if the-end?
-                          (let [{new-args :args a->o :args->opts}
+                                    next-arg-info (analyze-arg next-arg mode open-opt boolean-opt? valued-opt known-keys alias-keys)
+                                    negated-opt? (when-not (contains? known-keys parsed-opt)
+                                                   (str/starts-with? (str parsed-opt) ":no-"))]
+                                (if (or (:hyphen-opt next-arg-info) ;; --open-opt --next
+                                        (empty? next-args)          ;; --open-opt
+                                        negated-opt?)               ;; --no-foo
+                                  ;; implicit true or false
+                                  (if (and (not opt-kw-for-alias) composite-opt)
+                                    ;; continue loop: expand -abc to: -a true, -b true, -c true onto args
+                                    (let [expanded (mapcat (fn [c] [(str "-" c) true]) (name parsed-opt))]
+                                      (recur acc
+                                             :injected-expanded-composite
+                                             nil nil ;; start afresh for open-opt and valued-opt
+                                             mode (concat expanded next-args) a->o
+                                             implicit-true-keys opt-parse-order))
+                                    (let [parsed-opt (if negated-opt?
+                                                       (keyword (str/replace (str parsed-opt) ":no-" ""))
+                                                       parsed-opt)]
+                                      ;; continue loop: adding true for --foo or false for --no-foo to args
+                                      (recur (stamp (maybe-close-open-opt acc open-opt valued-opt opt-val-collector) parsed-opt literal-opt)
+                                             :injected-implicit-bool
+                                             parsed-opt valued-opt
+                                             mode (cons (not negated-opt?) next-args) a->o
+                                             (track-itk implicit-true-keys open-opt valued-opt)
+                                             (track-kpo opt-parse-order parsed-opt))))
+                                  ;; continue loop: not implicit, carry on to parse opt value
+                                  (recur (stamp (maybe-close-open-opt acc open-opt valued-opt opt-val-collector) parsed-opt literal-opt)
+                                         :found-opt-with-unparsed-val
+                                         parsed-opt nil
+                                         mode next-args a->o
+                                         (track-itk implicit-true-keys open-opt valued-opt)
+                                         (track-kpo opt-parse-order parsed-opt))))))))
+                      ;; arg (is not option)
+                      (let [done-parsing-options? (or
+                                                   ;; boolean with next arg that is not true/false ends
+                                                   ;; --some-bool foo --bar -baz
+                                                   ;; gets us :some-bool true with args: foo,--bar,--baz
+                                                   (and boolean-opt?
+                                                        (not= "true" arg)
+                                                        (not= "false" arg))
+                                                   (and (= valued-opt open-opt)     ;; working on opt with vals
+                                                        (or (not opt-val-collector) ;; not collecting vals
+                                                            repeated-opts           ;; must specify --foo a --foo and not --foo a b
+                                                            (contains? (::dispatch-tree-ignored-args parse-opts) (first args)))))]
+                        (if done-parsing-options?
+                          (let [{new-trailing-pos-args :args a->o :args->opts}
                                 (if (and args a->o)
-                                  (args->opts args a->o (::dispatch-tree-ignored-args opts))
+                                  (args->opts args a->o (::dispatch-tree-ignored-args parse-opts))
                                   {:args args})
-                                new-args? (not= args new-args)]
+                                new-args? (not= args new-trailing-pos-args)]
                             (if new-args?
-                              (recur acc current-opt added mode new-args a->o itk kpo)
-                              [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) current-opt added itk kpo]))
-                          (let [opt (when-not (and (= :keywords mode) fst-colon) current-opt)]
-                            (recur (add-val acc current-opt cf arg)
-                                   opt opt mode (next args) a->o
-                                   (cond-> itk implicit-true? (conj current-opt))
-                                   kpo)))))))))))
-        ;; Finalize: process last opt, prepend cmds to args metadata
-        itk (track-itk itk last-opt added)
-        cf (collect-fn collect coerce last-opt)
-        parsed (-> (process-previous parsed last-opt added cf)
+                              ;; continue loop: with trailing args -> options
+                              (recur acc
+                                     :injected-trailing-args-to-opts
+                                     open-opt valued-opt
+                                     mode new-trailing-pos-args a->o
+                                     implicit-true-keys opt-parse-order)
+                              ;; exit loop: args -> options resulted in no new args
+                              [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) open-opt valued-opt implicit-true-keys opt-parse-order]))
+                          (let [opt (when-not (and (= :keywords mode) fst-colon) open-opt)]
+                            ;; continue loop: add/update opt with value (arg), and setup to parse next arg
+                            ;; notice the difference from all othe recurs,
+                            ;; this is the only recur where we explicitly add/update a value/opt to acc
+                            (recur (add-val-to-opt acc open-opt opt-val-collector arg)
+                                   :added-opt-and-val
+                                   opt opt ;; keep opt open
+                                   mode (next args) a->o
+                                   (cond-> implicit-true-keys implicit-true? (conj open-opt))
+                                   opt-parse-order)))))))))))
+        ;; Finalize: process last opt, prepend leading positional args to args metadata
+        implicit-true-keys (track-itk implicit-true-keys last-open-opt last-valued-opt)
+        opt-val-collector (collect-fn collect coerce last-open-opt)
+        parsed (-> (maybe-close-open-opt parsed last-open-opt last-valued-opt opt-val-collector)
                    (cond->
-                    (and (seq cmds) (not (::dispatch-tree opts)))
+                    (and (seq leading-pos-args) (not (::dispatch-tree parse-opts)))
                      (vary-meta update-in [:org.babashka/cli :args]
-                                (fn [args] (into (vec cmds) args)))))]
-    (vary-meta parsed assoc ::implicit-true-keys itk ::keys-order kpo)))
+                                (fn [args] (into (vec leading-pos-args) args)))))]
+    (vary-meta parsed assoc ::implicit-true-keys implicit-true-keys ::keys-order key-parse-order)))
 
 (defn parse-opts
   "Returns a map of options parsed from command line arguments `args`, a seq of strings.
@@ -664,7 +717,7 @@
          coerced (apply-defaults coerced opts)
          ;; Step 4: Validate
          validated (validate-opts coerced opts)]
-     (vary-meta validated dissoc ::implicit-true-keys ::keys-order ::key->flag))))
+     (vary-meta validated dissoc ::implicit-true-keys ::keys-order ::opt->flag))))
 
 (defn parse-args
   "Same as [[parse-opts]] with return data reshaped.
