@@ -88,16 +88,16 @@
                  (cli/parse-opts ["--foo" "dude" "--exec" "my/fn"] {:spec {:foo {:coerce :symbol}} :coerce {:exec :symbol}}))))
   (testing "implicit true (option given without a value)"
     (is (thrown-with-msg?
-         Exception #"Missing value for option --foo"
+         #?(:cljd Object :default Exception) #"Missing value for option --foo"
          (cli/parse-opts ["--foo" "--bar"] {:coerce {:foo :number}})))
     (is (thrown-with-msg?
-         Exception #"Missing value for option --foo"
+         #?(:cljd Object :default Exception) #"Missing value for option --foo"
          (cli/parse-opts ["--bar" "--foo"] {:coerce {:foo :number}})))
     (is (thrown-with-msg?
-         Exception #"Missing value for option :foo"
+         #?(:cljd Object :default Exception) #"Missing value for option :foo"
          (cli/parse-opts [":foo"] {:coerce {:foo :string}})))
     (is (thrown-with-msg?
-         Exception #"Missing value for option :foo"
+         #?(:cljd Object :default Exception) #"Missing value for option :foo"
          (cli/parse-opts [":foo"] {:coerce {:foo [:string]}}))))
   (testing "composite opts"
     (is (= {:a true, :b true, :c true, :foo true}
@@ -1030,7 +1030,7 @@
 
 (deftest require-test
   (is (thrown-with-msg?
-       Exception #"Required option: --bar"
+       #?(:cljd Object :default Exception) #"Required option: --bar"
        (cli/parse-args ["-foo"] {:require [:bar]}))))
 
 (deftest validate-test
@@ -1178,7 +1178,7 @@
                            {:restrict true})))
       (testing "genuinely unknown options are still rejected"
         (is (thrown-with-msg?
-             Exception #"Unknown option: --bogus"
+             #?(:cljd Object :default Exception) #"Unknown option: --bogus"
              (cli/dispatch table ["deps" "outdated" "--bogus"] {:restrict true}))))))
   (testing ":exec-args are programmatic defaults, not user input, so :restrict never flags them"
     (is (= {:foo true :bar 1}
@@ -1187,7 +1187,7 @@
                                       :restrict true})))
     (testing "but a user-typed unknown option is still rejected"
       (is (thrown-with-msg?
-           Exception #"Unknown option: --baz"
+           #?(:cljd Object :default Exception) #"Unknown option: --baz"
            (cli/parse-opts ["--foo" "--baz"] {:spec {:foo {:coerce :boolean}}
                                               :exec-args {:bar 1}
                                               :restrict true}))))))
@@ -1224,7 +1224,7 @@
     (let [table [{:cmds ["deps"]            :spec {:registry {}}}
                  {:cmds ["deps" "outdated"] :fn identity :spec {:format {}}}]]
       (is (thrown-with-msg?
-           Exception #"Unknown option: --registry"
+           #?(:cljd Object :default Exception) #"Unknown option: --registry"
            (cli/dispatch table ["deps" "outdated" "--registry" "X"] {:restrict true})))))
   (testing "dispatch-level :inherit makes options inherit without per-option marking"
     (let [table [{:cmds ["deps"]            :spec {:registry {} :token {}}}
@@ -1239,7 +1239,7 @@
                (:opts (cli/dispatch table ["deps" "outdated" "--registry" "X"]
                                     {:inherit #{:registry} :restrict true}))))
         (is (thrown-with-msg?
-             Exception #"Unknown option: --token"
+             #?(:cljd Object :default Exception) #"Unknown option: --token"
              (cli/dispatch table ["deps" "outdated" "--token" "T"]
                            {:inherit #{:registry} :restrict true})))))))
 
@@ -1338,38 +1338,38 @@
 (deftest validate-opts-test
   (testing "restrict"
     (is (thrown-with-msg?
-         Exception #"Unknown option: --bar"
+         #?(:cljd Object :default Exception) #"Unknown option: --bar"
          (cli/validate-opts {:foo 1 :bar 2} {:restrict #{:foo}}))))
   (testing "restrict with true and spec"
     (is (thrown-with-msg?
-         Exception #"Unknown option: --bar"
+         #?(:cljd Object :default Exception) #"Unknown option: --bar"
          (cli/validate-opts {:foo 1 :bar 2} {:spec {:foo {:coerce :long}} :restrict true}))))
   (testing "restrict passes for known keys"
     (is (= {:foo 1}
            (cli/validate-opts {:foo 1} {:restrict #{:foo}}))))
   (testing "require"
     (is (thrown-with-msg?
-         Exception #"Required option: --bar"
+         #?(:cljd Object :default Exception) #"Required option: --bar"
          (cli/validate-opts {:foo 1} {:require [:bar]}))))
   (testing "require passes when present"
     (is (= {:foo 1 :bar 2}
            (cli/validate-opts {:foo 1 :bar 2} {:require [:bar]}))))
   (testing "validate"
     (is (thrown-with-msg?
-         Exception #"Invalid value for option --foo"
+         #?(:cljd Object :default Exception) #"Invalid value for option --foo"
          (cli/validate-opts {:foo 0} {:validate {:foo pos?}}))))
   (testing "validate passes"
     (is (= {:foo 1}
            (cli/validate-opts {:foo 1} {:validate {:foo pos?}}))))
   (testing "validate with pred and ex-msg"
     (is (thrown-with-msg?
-         Exception #"Expected positive"
+         #?(:cljd Object :default Exception) #"Expected positive"
          (cli/validate-opts {:foo 0} {:validate {:foo {:pred pos?
                                                        :ex-msg (fn [{:keys [option value]}]
                                                                  (str "Expected positive for " option ": " value))}}}))))
   (testing "using spec"
     (is (thrown-with-msg?
-         Exception #"Required option: --foo"
+         #?(:cljd Object :default Exception) #"Required option: --foo"
          (cli/validate-opts {} {:spec {:foo {:require true}}}))))
   (testing "error-fn"
     (let [errors (atom [])]
