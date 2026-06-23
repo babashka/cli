@@ -1006,7 +1006,7 @@
           (= k prev) (conj (pop acc) (str "<" (name prev) ">..."))
           :else (recur (next s) (conj acc (str "<" (name k) ">")) k (inc n)))))))
 
-(defn- cmd-children
+(defn #?(:cljd ^:no-doc cmd-children :default ^:private cmd-children)
   "Visible `[name child]` pairs of `node`'s commands, for display (help,
   completions, error suggestions): `:no-doc` children are dropped. An explicit
   node `:cmd-order` (vector of names) selects which children are shown and in

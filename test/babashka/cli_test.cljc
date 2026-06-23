@@ -502,13 +502,13 @@
             siblings, in table order"
     (let [tree (cli/table->tree [{:cmds ["a"] :fn identity :doc "A"}
                                  {:cmds [] :cmd {"b" {:fn identity :doc "B"}}}])]
-      (is (= ["a" "b"] (mapv first (#'cli/cmd-children tree))))
+      (is (= ["a" "b"] (mapv first (#?(:cljd cli/cmd-children :default #'cli/cmd-children) tree))))
       (is (submap? {:dispatch ["a"]} (cli/dispatch tree ["a"])))
       (is (submap? {:dispatch ["b"]} (cli/dispatch tree ["b"]))))
     (testing "catch-all first: its children list first"
       (let [tree (cli/table->tree [{:cmds [] :cmd {"b" {:fn identity :doc "B"}}}
                                    {:cmds ["a"] :fn identity :doc "A"}])]
-        (is (= ["b" "a"] (mapv first (#'cli/cmd-children tree))))))))
+        (is (= ["b" "a"] (mapv first (#?(:cljd cli/cmd-children :default #'cli/cmd-children) tree))))))))
 
 (defn- run-dispatch
   "Run [[cli/dispatch]] capturing stdout+stderr and *exit-fn* calls. Returns
