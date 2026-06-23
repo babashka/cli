@@ -109,8 +109,6 @@ jobs:
 
   test-cljd:
     runs-on: ubuntu-latest
-    # ClojureDart support is in progress; some tests fail on known gaps
-    continue-on-error: true
 
     steps:
     - name: "Checkout code"
@@ -137,4 +135,4 @@ jobs:
     - name: Run tests
       run: |
         dart pub get
-        clojure -M:cljd test babashka.cli-test
+        clojure -M:cljd test babashka.cli-test babashka.cli.completion-test

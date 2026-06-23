@@ -1942,7 +1942,7 @@ $env.config.completions.external.completer = {|spans|
   (e.g. `./my-cli.clj`), so dev/path invocations work without a `:prog`-named
   symlink on PATH."
   []
-  (some-> #?(:clj (System/getProperty "babashka.file") :cljs nil)
+  (some-> #?(:cljd nil :clj (System/getProperty "babashka.file") :cljs nil)
           (str/split #"[/\\]")
           last))
 

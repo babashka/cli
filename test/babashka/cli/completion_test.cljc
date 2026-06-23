@@ -19,6 +19,12 @@
      :cljs (.readFileSync (js/require "fs")
                           (str "test/resources/completion/completion." shell) "utf8")))
 
+;; clojure.string/split-lines drops trailing empty lines; cljd keeps them
+(defn- lines* [s]
+  (let [v (vec (str/split-lines s))]
+    #?(:cljd (loop [v v] (if (and (seq v) (= "" (peek v))) (recur (pop v)) v))
+       :default v)))
+
 ;; test helpers over the private completion fns: return the candidate value strings
 (defn complete [table args]
   (mapv :value (#?(:cljd cli/complete-tree* :default #'cli/complete-tree*) (cli/table->tree table) args)))
@@ -156,7 +162,7 @@
   `value\\tdescription` lines as a set of strings."
   [cmdline]
   (->> (complete-via-cmd cmd-table {:prog "myprogram"} cmdline)
-       str/split-lines
+       lines*
        (remove str/blank?)
        set))
 
@@ -182,10 +188,10 @@
                                :cmd {"clean" {:fn identity}}}}}]
       (is (= ["outdated\tShow outdated"]
              (-> (complete-via-cmd tree {:prog "deps"} "deps out")
-                 str/split-lines)))
+                 lines*)))
       (is (= ["clean"]
              (-> (complete-via-cmd tree {:prog "deps"} "deps cache ")
-                 str/split-lines)))))
+                 lines*)))))
   (testing ":cmd-order on a tree node: candidates in order, unlisted hidden"
     (let [tree {:cmd-order ["c" "a"]
                 :cmd {"a" {:fn identity}
@@ -193,7 +199,7 @@
                       "c" {:fn identity}}}]
       (is (= ["c" "a"]
              (-> (complete-via-cmd tree {:prog "p"} "p ")
-                 str/split-lines)))))
+                 lines*)))))
   (testing "a table with more than 8 commands completes in entry order"
     (let [table (mapv (fn [i] {:cmds [(str "cmd" i)] :fn identity}) (range 10))]
       (is (= (mapv #(str "cmd" %) (range 10))
@@ -212,7 +218,7 @@
                                       {:value "prod" :description "Production"}]}}}]]
       (is (= #{"dev\tDevelopment" "prod\tProduction"}
              (->> (complete-via-cmd t {:prog "deploy"} "deploy --env ")
-                  str/split-lines (remove str/blank?) set)))))
+                  lines* (remove str/blank?) set)))))
   (testing "set-valued :validate auto-completes its values (keywords -> names)"
     (is (= #{"a" "b"}
            (set (complete-options {:spec {:mode {:coerce :keyword :validate #{:a :b}}}}
@@ -257,7 +263,7 @@
             :spec {:env {:coerce :string} :force {:coerce :boolean}}}]
         vals (fn [cmdline]
                (->> (complete-via-cmd t {:prog "p" :restrict true} cmdline)
-                    str/split-lines
+                    lines*
                     (remove str/blank?)
                     (map #(first (str/split % #"\t")))
                     set))]
@@ -278,7 +284,7 @@
   (testing "an empty line completes the top level, no NPE"
     (is (= #{"foo" "bar" "bar-baz"}
            (->> (complete-via-cmd cmd-table {:prog "p"} "")
-                str/split-lines (remove str/blank?)
+                lines* (remove str/blank?)
                 (map #(first (str/split % #"\t"))) set)))))
 
 (deftest completion-prog-override-test
@@ -335,21 +341,21 @@
   ;; which the stub turns into the shell's own file completer
   (let [marker "org.babashka.cli/file-completion"
         t [{:cmds ["cat"] :args->opts [:file] :spec {:v {:coerce :boolean}}}]
-        lines (fn [line] (set (str/split-lines (complete-via-cmd t {:prog "p"} line))))]
+        lines (fn [line] (set (lines* (complete-via-cmd t {:prog "p"} line))))]
     (testing "positional with no value-config emits the marker"
       (is (contains? (lines "p cat ") marker)))
     (testing "completing an option does not emit the marker"
       (is (not (contains? (lines "p cat --") marker))))
     (testing "a positional with value-config completes values, not files"
       (let [v [{:cmds ["deploy"] :args->opts [:env] :spec {:env {:complete ["dev"]}}}]]
-        (is (not (contains? (set (str/split-lines (complete-via-cmd v {:prog "p"} "p deploy ")))
+        (is (not (contains? (set (lines* (complete-via-cmd v {:prog "p"} "p deploy ")))
                             marker)))))
     (testing ":complete false opts a positional out of the file default"
       (let [v [{:cmds ["run"] :args->opts [:name] :spec {:name {:complete false}}}]]
         (is (not-any? :file-completion (#?(:cljd cli/complete-tree* :default #'cli/complete-tree*) (cli/table->tree v) ["run" ""])))))
     (testing "variadic :args->opts does not hang and emits the marker"
       (let [v [{:cmds ["x"] :args->opts (cons :a (repeat :b))}]]
-        (is (contains? (set (str/split-lines (complete-via-cmd v {:prog "p"} "p x one two ")))
+        (is (contains? (set (lines* (complete-via-cmd v {:prog "p"} "p x one two ")))
                        marker))))
     (testing "after a literal -- only positionals complete (no options, no commands)"
       (is (= #{marker} (lines "p cat -- "))))))
@@ -375,10 +381,10 @@
             :spec {:env {:coerce :string :desc "Tab\there" :complete ["dev"]}}}]]
     (testing "newline in :doc is reduced to the first line"
       (is (= #{"deploy\tFirst line"}
-             (->> (complete-via-cmd t {:prog "p"} "p dep") str/split-lines (remove str/blank?) set))))
+             (->> (complete-via-cmd t {:prog "p"} "p dep") lines* (remove str/blank?) set))))
     (testing "tab in :desc is replaced with a space"
       (is (= #{"--env\tTab here"}
-             (->> (complete-via-cmd t {:prog "p"} "p deploy --e") str/split-lines (remove str/blank?) set))))))
+             (->> (complete-via-cmd t {:prog "p"} "p deploy --e") lines* (remove str/blank?) set))))))
 
 (deftest equals-form-test
   ;; babashka.cli parses --opt=val, so completion handles it too. Candidates are
@@ -401,8 +407,8 @@
                     (cli/dispatch t (into ["org.babashka.cli/completions" "complete"
                                            "--shell" "bash" "--" "deploy"] toks)
                                   {:prog "p"})))]
-        (is (= ["dev"] (str/split-lines (out "--env" "=" "d"))))
-        (is (= #{"dev" "prod"} (set (str/split-lines (out "--env" "=")))))))))
+        (is (= ["dev"] (lines* (out "--env" "=" "d"))))
+        (is (= #{"dev" "prod"} (set (lines* (out "--env" "=")))))))))
 
 (deftest default-option-test
   ;; a :default value must not mark the option as already used
@@ -418,7 +424,7 @@
            (->> (complete-via-cmd [{:cmds ["sub"] :fn identity}]
                                   {:require [:env] :spec {:env {}}}
                                   "p ")
-                str/split-lines (remove str/blank?) set)))))
+                lines* (remove str/blank?) set)))))
 
 (deftest negation-completion-test
   ;; the parser accepts --no-foo as {:foo false}, consuming no value; completion
@@ -474,7 +480,7 @@
                 (cli/dispatch t ["org.babashka.cli/completions" "complete"
                                  "--shell" "powershell" "--fresh" fresh "--" "deploy"]
                               {:prog "p"})))]
-    (is (= ["--env"] (str/split-lines (out "true"))))
+    (is (= ["--env"] (lines* (out "true"))))
     (testing "without a fresh word, deploy itself is the token being completed"
       (is (= "" (out "false"))))))
 
@@ -483,7 +489,7 @@
   (let [t [{:cmds ["deploy"] :fn identity :spec {:env {:complete ["a\tb\nc"]}}}]]
     (is (= #{"a b c"}
            (->> (complete-via-cmd t {:prog "p"} "p deploy --env ")
-                str/split-lines (remove str/blank?) set)))))
+                lines* (remove str/blank?) set)))))
 
 (deftest prog-name-test
   ;; the program name is used as-is for shell registration (like cobra/clap/
