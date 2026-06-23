@@ -4,7 +4,7 @@
 [![bb built-in](https://raw.githubusercontent.com/babashka/babashka/master/logo/built-in-badge.svg)](https://book.babashka.org#badges)
 
 Turn Clojure functions into Command Line Interfaces! This library can be used from:
-- [babashka](https://github.com/babashka/babashka) - included as a built-in library
+- [babashka](https://book.babashka.org/) - included as a built-in library
 - [Clojure on the JVM](https://www.clojure.org/guides/install_clojure) - we support Clojure 1.10.3 and above on Java 11 and above
 - [ClojureScript](https://clojurescript.org) - we test against the current release
 - [ClojureDart](https://github.com/Tensegritics/ClojureDart) - we test against the current release
