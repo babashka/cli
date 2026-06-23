@@ -19,7 +19,7 @@
      :cljs (.readFileSync (js/require "fs")
                           (str "test/resources/completion/completion." shell) "utf8")))
 
-;; clojure.string/split-lines drops trailing empty lines; cljd keeps them
+;; clojure.string/split-lines drops trailing empty lines. cljd keeps them
 (defn- lines* [s]
   (let [v (vec (str/split-lines s))]
     #?(:cljd (loop [v v] (if (and (seq v) (= "" (peek v))) (recur (pop v)) v))

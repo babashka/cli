@@ -21,7 +21,7 @@
 
 (defn- parse-boolean [x]
   #?(:clj (Boolean/parseBoolean x)
-     :cljd (case x ("true" "TRUE" "True") true false)
+     :cljd (= "true" x)
      :cljs (let [v (js/JSON.parse x)]
              (if (boolean? v)
                v
@@ -29,7 +29,7 @@
 
 (defn- parse-long [x]
   #?(:clj (Long/parseLong x)
-     :cljd (or (dart:core/int.tryParse x) (throw-unexpected x))
+     :cljd (or (dart:core/int.tryParse x .radix 10) (throw-unexpected x))
      :cljs (let [v (js/JSON.parse x)]
              (if (int? v)
                v
@@ -50,7 +50,7 @@
             (if (and eof? (number? v))
               v
               (throw-unexpected x)))
-     :cljd (or (dart:core/int.tryParse x)
+     :cljd (or (dart:core/int.tryParse x .radix 10)
                (dart:core/double.tryParse x)
                (throw-unexpected x))
      :cljs (let [v (js/JSON.parse x)]
@@ -1579,9 +1579,8 @@ $env.config.completions.external.completer = {|spans|
       (println (if desc (str value \tab desc) value)))))
 
 (defn- eprintln [s]
-  #?(:cljd (binding [*out* *err*] (println s))
-     :clj (binding [*out* *err*] (println s))
-     :cljs (binding [*print-fn* *print-err-fn*] (println s))))
+  #?(:cljs (binding [*print-fn* *print-err-fn*] (println s))
+     :default (binding [*out* *err*] (println s))))
 
 (defn- has-parse-opts? [m]
   (some #{:spec :coerce :require :restrict :validate :args->opts :exec-args} (keys m)))
