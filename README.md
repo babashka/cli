@@ -102,7 +102,6 @@ $ program command --verbose --long-opt1 v1 -o v2 arg
 
 ## Simple example
 
-Babashka CLI works in Clojure, ClojureScript, [Babashka](https://book.babashka.org/) and [ClojureDart](https://github.com/tensegritics/ClojureDart).
 Here is an example babashka script to get you started. We'll write a small
 stand-in for `git`. Save it to `mygit.clj`.
 
