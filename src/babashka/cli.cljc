@@ -281,11 +281,11 @@
 
 (defn- option-label
   "User-facing name for option `opt` in an error message: the literal flag the
-  user typed (from `opt->as-provided`, e.g. `\"-f\"` or `\":foo\"`), else the canonical
+  user typed (from `opt->flag`, e.g. `\"-f\"` or `\":foo\"`), else the canonical
   `--name` (a required or standalone-checked option was never typed). Uses
   `kw->str` so a namespaced key like `:foo/bar` renders as `--foo/bar`."
-  [opt->as-provided opt]
-  (or (get opt->as-provided opt) (str "--" (kw->str opt))))
+  [opt->flag opt]
+  (or (get opt->flag opt) (str "--" (kw->str opt))))
 
 (defn coerce-opts
   "Coerces values in the map `m` using the provided configuration.
@@ -341,7 +341,7 @@
                       (assoc acc k (coerce-1 v cf it?)))
                     (catch #?(:clj ExceptionInfo :cljs :default) e
                       (let [data (ex-data e)
-                            km (::opt->as-provided m-meta)
+                            km (::opt->flag m-meta)
                             flag (get km k)]
                         (error-fn (cond-> {:cause :coerce
                                            ;; same shape as validate: name the option, then the reason.
@@ -408,8 +408,8 @@
          ;; `:restrict` must not flag them as unknown options.
          exec-args (:exec-args opts)
          ;; literal flag tokens the user typed, by key (see parse-opts*)
-         opt->as-provided (::opt->as-provided (meta m))
-         flag-for (fn [k] (option-label opt->as-provided k))
+         opt->flag (::opt->flag (meta m))
+         flag-for (fn [k] (option-label opt->flag k))
          error-fn (->error-fn spec (:error-fn opts))]
      (when restrict
        (doseq [k (keys m)]
@@ -417,7 +417,7 @@
                     (not (contains? inherited k))
                     (not (contains? exec-args k))
                     (not= "babashka.cli" (namespace k)))
-           (let [flag (get opt->as-provided k)]
+           (let [flag (get opt->flag k)]
              (error-fn (cond-> {:cause :restrict
                                 :msg (str "Unknown option: " (flag-for k))
                                 :restrict restrict
@@ -427,7 +427,7 @@
      (when require
        (doseq [k require]
          (when-not (find m k)
-           (let [flag (get opt->as-provided k)]
+           (let [flag (get opt->flag k)]
              (error-fn (cond-> {:cause :require
                                 :msg (str "Required option: " (flag-for k))
                                 :require require
@@ -447,7 +447,7 @@
                (let [ex-msg-fn (or (:ex-msg vf)
                                    (fn [{:keys [flag value]}]
                                      (str "Invalid value for option " flag ": " value)))
-                     flag (get opt->as-provided k)]
+                     flag (get opt->flag k)]
                  (error-fn (cond-> {:cause :validate
                                     :msg (ex-msg-fn {:option k :value v :flag (flag-for k)})
                                     :validate validate
@@ -510,10 +510,10 @@
                     (if (and opt (not (some #{opt} kpo)))
                       (conj kpo opt)
                       kpo))
-        ;; remember each parsed option as it was provided/typed by the user in `::opt->as-provided`
+        ;; remember each parsed option as it was provided/typed by the user in `::opt->flag`
         ;; metadata (e.g., parsed option :foo might have been typed as :foo, --foo or -f),
         ;; so error messages can echo what the user actually typed
-        stamp (fn [m k lit] (if lit (vary-meta m assoc-in [::opt->as-provided k] lit) m))
+        stamp (fn [m k lit] (if lit (vary-meta m assoc-in [::opt->flag k] lit) m))
         ;; inject leading positional args (in CLIs these are typically commands)
         ;; as options as per :args->opts
         {leading-pos-args :cmds args :args} (parse-cmds args)
@@ -717,7 +717,7 @@
          coerced (apply-defaults coerced opts)
          ;; Step 4: Validate
          validated (validate-opts coerced opts)]
-     (vary-meta validated dissoc ::implicit-true-keys ::keys-order ::opt->as-provided))))
+     (vary-meta validated dissoc ::implicit-true-keys ::keys-order ::opt->flag))))
 
 (defn parse-args
   "Same as [[parse-opts]] with return data reshaped.
