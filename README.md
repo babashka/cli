@@ -30,7 +30,7 @@ $ program command --verbose --long-opt1 v1 -o v2 arg
 ```
 
 Where:
-- `program` is your executable program, which will be launched by Clojure, ClojureScript, babashka, or the native target created by ClojureDart. (other libraries might call this "command")
+- `program` is your executable program or script (other libraries might call this "command")
 - `command` is a single or multi-word command for your program (other libraries might call this "subcommand")
 - `--verbose` is a boolean option
 - `--long-opt1 v1` is an option
