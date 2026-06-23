@@ -25,26 +25,18 @@ For babashka, no changes are needed; `org.babashka/cli` is a babashka built-in l
 Turn a Clojure function into a CLI that takes Unix-style command line arguments. E.g.:
 
 ```shell
-$ program command --flag --long-opt1 v1 -o v2 arg
+$ program command --verbose --long-opt1 v1 -o v2 arg
 ```
 
 Where:
 - `program` is your executable program, which will be launched by Clojure, ClojureScript, or babashka. (other libraries might call this "command")
 - `command` is a single or multi-word command for your program (other libraries might call this "subcommand")
-- `--flag` is a boolean flag option
+- `--verbose` is a boolean option
 - `--long-opt1 v1` is an option
 - `-o v2` is a short option
 - `arg` is a positional argument
 
-> [!NOTE]
-> To explain terminology choices, a concrete example:
-> ```shell
-> git remote show
-> ```
-> Some CLI libraries call `git` the `command`, and `remote show` the `subcommand`.
-> These same libraries typically use the term `command` when describing `remote show`  in usage help.
-> To keep terminology consistent for CLI users and CLI developers, we avoid `subcommand` entirely.
-> We use `program` for `git` and `command` for `remote show`.
+See [Terminology](#terminology) for precise definitions.
 
 The main ideas:
 
@@ -60,6 +52,31 @@ The main ideas:
 - But also support incremental restrictions and validations as a way to polish a CLI for production use.
 
 See [clojure CLI](#clojure-cli) for how to turn your `-X` exec functions into CLIs.
+
+## Terminology
+
+```shell
+$ program command --verbose --long-opt1 v1 -o v2 arg
+```
+
+| Term | Meaning |
+| --- | --- |
+| `program` | The executable program, typically launched in a terminal |
+| `command` | A single or multi-word command for the program. Other libraries often call this a subcommand |
+| `option` | A named option, written `--opt val` or short alias `-o val` |
+| `flag` | The literal `--opt` part of `--opt val`, `-o` in `-o v2`, or `:opt` _as the user passed it_. We use the word flag both for boolean and non-boolean options. |
+| `alias` | A single character alias for the option name |
+| `argument` | A positional argument |
+
+> [!NOTE]
+> To explain terminology choices, a concrete example:
+> ```shell
+> git remote show
+> ```
+> Some CLI libraries call `git` the `command`, and `remote show` the `subcommand`.
+> These same libraries typically use the term `command` when describing `remote show`  in usage help.
+> To keep terminology consistent for CLI users and CLI developers, we avoid `subcommand` entirely.
+> We use `program` for `git` and `command` for `remote show`.
 
 ## Projects using babashka CLI
 
