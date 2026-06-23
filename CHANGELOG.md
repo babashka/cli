@@ -4,6 +4,11 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- [#166](https://github.com/babashka/cli/issues/166): trigger negation invalid error for `--no-foo` when `:foo`'s specified `:coerce` is not `:boolean`
+([@lread](https://github.com/lread))
+
 ## v0.11.74 (2026-06-23)
 
 - [#180](https://github.com/babashka/cli/issues/180): ClojureDart support
