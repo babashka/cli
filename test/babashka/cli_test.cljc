@@ -969,6 +969,11 @@
            (is (= "" out))
            (is (str/includes? err "Unknown command: nope")))))))
 
+(deftest default-width-fn-test
+  ;; returns terminal width or nil, never throws (cljd: dart:io stdout/env)
+  (let [w (cli/default-width-fn {})]
+    (is (or (nil? w) (pos-int? w)))))
+
 (deftest format-table-test
   (let [contains-row-matching (fn [re table]
                                 (let [rows (str/split-lines table)]

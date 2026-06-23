@@ -4,6 +4,7 @@
    #?(:clj [clojure.edn :as edn]
       :cljd [cljd.edn :as edn]
       :cljs [cljs.reader :as edn])
+   #?@(:cljd [["dart:io" :as io]])
    [babashka.cli.internal :as internal]
    [clojure.string :as str])
   #?@(:cljd [] :clj [(:import (clojure.lang ExceptionInfo))]))
@@ -797,7 +798,13 @@
   provider probe (clj, when JLine is on the classpath, e.g. babashka), else nil
   (the caller then falls back to 80)."
   [_cfg]
-  #?(:cljs (when (and (exists? js/process) js/process.stdout
+  #?(:cljd (or (when-let [c (get io/Platform.environment "COLUMNS")]
+                 (dart:core/int.tryParse c))
+               (try (when io/stdout.hasTerminal
+                      (let [w io/stdout.terminalColumns]
+                        (when (pos? w) w)))
+                    (catch Object _ nil)))
+     :cljs (when (and (exists? js/process) js/process.stdout
                       (pos-int? (.-columns js/process.stdout)))
              (.-columns js/process.stdout))
      :clj (or (when-let [c (System/getenv "COLUMNS")]
@@ -1687,7 +1694,8 @@ $env.config.completions.external.completer = {|spans|
 
   Default: `System/exit` (JVM), `js/process.exit` (Node), `throw` (browser)."
   [{:keys [exit]}]
-  #?(:clj (System/exit exit)
+  #?(:cljd (io/exit exit)
+     :clj (System/exit exit)
      :cljs (if (and (exists? js/process) (fn? (.-exit js/process)))
              (js/process.exit exit)
              (throw (ex-info "exit" {:exit exit})))))
