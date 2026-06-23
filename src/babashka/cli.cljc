@@ -49,10 +49,9 @@
             (if (and eof? (number? v))
               v
               (throw-unexpected x)))
-     :cljd (let [v (edn/read-string x)]
-             (if (number? v)
-               v
-               (throw-unexpected x)))
+     :cljd (or (dart:core/int.tryParse x)
+               (dart:core/double.tryParse x)
+               (throw-unexpected x))
      :cljs (let [v (js/JSON.parse x)]
              (if (number? v)
                v
