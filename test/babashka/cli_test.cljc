@@ -1,11 +1,13 @@
 (ns babashka.cli-test
   (:require
    [babashka.cli :as cli]
-   [babashka.cli.test-report]
+   #?@(:cljd [] :default [[babashka.cli.test-report]])
    [borkdude.deflet :as d]
    [clojure.string :as str]
-   [clojure.test :refer [deftest is testing]]
-   #?(:clj [clojure.edn :as edn]
+   #?(:cljd [cljd.test :refer [deftest is testing]]
+      :default [clojure.test :refer [deftest is testing]])
+   #?(:cljd [cljd.edn :as edn]
+      :clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])))
 
 (defn normalize-filename [s]
@@ -13,6 +15,7 @@
 
 (defn regex? [x]
   #?(:clj (instance? java.util.regex.Pattern x)
+     :cljd (dart/is? x RegExp)
      :cljs (regexp? x)))
 
 (defn submap?
@@ -57,7 +60,7 @@
                                {:coerce {:boo edn/read-string}})))
   (is (try (cli/parse-opts [":b" "dude"] {:coerce {:b :long}})
            false
-           (catch #?(:clj Exception
+           (catch #?(:cljd Object :clj Exception
                      :cljs :default) e
              (= {:type :org.babashka/cli
                  :cause :coerce
@@ -126,7 +129,7 @@
                              {:spec   {:foo {}}
                               :restrict true})
              false
-             (catch #?(:clj Exception
+             (catch #?(:cljd Object :clj Exception
                        :cljs :default) e
                (= {:type :org.babashka/cli
                    :cause :restrict
@@ -147,7 +150,7 @@
     (is (try (cli/parse-opts ["--foo" "--bar"]
                              {:closed #{:foo}})
              false
-             (catch #?(:clj Exception
+             (catch #?(:cljd Object :clj Exception
                        :cljs :default) e
                (= {:type :org.babashka/cli
                    :cause :restrict
@@ -330,7 +333,7 @@
                     :cause :input-exhausted
                     :all-commands ["foo"]}
                    (try (cli/dispatch table [])
-                        (catch Exception e (ex-data e)))))
+                        (catch #?(:cljd Object :default Exception) e (ex-data e)))))
       (is (submap? {:dispatch ["foo" "bar"], :opts {:baz true}, :args ["quux"]}
                    (cli/dispatch table ["foo" "bar" "--baz" "quux"])))
       (is (submap? {:dispatch ["foo" "bar" "baz"] , :opts {:baz true :quux :xyzzy}, :args nil}
@@ -488,12 +491,12 @@
       (is (identical? tree (cli/table->tree tree)))))
   (testing "a single table entry (map with :cmds) throws instead of being taken
             for a tree"
-    (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs :default)
+    (is (thrown? #?(:cljd cljd.core/ExceptionInfo :clj clojure.lang.ExceptionInfo :cljs :default)
                  (cli/table->tree {:cmds ["add"] :fn identity})))
-    (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs :default)
+    (is (thrown? #?(:cljd cljd.core/ExceptionInfo :clj clojure.lang.ExceptionInfo :cljs :default)
                  (cli/dispatch {:cmds ["add"] :fn identity} ["add"]))))
   (testing ":cmds on a nested node (table syntax inside a tree) throws too"
-    (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs :default)
+    (is (thrown? #?(:cljd cljd.core/ExceptionInfo :clj clojure.lang.ExceptionInfo :cljs :default)
                  (cli/table->tree {:cmd {"sub" {:cmds ["deep"] :fn identity}}}))))
   (testing "a literal :cmd on the catch-all entry merges with path-declared
             siblings, in table order"
@@ -518,7 +521,7 @@
                         #?@(:clj [*err* *out*] :cljs [*print-err-fn* *print-fn*])]
                 (try
                   (cli/dispatch table args opts)
-                  (catch #?(:clj clojure.lang.ExceptionInfo :cljs :default) e
+                  (catch #?(:cljd cljd.core/ExceptionInfo :clj clojure.lang.ExceptionInfo :cljs :default) e
                     (when-not (::exit (ex-data e)) (throw e))))))]
     {:out out :exit @exit}))
 
@@ -946,7 +949,8 @@
         (is (nil? exit))
         (is (= {:opt 2} (:opts ran)))))))
 
-#?(:clj
+#?(:cljd/clj-host nil
+   :clj
    (deftest help-error-streams-test
      ;; --help is requested output -> stdout; errors -> stderr
      (let [t [{:cmds [] :doc "t"} {:cmds ["go"] :fn identity :doc "Go"}]
@@ -1030,11 +1034,11 @@
        (cli/parse-args ["-foo"] {:require [:bar]}))))
 
 (deftest validate-test
-  (is (thrown-with-msg? Exception #"Invalid value for option --foo:"
+  (is (thrown-with-msg? #?(:cljd Object :default Exception) #"Invalid value for option --foo:"
                         (cli/parse-args ["--foo" "0"] {:validate {:foo pos?}})))
-  (is (thrown-with-msg? Exception #"Invalid value for option --foo:"
+  (is (thrown-with-msg? #?(:cljd Object :default Exception) #"Invalid value for option --foo:"
                         (cli/parse-args ["--foo" ":bar"] {:validate {:foo #{:baz}}})))
-  (is (thrown-with-msg? Exception #"Invalid value for option --foo:"
+  (is (thrown-with-msg? #?(:cljd Object :default Exception) #"Invalid value for option --foo:"
                         (cli/parse-args ["--foo" ":bar"] {:spec {:foo {:validate #{:baz}}}})))
   (let [ex-msg-fn (fn
                     [{:keys [option value]}]
@@ -1045,7 +1049,7 @@
               {:validate {:foo {:pred pos?
                                 :ex-msg ex-msg-fn}}})
              false
-             (catch #?(:clj Exception
+             (catch #?(:cljd Object :clj Exception
                        :cljs :default) e
                (= {:type :org.babashka/cli
                    :cause :validate
@@ -1062,7 +1066,7 @@
 (deftest flag-token-test
   (testing ":flag echoes the literal option token, not a guess from name length"
     (let [flag (fn [args opts] (try (cli/parse-opts args opts)
-                                    (catch #?(:clj Exception :cljs :default) e
+                                    (catch #?(:cljd Object :clj Exception :cljs :default) e
                                       (:flag (ex-data e)))))]
       ;; single-char long option: a name-length guess would say "-x"; exact now
       (is (= "--x" (flag ["--x"] {:spec {:foo {}} :restrict true})))
@@ -1076,7 +1080,7 @@
       (is (= ":x" (flag [":x"] {:spec {:foo {}} :restrict true})))))
   (testing ":require carries no :flag (option was never typed)"
     (is (nil? (try (cli/parse-opts [] {:spec {:foo {}} :require [:foo]})
-                   (catch #?(:clj Exception :cljs :default) e (:flag (ex-data e))))))))
+                   (catch #?(:cljd Object :clj Exception :cljs :default) e (:flag (ex-data e))))))))
 
 (deftest error-fn-test
   (let [errors (atom [])
@@ -1118,7 +1122,7 @@
          (cli/parse-args [":foo" 1 "--baz"] {}))))
 
 (deftest issue-98-dispatch+restrict-test
-  (is (thrown? Exception
+  (is (thrown? #?(:cljd Object :default Exception)
          (cli/dispatch [{:cmds ["foo"]
                          :fn identity
                          :spec {:x {:coerce :boolean}}}]
@@ -1142,7 +1146,7 @@
                                       (assoc opts :error-fn
                                              (fn [e] (reset! err e)
                                                (throw (ex-info "stop" {})))))
-                        (catch #?(:clj Exception :cljs :default) _ nil))
+                        (catch #?(:cljd Object :clj Exception :cljs :default) _ nil))
                       @err))
           table [{:cmds [] :spec {:g {:coerce :boolean}}}
                  {:cmds ["foo"] :fn identity :spec {:x {:coerce :boolean}}}

@@ -106,3 +106,35 @@ jobs:
       run: pwsh -File script/completion-smoke.ps1
     - name: nushell completions
       run: nu script/completion-smoke.nu
+
+  test-cljd:
+    runs-on: ubuntu-latest
+    # ClojureDart support is in progress; some tests fail on known gaps
+    continue-on-error: true
+
+    steps:
+    - name: "Checkout code"
+      uses: "actions/checkout@v7"
+
+    - name: Prepare java
+      uses: actions/setup-java@v5
+      with:
+        distribution: "zulu"
+        java-version: 21
+
+    - name: Setup Clojure
+      uses: DeLaGuardo/setup-clojure@13.6.1
+      with:
+        bb: 1.12.218
+        cli: latest
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Dart
+      uses: dart-lang/setup-dart@v1
+      with:
+        sdk: stable
+
+    - name: Run tests
+      run: |
+        dart pub get
+        clojure -M:cljd test babashka.cli-test

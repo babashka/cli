@@ -6,7 +6,7 @@
       :cljs [cljs.reader :as edn])
    [babashka.cli.internal :as internal]
    [clojure.string :as str])
-  #?(:clj (:import (clojure.lang ExceptionInfo))))
+  #?@(:cljd [] :clj [(:import (clojure.lang ExceptionInfo))]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -61,13 +61,13 @@
 (defn ^:no-doc ;; was accidentally left in the public API for a long while. Mark as no-doc to hide (but avoid breaking anyone who might be using it).
   number-char? [c]
   (try (parse-number (str c))
-       (catch #?(:clj Exception :cljs :default) _ nil)))
+       (catch #?(:clj Exception :cljd Object :cljs :default) _ nil)))
 
-(defn- first-char ^Character [^String arg]
+(defn- first-char #?(:cljd [arg] :default ^Character [^String arg])
   (when (string? arg)
     (nth arg 0 nil)))
 
-(defn- second-char ^Character [^String arg]
+(defn- second-char #?(:cljd [arg] :default ^Character [^String arg])
   (when (string? arg)
     (nth arg 1 nil)))
 
@@ -92,22 +92,27 @@
   [s]
   (if (string? s)
     (try
-      (let [s ^String s
+      (let [s #?(:cljd s :default ^String s)
             fst-char (first-char s)
-            #?@(:clj [leading-num-char (if (= \- fst-char)
+            #?@(:cljd [leading-num-char (if (= \- fst-char)
+                                          (second-char s)
+                                          fst-char)]
+                :clj [leading-num-char (if (= \- fst-char)
                                          (second-char s)
                                          fst-char)])]
         (cond (or (= "true" s)
                   (= "false" s))
               (parse-boolean s)
               (= "nil" s) nil
-              #?(:clj (some-> leading-num-char (Character/isDigit))
+              #?(:cljd (and leading-num-char (re-matches #"[0-9]" leading-num-char))
+                 :clj (some-> leading-num-char (Character/isDigit))
                  :cljs (not (js/isNaN s)))
               (parse-number s)
               (and (= \: fst-char) (re-matches #"\:[a-zA-Z][a-zA-Z0-9_/\.-]*" s))
               (parse-keyword s)
               :else s))
       (catch #?(:clj Exception
+                :cljd Object
                 :cljs :default) _ s))
     s))
 
@@ -148,7 +153,7 @@
              f)
         res (if (string? s)
               (try (f* s)
-                   (catch #?(:clj Exception :cljs :default) e
+                   (catch #?(:clj Exception :cljd Object :cljs :default) e
                      (throw-coerce s implicit-true? f e)))
               s)]
     (if (and implicit-true? (not (true? res)))
@@ -347,7 +352,7 @@
                       (assoc acc k (into (empty v) (map #(coerce-1 % cf it?)) v))
                       :else
                       (assoc acc k (coerce-1 v cf it?)))
-                    (catch #?(:clj ExceptionInfo :cljs :default) e
+                    (catch #?(:cljd cljd.core/ExceptionInfo :clj ExceptionInfo :cljs :default) e
                       (let [data (ex-data e)
                             km (::opt->flag m-meta)
                             flag (get km k)]
@@ -1284,7 +1289,7 @@
   (try (parse-args args (-> opts
                             (dissoc :exec-args)
                             (assoc :error-fn (fn [_]) ::resolved true)))
-       (catch #?(:clj ExceptionInfo :cljs :default) _ {:args nil :opts nil})))
+       (catch #?(:cljd cljd.core/ExceptionInfo :clj ExceptionInfo :cljs :default) _ {:args nil :opts nil})))
 
 (defn- option-candidates
   "Option candidates completing `to-complete`, minus the single-value options
