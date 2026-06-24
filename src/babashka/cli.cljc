@@ -44,10 +44,6 @@
 (defn- parse-double [x]
   #?(:clj (Double/parseDouble x)
      :cljd (or (dart:core/double.tryParse x) (throw-unexpected x))
-     :squint (let [v (js/JSON.parse x)]
-               (if (and (number? v) (not (int? v)))
-                 v
-                 (throw-unexpected x)))
      :cljs (let [v (js/JSON.parse x)]
              (if (double? v)
                v
