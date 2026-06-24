@@ -1,15 +1,25 @@
 (ns babashka.cli
   (:refer-clojure :exclude [parse-boolean parse-long parse-double])
   (:require
-   #?(:clj [clojure.edn :as edn]
-      :cljd [cljd.edn :as edn]
-      :cljs [cljs.reader :as edn])
+   #?@(:squint []
+       :clj [[clojure.edn :as edn]]
+       :cljd [[cljd.edn :as edn]]
+       :cljs [[cljs.reader :as edn]])
    #?@(:cljd [["dart:io" :as io]])
    [babashka.cli.internal :as internal]
    [clojure.string :as str])
   #?@(:cljd [] :clj [(:import (clojure.lang ExceptionInfo))]))
 
 #?(:clj (set! *warn-on-reflection* true))
+
+;; squint has no keyword type (keywords are plain strings) so it cannot tell an
+;; injected option keyword apart from a positional string argument. Wrap injected
+;; opts in this marker instead.
+#?(:squint (deftype Injected [opt]))
+
+;; squint core has no vary-meta.
+#?(:squint (defn- vary-meta [obj f & args]
+             (with-meta obj (apply f (meta obj) args))))
 
 (defn merge-opts
   "Merges babashka CLI options."
@@ -38,6 +48,10 @@
 (defn- parse-double [x]
   #?(:clj (Double/parseDouble x)
      :cljd (or (dart:core/double.tryParse x) (throw-unexpected x))
+     :squint (let [v (js/JSON.parse x)]
+               (if (and (number? v) (not (int? v)))
+                 v
+                 (throw-unexpected x)))
      :cljs (let [v (js/JSON.parse x)]
              (if (double? v)
                v
@@ -144,10 +158,10 @@
              (:int :long) parse-long
              :double parse-double
              :number parse-number
-             :symbol symbol
+             :symbol #?(:squint identity :default symbol)
              :keyword parse-keyword
              :string identity
-             :edn edn/read-string
+             :edn #?(:squint auto-coerce :default edn/read-string)
              :auto auto-coerce
              ;; default
              f)
@@ -237,7 +251,9 @@
              (let [arg-count (count args)
                    cnt (min arg-count
                             (bounded-count arg-count args->opt-keys))]
-               [(concat (interleave args->opt-keys args)
+               [(concat (interleave #?(:squint (map ->Injected args->opt-keys)
+                                       :default args->opt-keys)
+                                    args)
                         (drop cnt args))
                 (drop cnt args->opt-keys)])
              [args args->opt-keys])
@@ -290,7 +306,8 @@
              ::resolved true))))
 
 (defn- kw->str [kw]
-  (subs (str kw) 1))
+  #?(:squint (str kw)
+     :default (subs (str kw) 1)))
 
 (defn- option-label
   "User-facing name for option `opt` in an error message: the literal flag the
@@ -557,7 +574,9 @@
               ;; exit loop: no command line args left
               [acc open-opt valued-opt implicit-true-keys opt-parse-order]
               (let [raw-arg (first args)
-                    opt-injected? (keyword? raw-arg)]
+                    opt-injected? #?(:squint (instance? Injected raw-arg)
+                                     :default (keyword? raw-arg))
+                    #?@(:squint [raw-arg (if opt-injected? (.-opt raw-arg) raw-arg)])]
                 (if opt-injected?
                   ;; continue loop: this opt and its value was injected by args->opts
                   ;; opt-val-collector does not apply for injected opts, so is `nil`
@@ -607,7 +626,7 @@
                                     next-arg (first next-args)
                                     next-arg-info (analyze-arg next-arg mode open-opt boolean-opt? valued-opt known-keys alias-keys)
                                     negated-opt? (when-not (contains? known-keys parsed-opt)
-                                                   (str/starts-with? (str parsed-opt) ":no-"))]
+                                                   (str/starts-with? (str parsed-opt) #?(:squint "no-" :default ":no-")))]
                                 (if (or (:hyphen-opt next-arg-info) ;; --open-opt --next
                                         (empty? next-args)          ;; --open-opt
                                         negated-opt?)               ;; --no-foo
@@ -621,7 +640,7 @@
                                              mode (concat expanded next-args) a->o
                                              implicit-true-keys opt-parse-order))
                                     (let [parsed-opt (if negated-opt?
-                                                       (keyword (str/replace (str parsed-opt) ":no-" ""))
+                                                       (keyword (str/replace (str parsed-opt) #?(:squint "no-" :default ":no-") ""))
                                                        parsed-opt)]
                                       ;; continue loop: adding true for --foo or false for --no-foo to args
                                       (recur (stamp (maybe-close-open-opt acc open-opt valued-opt opt-val-collector) parsed-opt literal-opt)
@@ -936,7 +955,7 @@
                      (if desc desc ""))]))
           (if (map? spec)
             (let [order (or order (keys spec))]
-              (map (fn [k] [k (spec k)]) order))
+              (map (fn [k] [k (get spec k)]) order))
             spec))))
 
 (defn- opts->help-rows
@@ -948,7 +967,7 @@
   `format-opts`."
   [{:keys [spec order required]}]
   (let [entries (if (map? spec)
-                  (map (fn [k] [k (spec k)]) (or order (keys spec)))
+                  (map (fn [k] [k (get spec k)]) (or order (keys spec)))
                   spec)
         ;; `:no-doc` options still parse but are hidden from help, like `:no-doc`
         ;; commands are hidden from the command list
@@ -1176,8 +1195,8 @@
 (defn- deep-merge [a b]
   (reduce (fn [acc k] (update acc k (fn [v]
                                       (if (map? v)
-                                        (deep-merge v (b k))
-                                        (b k)))))
+                                        (deep-merge v (get b k))
+                                        (get b k)))))
           a (keys b)))
 
 (defn- inherited-entries
@@ -1579,7 +1598,10 @@ $env.config.completions.external.completer = {|spans|
       (println (if desc (str value \tab desc) value)))))
 
 (defn- eprintln [s]
-  #?(:cljs (binding [*print-fn* *print-err-fn*] (println s))
+  #?(:squint (if (and (exists? js/process) js/process.stderr)
+               (.write js/process.stderr (str s "\n"))
+               (println s))
+     :cljs (binding [*print-fn* *print-err-fn*] (println s))
      :default (binding [*out* *err*] (println s))))
 
 (defn- has-parse-opts? [m]

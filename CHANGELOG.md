@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+<!-- PROSE: squint support. keywords are strings under squint. limitations: :edn coerce falls back to auto-coerce (no edn reader), :symbol coerce is identity, raw keyword injection directly in args vector not detected (only :args->opts) -->
+
 ## v0.11.74 (2026-06-23)
 
 - [#180](https://github.com/babashka/cli/issues/180): ClojureDart support

@@ -16,3 +16,5 @@ README.html
 pubspec.lock
 lib/cljd-out
 test/cljd-out
+node_modules
+.squint-out

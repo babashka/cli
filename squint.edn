@@ -1,0 +1,3 @@
+{:paths ["src" "test-squint"]
+ :output-dir ".squint-out"
+ :extension "mjs"}
