@@ -17,10 +17,6 @@
 ;; opts in this marker instead.
 #?(:squint (deftype Injected [opt]))
 
-;; squint core has no vary-meta.
-#?(:squint (defn- vary-meta [obj f & args]
-             (with-meta obj (apply f (meta obj) args))))
-
 (defn merge-opts
   "Merges babashka CLI options."
   [m & ms]
