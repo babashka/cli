@@ -174,7 +174,7 @@
   `:keyword`) or a function. When `f` return `nil`, this is
   interpreted as a parse failure and throws."
   [s f]
-  (coerce* s f false))
+  (coerce* s f nil))
 
 (defn- collect-fn
   "Returns the collection function for opt, derived from collect-opts and coerce-map."

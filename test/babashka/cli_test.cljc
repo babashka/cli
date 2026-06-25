@@ -1311,6 +1311,13 @@
   (is (= {:file "-"} (cli/parse-opts ["--file" "-"])))
   (is (= {:file "-"} (cli/parse-opts ["-"] {:args->opts [:file]}))))
 
+(deftest coerce-test
+  (is (= 42 (cli/coerce "42" :int)))
+  (is (= 1.5 (cli/coerce "1.5" :double)))
+  (is (= :kw (cli/coerce ":kw" :keyword)))
+  (is (= true (cli/coerce "true" :boolean)))
+  (is (= "x" (cli/coerce "x" identity))))
+
 (deftest coerce-opts-test
   (testing "simple coercion"
     (is (= {:foo 1 :bar "hello"}
