@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## v0.12.75 (2026-06-25)
 
 - Squint support (v0.14.196+)
 - [#166](https://github.com/babashka/cli/issues/166): trigger negation invalid error for `--no-foo` when `:foo`'s specified `:coerce` is not `:boolean`

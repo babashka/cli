@@ -18,3 +18,4 @@ lib/cljd-out
 test/cljd-out
 node_modules
 .squint-out
+js

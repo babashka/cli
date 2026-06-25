@@ -4,9 +4,10 @@
 [![bb built-in](https://raw.githubusercontent.com/babashka/babashka/master/logo/built-in-badge.svg)](https://book.babashka.org#badges)
 
 Turn Clojure functions into Command Line Interfaces! This library can be used from:
-- [babashka](https://book.babashka.org/) - included as a built-in library
+- [Babashka](https://book.babashka.org/) - included as a built-in library
 - [Clojure on the JVM](https://www.clojure.org/guides/install_clojure) - we support Clojure 1.10.3 and above on Java 11 and above
 - [ClojureScript](https://clojurescript.org) - we test against the current release
+- [Squint](https://github.com/squint-cljs/squint) - we test againt the current release
 - [ClojureDart](https://github.com/Tensegritics/ClojureDart) - we test against the current release
 
 ## [API](API.md)
@@ -20,6 +21,14 @@ org.babashka/cli {:mvn/version "<latest-version>"}
 ```
 
 For babashka, no changes are needed; `org.babashka/cli` is a babashka built-in library.
+
+For JavaScript, install from NPM:
+
+```
+npm install @babashka/cli
+```
+
+See [JavaScript](#javascript) for how to use this library in JS.
 
 ## Intro
 
@@ -1761,6 +1770,65 @@ $ lein clj-new app --name foobar/baz --verbose 3 -f
 <!-- ``` clojure -->
 <!-- --org.babashka/cli-defaults=foo.edn -->
 <!-- ``` -->
+
+## JavaScript
+
+Babashka CLI is published to NPM as [`@babashka/cli`](https://www.npmjs.com/package/@babashka/cli),
+compiled from the same source with [Squint](https://github.com/squint-cljs/squint).
+
+Install it with:
+
+```
+npm install @babashka/cli
+```
+
+and use it:
+
+```js
+import { parseOpts, parseArgs, dispatch, coerce, formatOpts } from '@babashka/cli';
+
+parseOpts(['--foo', '1', '--bar']);
+// => { foo: 1, bar: true }
+
+parseOpts(['--port', '8080'], { coerce: { port: 'int' } });
+// => { port: 8080 }
+
+parseArgs(['--foo', '1', 'x', 'y']);
+// => { opts: { foo: 1 }, args: ['x', 'y'] }
+
+coerce('42', 'int');
+// => 42
+
+const tree = {
+  fn: () => console.log('usage: add'),
+  cmd: {
+    add: {
+      fn: (m) => console.log('add', m.opts),
+      spec: {
+        file: { desc: 'File to add', alias: 'f' },
+        verbose: { coerce: 'boolean', desc: 'Verbose output' },
+      },
+    },
+  },
+};
+
+// `help: true` gives every (sub)command an auto-generated --help:
+dispatch(tree, process.argv.slice(2), { help: true, prog: 'myapp' });
+```
+
+```
+$ myapp add --help
+Usage: myapp add [options]
+
+Options:
+  -f, --file     File to add
+      --verbose  Verbose output
+  -h, --help     Show this help
+```
+
+Every function is exported under a friendly camelCase name (`parseOpts`,
+`specToOpts`, `tableToTree`, ...) and under its squint-compiled name
+(`parse_opts`, `spec__GT_opts`, ...). The `parse-opts*` function is exposed also as `parseOptsRaw`.
 
 ## License
 

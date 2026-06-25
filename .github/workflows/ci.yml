@@ -130,6 +130,9 @@ jobs:
     - name: Run tests
       run: bb squint-test
 
+    - name: Run JS API tests
+      run: npm install && npm test
+
   test-cljd:
     runs-on: ubuntu-latest
 

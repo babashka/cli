@@ -1,5 +1,28 @@
 {
-  "devDependencies": {
-    "squint-cljs": "^0.13.195"
-  }
+  "name": "@babashka/cli",
+  "version": "0.12.75",
+  "description": "Turn functions into command line interfaces.",
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "js/babashka/cli.mjs",
+    "js/babashka/cli/internal.mjs",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "squint compile --paths src --output-dir js",
+    "prepack": "npm run build",
+    "test": "npm run build && node --test test-js/smoke.test.mjs"
+  },
+  "dependencies": {
+    "squint-cljs": "^0.14.196"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/babashka/cli.git"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/babashka/cli"
 }
