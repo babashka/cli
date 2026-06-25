@@ -368,7 +368,7 @@
                                            ;; instead of "cannot transform (implicit) true to ..."
                                            :msg (case iv
                                                   true (str "Missing value for option " (option-label km k))
-                                                  false (str "Negation is invalid " (option-label km k))
+                                                  false (str "Cannot negate option " (str/replace-first (option-label km k) "no-" ""))
                                                   (str "Invalid value for option " (option-label km k) ": "
                                                        (coerce-failure-reason (:input data) iv (:coerce-fn data))))
                                            :option k

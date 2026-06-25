@@ -114,19 +114,19 @@
   (testing "--no-foo throws on non-boolean"
     (doseq [coerce-fn [:long :number :symbol :keyword :string]]
       (is (thrown-with-msg?
-            #?(:cljd Object :default Exception) #"Negation is invalid --no-foo"
+            #?(:cljd Object :default Exception) #"Cannot negate option --foo"
             (cli/parse-opts ["--no-foo"] {:coerce {:foo coerce-fn}}))
           (str "for coerce to: " coerce-fn))
       (is (thrown-with-msg?
-            #?(:cljd Object :default Exception) #"Negation is invalid --no-foo"
+            #?(:cljd Object :default Exception) #"Cannot negate option --foo"
             (cli/parse-opts ["--no-foo"] {:coerce {:foo [coerce-fn]}}))
           (str "for coerce to: [" coerce-fn "]"))
       (is (thrown-with-msg?
-            #?(:cljd Object :default Exception) #"Negation is invalid :no-foo"
+            #?(:cljd Object :default Exception) #"Cannot negate option :foo"
             (cli/parse-opts [":no-foo"] {:coerce {:foo coerce-fn}}))
           (str "for coerce to: " coerce-fn))
       (is (thrown-with-msg?
-            #?(:cljd Object :default Exception) #"Negation is invalid :no-foo"
+            #?(:cljd Object :default Exception) #"Cannot negate option :foo"
             (cli/parse-opts [":no-foo"] {:coerce {:foo [coerce-fn]}}))
           (str "for coerce to: [" coerce-fn "]")))))
 
