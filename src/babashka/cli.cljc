@@ -121,10 +121,10 @@
 
 (defn- coerce-failure-reason
   "The reason part of a coerce failure, e.g. `cannot transform input \"x\" to long`."
-  [s implicit-true? f]
+  [s implicit-value f]
   (str "cannot transform "
-       (if implicit-true?
-         "(implicit) true"
+       (if implicit-value
+         (str "(implicit) " implicit-value)
          (str "input " (pr-str s)))
        (if (keyword? f)
          " to "
@@ -133,15 +133,20 @@
          (name f)
          f)))
 
-(defn- throw-coerce [s implicit-true? f e]
-  (throw (ex-info (str "Coerce failure: " (coerce-failure-reason s implicit-true? f))
+(defn- throw-coerce [s implicit-value f e]
+  (throw (ex-info (str "Coerce failure: " (coerce-failure-reason s implicit-value f))
                   (cond-> {:input s
                            :coerce-fn f}
-                    implicit-true? (assoc :implicit-true true))
+                    (some? implicit-value) (assoc :implicit-value implicit-value))
                   e)))
 
 (defn- coerce*
-  [s f implicit-true?]
+  "Coerce string `s` using coercer `f`.
+  `implicit-value` can be:
+  - `nil` not an implicit value
+  - `true` for implicit true, e.g., --foo
+  - `false` for implict false, e.g., --no-foo"
+  [s f implicit-value]
   (let [f* (case f
              (:boolean :bool) parse-boolean
              (:int :long) parse-long
@@ -157,10 +162,10 @@
         res (if (string? s)
               (try (f* s)
                    (catch #?(:clj Exception :cljd Object :cljs :default) e
-                     (throw-coerce s implicit-true? f e)))
+                     (throw-coerce s implicit-value f e)))
               s)]
-    (if (and implicit-true? (not (true? res)))
-      (throw-coerce s implicit-true? f nil)
+    (if (and (some? implicit-value) (not= implicit-value res))
+      (throw-coerce s implicit-value f nil)
       res)))
 
 (defn coerce
@@ -326,15 +331,15 @@
          opts (resolve-opts opts)
          coerce-map (:coerce opts)
          m-meta (meta m)
-         implicit-true-keys (or (::implicit-true-keys opts)
-                                (::implicit-true-keys m-meta))
+         implicit-values (or (::implicit-values opts)
+                             (::implicit-values m-meta))
          auto-coerce? (::auto-coerce opts)
          keys-order (or (::keys-order opts)
                         (::keys-order m-meta))
          error-fn (->error-fn spec (:error-fn opts))]
      (if (or (seq coerce-map) auto-coerce?)
-       (let [coerce-1 (fn [v cf implicit-true?]
-                         (if cf (coerce* v cf implicit-true?) (auto-coerce v)))
+       (let [coerce-1 (fn [v cf implicit-value]
+                         (if cf (coerce* v cf implicit-value) (auto-coerce v)))
              ordered-keys (if (seq keys-order)
                             (concat keys-order
                                     (remove (set keys-order) (keys m)))
@@ -347,34 +352,38 @@
                 (let [coll-coerce? (coll? coerce-k)
                       empty-coll (when coll-coerce? (or (empty coerce-k) []))
                       cf (coerce-coerce-fn coerce-k)
-                      it? (and implicit-true-keys (contains? implicit-true-keys k))]
+                      iv (and implicit-values (get implicit-values k))]
                   (try
                     (cond
                       (and coll-coerce? (coll? v))
-                      (assoc acc k (reduce (fn [coll elem] (conj coll (coerce-1 elem cf it?))) empty-coll v))
+                      (assoc acc k (reduce (fn [coll elem] (conj coll (coerce-1 elem cf iv))) empty-coll v))
                       coll-coerce?
-                      (assoc acc k (conj empty-coll (coerce-1 v cf it?)))
+                      (assoc acc k (conj empty-coll (coerce-1 v cf iv)))
                       (coll? v)
-                      (assoc acc k (into (empty v) (map #(coerce-1 % cf it?)) v))
+                      (assoc acc k (into (empty v) (map #(coerce-1 % cf iv)) v))
                       :else
-                      (assoc acc k (coerce-1 v cf it?)))
+                      (assoc acc k (coerce-1 v cf iv)))
                     (catch #?(:cljd cljd.core/ExceptionInfo :clj ExceptionInfo :cljs :default) e
                       (let [data (ex-data e)
                             km (::opt->flag m-meta)
-                            flag (get km k)]
+                            flag (get km k)
+                            iv (:implicit-value data)]
                         (error-fn (cond-> {:cause :coerce
                                            ;; same shape as validate: name the option, then the reason.
-                                           ;; implicit-true = option given without a value: say so plainly
+                                           ;; when implicit-value, give a more nuanced error message
                                            ;; instead of "cannot transform (implicit) true to ..."
-                                           :msg (if (:implicit-true data)
-                                                  (str "Missing value for option " (option-label km k))
+                                           :msg (case iv
+                                                  true (str "Missing value for option " (option-label km k))
+                                                  ;; NOTE: squint lacks clojure.string/replace-first until > 0.14.196; use JS interop for now
+                                                  false (str "Cannot negate option " #?(:squint (.replace (option-label km k) "no-" "")
+                                                                                        :default (str/replace-first (option-label km k) "no-" "")))
                                                   (str "Invalid value for option " (option-label km k) ": "
-                                                       (coerce-failure-reason (:input data) (:implicit-true data) (:coerce-fn data))))
+                                                       (coerce-failure-reason (:input data) iv (:coerce-fn data))))
                                            :option k
                                            :value v
                                            :opts acc}
                                     flag (assoc :flag flag)
-                                    (:implicit-true data) (assoc :implicit-true true))))
+                                    iv (assoc :implicit-value (:implicit-value data)))))
                       acc)))
                 (if auto-coerce?
                   (assoc acc k (auto-coerce v))
@@ -501,7 +510,7 @@
   "Parses CLI `args` into a raw opts map. Returns string values unchanged
   (no coercion), does not apply `:exec-args` defaults, does not run
   `:restrict`/`:require`/`:validate`. Result map includes
-  `:org.babashka/cli` metadata and internal `::implicit-true-keys` /
+  `:org.babashka/cli` metadata and internal `::implicit-values` /
   `::keys-order` metadata used by `coerce-opts`.
 
   Use this when you want to merge other sources (e.g. config files)
@@ -523,8 +532,11 @@
         alias-keys (set (concat (keys aliases) (keep :alias (vals spec-map))))
         known-keys (set (concat (keys spec-map) (vals aliases) (keys coerce)))
         expects-bool-val? (fn [opt-key] (#{:boolean :bool} (coerce-coerce-fn (get coerce opt-key))))
-        track-itk (fn [itk current-opt added]
-                    (cond-> itk (not= current-opt added) (conj current-opt)))
+        track-ivs (fn [implicit-values current-opt added]
+                    ;; we handle implicit trues here only, :add-opt-and-val below covers implicit false
+                    (if (not= current-opt added)
+                      (assoc implicit-values current-opt true)
+                      implicit-values))
         track-kpo (fn [kpo opt]
                     (if (and opt (not (some #{opt} kpo)))
                       (conj kpo opt)
@@ -545,7 +557,7 @@
         [leading-pos-args args] (if (not= new-leading-pos-args args)
                                   [nil (concat new-leading-pos-args args)]
                                   [leading-pos-args args])
-        [parsed last-open-opt last-valued-opt implicit-true-keys key-parse-order]
+        [parsed last-open-opt last-valued-opt implicit-values key-parse-order]
         (if (and (::dispatch-tree parse-opts) (seq leading-pos-args))
           [(vary-meta {} assoc-in [:org.babashka/cli :args] (into (vec leading-pos-args) args)) nil nil #{} []]
           (loop [acc {}
@@ -556,12 +568,12 @@
                  mode (when no-keyword-opts :hyphens) ;; :hyphens --foo/-f else :keywords :foo
                  args (seq args)                      ;; remaining cli args
                  a->o a->o                            ;; requested args->opts
-                 implicit-true-keys #{}
+                 implicit-values {}
                  opt-parse-order []]
             #_(println (format "loop %-31s o: %-10s v: %-10s a: %s" recur-action open-opt valued-opt args))
             (if-not args
               ;; exit loop: no command line args left
-              [acc open-opt valued-opt implicit-true-keys opt-parse-order]
+              [acc open-opt valued-opt implicit-values opt-parse-order]
               (let [raw-arg (first args)
                     opt-injected? #?(:squint (instance? Injected raw-arg)
                                      :default (keyword? raw-arg))
@@ -573,10 +585,9 @@
                          :found-injected-opt
                          raw-arg valued-opt
                          mode (next args) a->o
-                         (track-itk implicit-true-keys open-opt valued-opt)
+                         (track-ivs implicit-values open-opt valued-opt)
                          (track-kpo opt-parse-order raw-arg))
-                  (let [implicit-true? (true? raw-arg) ;; injected implicit true
-                        arg (str raw-arg)
+                  (let [arg (str raw-arg)
                         opt-val-collector (collect-fn collect coerce open-opt)
                         boolean-opt? (expects-bool-val? open-opt)
                         {:keys [hyphen-opt composite-opt kwd-opt mode fst-colon]}
@@ -590,7 +601,7 @@
                           (let [nargs (next args)]
                             [(cond-> acc
                                nargs (vary-meta assoc-in [:org.babashka/cli :args] (vec nargs)))
-                             open-opt valued-opt implicit-true-keys opt-parse-order])
+                             open-opt valued-opt implicit-values opt-parse-order])
                           (let [opt-name (if long-opt?
                                            (subs arg 2)
                                            (str/replace arg #"^(:|-|)" ""))
@@ -609,7 +620,7 @@
                                      :injected-bound-val
                                      parsed-opt nil
                                      mode (cons opt-val (rest args)) a->o
-                                     (track-itk implicit-true-keys open-opt valued-opt)
+                                     (track-ivs implicit-values open-opt valued-opt)
                                      (track-kpo opt-parse-order parsed-opt))
                               (let [next-args (next args)
                                     next-arg (first next-args)
@@ -627,7 +638,7 @@
                                              :injected-expanded-composite
                                              nil nil ;; start afresh for open-opt and valued-opt
                                              mode (concat expanded next-args) a->o
-                                             implicit-true-keys opt-parse-order))
+                                             implicit-values opt-parse-order))
                                     (let [parsed-opt (if negated-opt?
                                                        (keyword (str/replace (str parsed-opt) #?(:squint "no-" :default ":no-") ""))
                                                        parsed-opt)]
@@ -636,14 +647,14 @@
                                              :injected-implicit-bool
                                              parsed-opt valued-opt
                                              mode (cons (not negated-opt?) next-args) a->o
-                                             (track-itk implicit-true-keys open-opt valued-opt)
+                                             (track-ivs implicit-values open-opt valued-opt)
                                              (track-kpo opt-parse-order parsed-opt))))
                                   ;; continue loop: not implicit, carry on to parse opt value
                                   (recur (stamp (maybe-close-open-opt acc open-opt valued-opt opt-val-collector) parsed-opt literal-opt)
                                          :found-opt-with-unparsed-val
                                          parsed-opt nil
                                          mode next-args a->o
-                                         (track-itk implicit-true-keys open-opt valued-opt)
+                                         (track-ivs implicit-values open-opt valued-opt)
                                          (track-kpo opt-parse-order parsed-opt))))))))
                       ;; arg (is not option)
                       (let [done-parsing-options? (or
@@ -669,9 +680,9 @@
                                      :injected-trailing-args-to-opts
                                      open-opt valued-opt
                                      mode new-trailing-pos-args a->o
-                                     implicit-true-keys opt-parse-order)
+                                     implicit-values opt-parse-order)
                               ;; exit loop: args -> options resulted in no new args
-                              [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) open-opt valued-opt implicit-true-keys opt-parse-order]))
+                              [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) open-opt valued-opt implicit-values opt-parse-order]))
                           (let [opt (when-not (and (= :keywords mode) fst-colon) open-opt)]
                             ;; continue loop: add/update opt with value (arg), and setup to parse next arg
                             ;; notice the difference from all othe recurs,
@@ -680,17 +691,17 @@
                                    :added-opt-and-val
                                    opt opt ;; keep opt open
                                    mode (next args) a->o
-                                   (cond-> implicit-true-keys implicit-true? (conj open-opt))
+                                   (cond-> implicit-values (boolean? raw-arg) (assoc open-opt raw-arg))
                                    opt-parse-order)))))))))))
         ;; Finalize: process last opt, prepend leading positional args to args metadata
-        implicit-true-keys (track-itk implicit-true-keys last-open-opt last-valued-opt)
+        implicit-values (track-ivs implicit-values last-open-opt last-valued-opt)
         opt-val-collector (collect-fn collect coerce last-open-opt)
         parsed (-> (maybe-close-open-opt parsed last-open-opt last-valued-opt opt-val-collector)
                    (cond->
                     (and (seq leading-pos-args) (not (::dispatch-tree parse-opts)))
                      (vary-meta update-in [:org.babashka/cli :args]
                                 (fn [args] (into (vec leading-pos-args) args)))))]
-    (vary-meta parsed assoc ::implicit-true-keys implicit-true-keys ::keys-order key-parse-order)))
+    (vary-meta parsed assoc ::implicit-values implicit-values ::keys-order key-parse-order)))
 
 (defn parse-opts
   "Returns a map of options parsed from command line arguments `args`, a seq of strings.
@@ -738,7 +749,7 @@
          coerced (apply-defaults coerced opts)
          ;; Step 4: Validate
          validated (validate-opts coerced opts)]
-     (vary-meta validated dissoc ::implicit-true-keys ::keys-order ::opt->flag))))
+     (vary-meta validated dissoc ::implicit-values ::keys-order ::opt->flag))))
 
 (defn parse-args
   "Same as [[parse-opts]] with return data reshaped.

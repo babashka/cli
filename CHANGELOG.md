@@ -6,7 +6,9 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
-<!-- PROSE: squint support. keywords are strings under squint. limitations: :edn coerce falls back to auto-coerce (no edn reader), :symbol coerce is identity, raw keyword injection directly in args vector not detected (only :args->opts) -->
+- Squint support (v0.14.196+)
+- [#166](https://github.com/babashka/cli/issues/166): trigger negation invalid error for `--no-foo` when `:foo`'s specified `:coerce` is not `:boolean`
+([@lread](https://github.com/lread))
 
 ## v0.11.74 (2026-06-23)
 

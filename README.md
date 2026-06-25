@@ -4,15 +4,16 @@
 [![bb built-in](https://raw.githubusercontent.com/babashka/babashka/master/logo/built-in-badge.svg)](https://book.babashka.org#badges)
 
 Turn Clojure functions into Command Line Interfaces! This library can be used from:
-- [babashka](https://github.com/babashka/babashka) - included as a built-in library
+- [babashka](https://book.babashka.org/) - included as a built-in library
 - [Clojure on the JVM](https://www.clojure.org/guides/install_clojure) - we support Clojure 1.10.3 and above on Java 11 and above
 - [ClojureScript](https://clojurescript.org) - we test against the current release
+- [ClojureDart](https://github.com/Tensegritics/ClojureDart) - we test against the current release
 
 ## [API](API.md)
 
 ## Installation
 
-For Clojure and ClojureScript, include a `:deps` entry in your  `deps.edn` file:
+For Clojure, ClojureScript, and ClojureDart include a `:deps` entry in your  `deps.edn` file:
 
 ``` clojure
 org.babashka/cli {:mvn/version "<latest-version>"}
@@ -29,7 +30,7 @@ $ program command --verbose --long-opt1 v1 -o v2 arg
 ```
 
 Where:
-- `program` is your executable program, which will be launched by Clojure, ClojureScript, or babashka. (other libraries might call this "command")
+- `program` is your executable program or script (other libraries might call this "command")
 - `command` is a single or multi-word command for your program (other libraries might call this "subcommand")
 - `--verbose` is a boolean option
 - `--long-opt1 v1` is an option
@@ -101,7 +102,6 @@ $ program command --verbose --long-opt1 v1 -o v2 arg
 
 ## Simple example
 
-Babashka CLI works in Clojure, ClojureScript, [Babashka](https://book.babashka.org/) and [ClojureDart](https://github.com/tensegritics/ClojureDart).
 Here is an example babashka script to get you started. We'll write a small
 stand-in for `git`. Save it to `mygit.clj`.
 
@@ -1252,6 +1252,28 @@ A positional declared in `:args->opts` with no value completion defaults to the
 shell's own file completion the same way. So `:args->opts [:file]` with a bare
 `:file` makes `mycli cat <TAB>` complete filenames and `:complete false` opts
 out here too.
+
+## Creating a Standalone CLI
+We've covered how to run your CLI via a supported Clojure dialect, e.g.:
+- `clojure -M -m my-cli --foo bar`
+- `bb -m my-cli --foo bar`
+- `bb my_clj.clj --foo bar`
+
+Sometimes you'll want to run your CLI as a standalone program, e.g. `my-cli --foo bar`.
+This hides the launching dialect as an implementation detail and supports [shell completions](#completions).
+
+Some techniques to achieve this are:
+
+| Technique                        | macOS & Linux      | Windows            | Babashka           | Clojure            | ClojureScript      | ClojureDart        | Description                                                                                                              |
+|----------------------------------|--------------------|--------------------|--------------------|--------------------|--------------------|--------------------|--------------------------------------------------------------------------------------------------------------------------|
+| shebang on script                | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | For self-contained scripts, a `#!/usr/bin/env bb` at the top of your script                                                       |
+| wrapper shell script             | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | An appropriate shell-specific (e.g., bash, CMD, Powershell) wrapper script that launches your CLI.                      |
+| bbin                             | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | :x:                | An elegant way to distribute CLIs created with babashka.                                                                 |
+| GraalVM native image             | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:                | :x:                | Compile your Clojure CLI to an OS-specific executable                                                                    |
+| ClojureDart native image         | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | :x:                | :heavy_check_mark: | Compile your ClojureDart CLI to an OS-specific executable                                                                |
+| use JavaScript native image tool | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | :heavy_check_mark: | :x:                | [Bun](https://bun.com/docs/bundler/executables), for example, supports compiling JavaScript to an os-specific executable |
+| shebang on JavaScript            | :heavy_check_mark: | :x:                | :x:                | :x:                | :heavy_check_mark: | :x:                | Prepend compiled ClojureScript with `#!/usr/bin/env node`                                                                |
+| use npm                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | :heavy_check_mark: | :x:                | Distribute your CLI through npm. For a stand-alone experience users would install globally via `npm install -g`          |
 
 ## Adding Production Polish
 Babashka CLI lets you get up and running quickly.

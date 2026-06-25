@@ -25,7 +25,7 @@
                          (shell "node_modules/.bin/squint" "compile")
                          (shell "node" ".squint-out/babashka/run_tests.mjs"))}
 
-  cljd-test {:doc "Run ClojureDart tests"
+  cljd-test {:doc "Run ClojureDart tests (requires Dart SDK: https://dart.dev/get-dart)"
              :task (do (shell "dart pub get")
                        (apply clojure "-M:cljd" "test"
                               "babashka.cli-test" "babashka.cli.completion-test"

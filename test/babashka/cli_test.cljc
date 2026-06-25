@@ -106,7 +106,29 @@
     (is (= {:option false, :no-this-exists true}
            (cli/parse-opts ["--no-option" "--no-this-exists"] {:coerce {:no-this-exists :bool}})))
     (is (= {:args ["dude"], :opts {:option false}}
-           (cli/parse-args ["--no-option" "dude"] {:coerce {:option :bool}})))))
+           (cli/parse-args ["--no-option" "dude"] {:coerce {:option :bool}})))
+    (is (= {:opts {:option false}}
+           (cli/parse-args ["--no-option"])))
+    (is (= {:opts {:option false}}
+           (cli/parse-args [":no-option"]))))
+  (testing "--no-foo throws on non-boolean"
+    (doseq [coerce-fn [:long :number :symbol :keyword :string]]
+      (is (thrown-with-msg?
+            #?(:cljd Object :default Exception) #"Cannot negate option --foo"
+            (cli/parse-opts ["--no-foo"] {:coerce {:foo coerce-fn}}))
+          (str "for coerce to: " coerce-fn))
+      (is (thrown-with-msg?
+            #?(:cljd Object :default Exception) #"Cannot negate option --foo"
+            (cli/parse-opts ["--no-foo"] {:coerce {:foo [coerce-fn]}}))
+          (str "for coerce to: [" coerce-fn "]"))
+      (is (thrown-with-msg?
+            #?(:cljd Object :default Exception) #"Cannot negate option :foo"
+            (cli/parse-opts [":no-foo"] {:coerce {:foo coerce-fn}}))
+          (str "for coerce to: " coerce-fn))
+      (is (thrown-with-msg?
+            #?(:cljd Object :default Exception) #"Cannot negate option :foo"
+            (cli/parse-opts [":no-foo"] {:coerce {:foo [coerce-fn]}}))
+          (str "for coerce to: [" coerce-fn "]")))))
 
 (deftest equals-value-test
   (testing "--opt=val splits on the first = only"
@@ -1321,21 +1343,21 @@
       (cli/coerce-opts {:foo "not-a-number"} {:coerce {:foo :long}
                                               :error-fn (fn [e] (swap! errors conj e))})
       (is (= :coerce (:cause (first @errors))))))
-  (testing "error data includes :implicit-true for implicit-true coerce failures"
+  (testing "error data includes :implicit-value for implicit true coerce failures"
     ;; `--foo` with no value parses to (implicit) `true`. If `:foo` has a
     ;; coerce that rejects boolean true (e.g. `:string`), error data
-    ;; should expose `:implicit-true true` so downstream error mappers
+    ;; should expose `:implicit-value true` so downstream error mappers
     ;; can distinguish "user typed --foo alone" from a real coerce failure.
     (let [errors (atom [])]
       (cli/parse-opts ["--foo"] {:coerce {:foo :string}
                                  :error-fn (fn [e] (swap! errors conj e))})
-      (is (= true (:implicit-true (first @errors))))
+      (is (= true (:implicit-value (first @errors))))
       (is (= :coerce (:cause (first @errors))))))
-  (testing "error data does NOT include :implicit-true for explicit value failures"
+  (testing "error data does NOT include :implicit-value for explicit value coerce failures"
     (let [errors (atom [])]
       (cli/parse-opts ["--foo" "abc"] {:coerce {:foo :long}
                                        :error-fn (fn [e] (swap! errors conj e))})
-      (is (nil? (:implicit-true (first @errors))))
+      (is (nil? (:implicit-value (first @errors))))
       (is (= :coerce (:cause (first @errors))))))
   (testing "keys without coerce spec pass through unchanged"
     (is (= {:foo "1" :bar "hello"}
@@ -1395,8 +1417,8 @@
                (cli/validate-opts {:validate {:foo pos?}}))))))
 
 (deftest internal-meta-not-leaked-test
-  (testing "::implicit-true-keys not in parse-opts result meta"
-    (is (nil? (:babashka.cli/implicit-true-keys (meta (cli/parse-opts ["--foo"]))))))
+  (testing "::implicit-values not in parse-opts result meta"
+    (is (nil? (:babashka.cli/implicit-values (meta (cli/parse-opts ["--foo"]))))))
   (testing "::keys-order not in parse-opts result meta"
     (is (nil? (:babashka.cli/keys-order (meta (cli/parse-opts ["--foo" "--bar" "1"]))))))
   (testing "::opt->flag not in parse-opts result meta"
@@ -1415,11 +1437,11 @@
 (deftest parse-opts-star-test
   (testing "parse-opts* returns raw strings (no coercion)"
     (is (= {:foo "1"} (cli/parse-opts* ["--foo" "1"] {}))))
-  (testing "parse-opts* exposes ::implicit-true-keys + ::keys-order + ::opt->flag in meta"
-    (let [r (cli/parse-opts* ["--foo" "--bar" "1"] {})]
-      (is (= #{:foo} (:babashka.cli/implicit-true-keys (meta r))))
-      (is (= [:foo :bar] (:babashka.cli/keys-order (meta r))))
-      (is (= {:foo "--foo" :bar "--bar"} (:babashka.cli/opt->flag (meta r))))))
+  (testing "parse-opts* exposes ::implicit-values + ::keys-order + ::opt->flag in meta"
+    (let [r (cli/parse-opts* ["--foo" "--bar" "1" "--no-baz"] {})]
+      (is (= {:foo true :baz false} (:babashka.cli/implicit-values (meta r))))
+      (is (= [:foo :bar :baz] (:babashka.cli/keys-order (meta r))))
+      (is (= {:foo "--foo" :bar "--bar" :baz "--no-baz"} (:babashka.cli/opt->flag (meta r))))))
   (testing "parse-opts* skips :restrict / :require / :validate"
     (is (= {:bar "1"} (cli/parse-opts* ["--bar" "1"]
                                        {:restrict #{:foo} :require [:foo]})))))
@@ -1454,7 +1476,7 @@
       (is (= {:paths ["lib"] :output-dir "/tmp/custom" :verbose true} validated)))))
 
 (deftest bool-coerce-parse-key-pinning-test
-  (testing "coll-wrapped :boolean: implicit-true wrapped in coll"
+  (testing "coll-wrapped :boolean: implicit true wrapped in coll"
     (is (= {:foo [true]} (cli/parse-opts ["--foo"] {:coerce {:foo [:boolean]}}))))
   (testing "coll-wrapped :boolean: explicit value coerced and wrapped"
     (is (= {:foo [true]} (cli/parse-opts ["--foo" "true"] {:coerce {:foo [:boolean]}}))))
