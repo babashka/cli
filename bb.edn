@@ -21,7 +21,7 @@
              :task (apply clojure "-M:test:cljs-test" *command-line-args*)}
 
   squint-test {:doc "Run squint tests"
-               :task (do (shell "npm" "install" "--no-save" "--prefix" "." "squint-cljs")
+               :task (do (shell "npm" "install" "--no-save" "--prefix" "." "squint-cljs@latest")
                          (shell "node_modules/.bin/squint" "compile")
                          (shell "node" ".squint-out/babashka/run_tests.mjs"))}
 
