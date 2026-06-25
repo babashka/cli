@@ -1,10 +1,9 @@
 (ns babashka.cli
   (:refer-clojure :exclude [parse-boolean parse-long parse-double])
   (:require
-   #?@(:squint []
-       :clj [[clojure.edn :as edn]]
-       :cljd [[cljd.edn :as edn]]
-       :cljs [[cljs.reader :as edn]])
+   #?(:clj [clojure.edn :as edn]
+      :cljd [cljd.edn :as edn]
+      :cljs [cljs.reader :as edn])
    #?@(:cljd [["dart:io" :as io]])
    [babashka.cli.internal :as internal]
    [clojure.string :as str])
@@ -12,9 +11,7 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-;; squint has no keyword type (keywords are plain strings) so it cannot tell an
-;; injected option keyword apart from a positional string argument. Wrap injected
-;; opts in this marker instead.
+;; squint can't tell an injected keyword from a string arg, so wrap injected opts
 #?(:squint (deftype Injected [opt]))
 
 (defn merge-opts
@@ -150,10 +147,10 @@
              (:int :long) parse-long
              :double parse-double
              :number parse-number
-             :symbol #?(:squint identity :default symbol)
+             :symbol symbol
              :keyword parse-keyword
              :string identity
-             :edn #?(:squint auto-coerce :default edn/read-string)
+             :edn edn/read-string
              :auto auto-coerce
              ;; default
              f)

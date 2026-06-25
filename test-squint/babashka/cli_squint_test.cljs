@@ -30,6 +30,9 @@
   (is (= {:foo :bar} (cli/parse-opts ["--foo" ":bar"] {:coerce {:foo :auto}})))
   (is (= {:n 42} (cli/parse-opts ["--n" "42"] {:coerce {:n :auto}}))))
 
+(deftest edn-coerce-test
+  (is (= {:m {:a 1 :b [1 2]}} (cli/parse-opts ["--m" "{:a 1 :b [1 2]}"] {:coerce {:m :edn}}))))
+
 (deftest parse-args-test
   (is (= {:opts {:foo 1} :args ["x" "y"]}
          (select-keys (cli/parse-args ["--foo" "1" "x" "y"]) [:opts :args])))
