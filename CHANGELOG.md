@@ -7,6 +7,7 @@ For breaking changes, check [here](#breaking-changes).
 ## v0.12.75 (2026-06-25)
 
 - Squint support (v0.14.196+)
+- Published to npm as [`@babashka/cli`](https://www.npmjs.com/package/@babashka/cli) for [JavaScript](https://github.com/babashka/cli#javascript). Also runs in the browser, e.g. the [squint playground](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAEwXBMQ6AMAgAwN1XEBZ1qOxO%2FsM4YENaYtUK1fd7N5g8r5pAv2JurfpMJH5OnmnZeWfPB1MsijCzQyy6jV03xKJU2VwCW3JYkS0hYAh3bXpfCPhxeQW38QcTP68IYAAAAA%3D%3D)
 - [#166](https://github.com/babashka/cli/issues/166): trigger negation invalid error for `--no-foo` when `:foo`'s specified `:coerce` is not `:boolean`
 ([@lread](https://github.com/lread))
 

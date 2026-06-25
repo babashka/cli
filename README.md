@@ -1830,6 +1830,14 @@ Every function is exported under a friendly camelCase name (`parseOpts`,
 `specToOpts`, `tableToTree`, ...) and under its squint-compiled name
 (`parse_opts`, `spec__GT_opts`, ...). The `parse-opts*` function is exposed also as `parseOptsRaw`.
 
+It also runs in the browser via a CDN. Try it in the
+[squint playground](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAEwXBMQ6AMAgAwN1XEBZ1qOxO%2FsM4YENaYtUK1fd7N5g8r5pAv2JurfpMJH5OnmnZeWfPB1MsijCzQyy6jV03xKJU2VwCW3JYkS0hYAh3bXpfCPhxeQW38QcTP68IYAAAAA%3D%3D):
+
+```clojure
+(require '["https://esm.sh/@babashka/cli" :as cli])
+(cli/parse-args ["arg" "--option" "value"])
+```
+
 ## License
 
 Copyright © 2022-2026 Michiel Borkent

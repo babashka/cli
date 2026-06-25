@@ -46,7 +46,10 @@
                         (spit "README.md" (str/replace (slurp "README.md")
                                                        old-version
                                                        (utils/format-version)))
-                        (shell "git add version.edn README.md")
+                        (spit "package.json" (str/replace (slurp "package.json")
+                                                          (str "\"version\": \"" old-version "\"")
+                                                          (str "\"version\": \"" (utils/format-version) "\"")))
+                        (shell "git add version.edn README.md package.json")
                         (shell "git commit -m" (str "v" (utils/format-version)))
                         (shell "git tag" (str "v" (utils/format-version)))
                         (shell "git push --tags"))}
