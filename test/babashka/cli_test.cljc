@@ -1,7 +1,7 @@
 (ns babashka.cli-test
   (:require
    [babashka.cli :as cli]
-   #?@(:cljd [] :default [[babashka.cli.test-report]])
+   #?@(:cljd [] :squint [] :default [[babashka.cli.test-report]])
    [borkdude.deflet :as d]
    [clojure.string :as str]
    #?(:cljd [cljd.test :refer [deftest is testing]]
@@ -502,13 +502,13 @@
             siblings, in table order"
     (let [tree (cli/table->tree [{:cmds ["a"] :fn identity :doc "A"}
                                  {:cmds [] :cmd {"b" {:fn identity :doc "B"}}}])]
-      (is (= ["a" "b"] (mapv first (#?(:cljd cli/cmd-children :default #'cli/cmd-children) tree))))
+      (is (= ["a" "b"] (mapv first (#?(:cljd cli/cmd-children :squint cli/cmd-children :default #'cli/cmd-children) tree))))
       (is (submap? {:dispatch ["a"]} (cli/dispatch tree ["a"])))
       (is (submap? {:dispatch ["b"]} (cli/dispatch tree ["b"]))))
     (testing "catch-all first: its children list first"
       (let [tree (cli/table->tree [{:cmds [] :cmd {"b" {:fn identity :doc "B"}}}
                                    {:cmds ["a"] :fn identity :doc "A"}])]
-        (is (= ["b" "a"] (mapv first (#?(:cljd cli/cmd-children :default #'cli/cmd-children) tree))))))))
+        (is (= ["b" "a"] (mapv first (#?(:cljd cli/cmd-children :squint cli/cmd-children :default #'cli/cmd-children) tree))))))))
 
 (defn- run-dispatch
   "Run [[cli/dispatch]] capturing stdout+stderr and *exit-fn* calls. Returns
@@ -625,7 +625,7 @@
            (cli/format-command-help {:table {:cmd-order [] :cmd {"a" {:fn identity}}}
                                      :prog "p"}))))
   (testing ":help true does not change command order (sorted tree, >8 children)"
-    (let [tree {:cmd (into (sorted-map)
+    (let [tree {:cmd (into #?(:squint {} :default (sorted-map))
                            (map (fn [i] [(str "c" i) {:fn identity}]))
                            (range 10))}
           expected (mapv #(str "c" %) (range 10))]
@@ -1058,7 +1058,8 @@
                        :cljs :default) e
                (= {:type :org.babashka/cli
                    :cause :validate
-                   :msg "Expected positive number for option :foo but got: 0"
+                   :msg #?(:squint "Expected positive number for option foo but got: 0"
+                           :default "Expected positive number for option :foo but got: 0")
                    :option :foo
                    :flag "--foo"
                    :spec nil

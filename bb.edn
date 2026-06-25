@@ -23,7 +23,7 @@
   squint-test {:doc "Run squint tests"
                :task (do (shell "npm" "install" "--no-save" "--prefix" "." "squint-cljs")
                          (shell "node_modules/.bin/squint" "compile")
-                         (shell "node" ".squint-out/babashka/cli_squint_test.mjs"))}
+                         (shell "node" ".squint-out/babashka/run_tests.mjs"))}
 
   cljd-test {:doc "Run ClojureDart tests"
              :task (do (shell "dart pub get")

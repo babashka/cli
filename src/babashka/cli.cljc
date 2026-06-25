@@ -462,7 +462,7 @@
                       (:pred vf))
                      vf)]
            (when-let [[_ v] (find m k)]
-             (when-not (f v)
+             (when-not (if (set? f) (contains? f v) (f v))
                (let [ex-msg-fn (or (:ex-msg vf)
                                    (fn [{:keys [flag value]}]
                                      (str "Invalid value for option " flag ": " value)))
@@ -1021,7 +1021,7 @@
           (= k prev) (conj (pop acc) (str "<" (name prev) ">..."))
           :else (recur (next s) (conj acc (str "<" (name k) ">")) k (inc n)))))))
 
-(defn #?(:cljd ^:no-doc cmd-children :default ^:private cmd-children)
+(defn #?(:cljd ^:no-doc cmd-children :squint ^:no-doc cmd-children :default ^:private cmd-children)
   "Visible `[name child]` pairs of `node`'s commands, for display (help,
   completions, error suggestions): `:no-doc` children are dropped. An explicit
   node `:cmd-order` (vector of names) selects which children are shown and in
@@ -1378,7 +1378,7 @@
     (str/split token #"=" 2)
     [token]))
 
-(defn #?(:cljd ^:no-doc complete-tree* :default ^:private complete-tree*)
+(defn #?(:cljd ^:no-doc complete-tree* :squint ^:no-doc complete-tree* :default ^:private complete-tree*)
   "Returns completion candidate maps (`{:value :description}`) for dispatch tree
   `cmd-tree` and `args` (a vector of tokens, last = the token being completed).
   `global-opts` are the dispatch-level opts, accepted at every level like

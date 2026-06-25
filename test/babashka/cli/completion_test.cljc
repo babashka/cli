@@ -5,6 +5,7 @@
    #?(:cljd [cljd.test :refer [deftest is testing]]
       :default [clojure.test :refer [deftest is testing]])
    #?@(:cljd [["dart:io" :as io]]
+       :cljs [["fs" :as fs]]
        :clj [[babashka.fs :as fs]
              [clojure.java.io :as io]])))
 
@@ -16,8 +17,7 @@
 (defn- read-snippet [shell]
   #?(:cljd (.readAsStringSync (io/File. (str "test/resources/completion/completion." shell)))
      :clj (slurp (io/resource (str "resources/completion/completion." shell)))
-     :cljs (.readFileSync (js/require "fs")
-                          (str "test/resources/completion/completion." shell) "utf8")))
+     :cljs (fs/readFileSync (str "test/resources/completion/completion." shell) "utf8")))
 
 ;; clojure.string/split-lines drops trailing empty lines. cljd keeps them
 (defn- lines* [s]
@@ -27,12 +27,12 @@
 
 ;; test helpers over the private completion fns: return the candidate value strings
 (defn complete [table args]
-  (mapv :value (#?(:cljd cli/complete-tree* :default #'cli/complete-tree*) (cli/table->tree table) args)))
+  (mapv :value (#?(:cljd cli/complete-tree* :squint cli/complete-tree* :default #'cli/complete-tree*) (cli/table->tree table) args)))
 (defn complete-options [opts args]
-  (mapv :value (#?(:cljd cli/complete-tree* :default #'cli/complete-tree*) (cli/table->tree [(assoc opts :cmds [])]) args)))
+  (mapv :value (#?(:cljd cli/complete-tree* :squint cli/complete-tree* :default #'cli/complete-tree*) (cli/table->tree [(assoc opts :cmds [])]) args)))
 ;; an unconfigured value position defaults to the shell's file completion
 (defn- files? [table args]
-  (= [{:file-completion true}] (#?(:cljd cli/complete-tree* :default #'cli/complete-tree*) (cli/table->tree table) args)))
+  (= [{:file-completion true}] (#?(:cljd cli/complete-tree* :squint cli/complete-tree* :default #'cli/complete-tree*) (cli/table->tree table) args)))
 (defn- files-options? [opts args]
   (files? [(assoc opts :cmds [])] args))
 
@@ -240,7 +240,7 @@
   (testing "no :complete/:complete-fn/:validate -> the shell's file completion"
     (is (files-options? {:spec {:env {:coerce :string}}} ["--env" ""])))
   (testing ":complete false opts out of the file default"
-    (is (empty? (#?(:cljd cli/complete-tree* :default #'cli/complete-tree*)
+    (is (empty? (#?(:cljd cli/complete-tree* :squint cli/complete-tree* :default #'cli/complete-tree*)
                  (cli/table->tree [{:cmds [] :spec {:msg {:complete false}}}])
                  ["--msg" ""])))))
 
@@ -352,7 +352,7 @@
                             marker)))))
     (testing ":complete false opts a positional out of the file default"
       (let [v [{:cmds ["run"] :args->opts [:name] :spec {:name {:complete false}}}]]
-        (is (not-any? :file-completion (#?(:cljd cli/complete-tree* :default #'cli/complete-tree*) (cli/table->tree v) ["run" ""])))))
+        (is (not-any? :file-completion (#?(:cljd cli/complete-tree* :squint cli/complete-tree* :default #'cli/complete-tree*) (cli/table->tree v) ["run" ""])))))
     (testing "variadic :args->opts does not hang and emits the marker"
       (let [v [{:cmds ["x"] :args->opts (cons :a (repeat :b))}]]
         (is (contains? (set (lines* (complete-via-cmd v {:prog "p"} "p x one two ")))
@@ -400,7 +400,7 @@
       (is (= #{"--force"} (set (complete t ["deploy" "--env=dev" ""])))))
     (testing "no file fallback inside --opt= (shells match files against the whole token)"
       (let [u [{:cmds ["deploy"] :spec {:out {:coerce :string}}}]]
-        (is (empty? (#?(:cljd cli/complete-tree* :default #'cli/complete-tree*) (cli/table->tree u) ["deploy" "--out="])))))
+        (is (empty? (#?(:cljd cli/complete-tree* :squint cli/complete-tree* :default #'cli/complete-tree*) (cli/table->tree u) ["deploy" "--out="])))))
     (testing "bash wordbreak splitting (--opt = val arrives as three tokens)"
       (let [out (fn [& toks]
                   (with-out-str
@@ -446,7 +446,7 @@
       (is (= #{"--opt"} (set (complete t ["sub" "--verbose" "--"]))))))
   (testing "dispatch-level :inherit true"
     (is (= ["--env"]
-           (mapv :value (#?(:cljd cli/complete-tree* :default #'cli/complete-tree*)
+           (mapv :value (#?(:cljd cli/complete-tree* :squint cli/complete-tree* :default #'cli/complete-tree*)
                          (cli/table->tree [{:cmds [] :spec {:env {}}}
                                            {:cmds ["sub"] :fn identity}])
                          ["sub" "--"]
@@ -466,7 +466,7 @@
 (deftest dispatch-level-spec-test
   ;; dispatch-level :spec options parse at every level, so they complete there too
   (is (= #{"--local" "--glob"}
-         (set (mapv :value (#?(:cljd cli/complete-tree* :default #'cli/complete-tree*)
+         (set (mapv :value (#?(:cljd cli/complete-tree* :squint cli/complete-tree* :default #'cli/complete-tree*)
                             (cli/table->tree [{:cmds ["sub"] :fn identity :spec {:local {}}}])
                             ["sub" "--"]
                             {:spec {:glob {}}}))))))

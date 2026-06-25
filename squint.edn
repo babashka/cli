@@ -1,3 +1,5 @@
-{:paths ["src" "test-squint"]
+{:paths ["src" "test"]
+ :deps {io.github.borkdude/deflet {:git/sha "a3c86cdbd23531b2d59e6d7db1c49418cb325c7f"
+                                   :git/tag "v0.1.0"}}
  :output-dir ".squint-out"
  :extension "mjs"}
