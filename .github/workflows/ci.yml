@@ -114,10 +114,17 @@ jobs:
     - name: "Checkout code"
       uses: "actions/checkout@v7"
 
+    - name: Prepare java
+      uses: actions/setup-java@v5
+      with:
+        distribution: "zulu"
+        java-version: 21
+
     - name: Setup Clojure
       uses: DeLaGuardo/setup-clojure@13.6.1
       with:
         bb: 1.12.218
+        cli: latest
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Run tests
