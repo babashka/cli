@@ -11,6 +11,9 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
+;; squint can't tell an injected keyword from a string arg, so wrap injected opts
+#?(:squint (deftype Injected [opt]))
+
 (defn merge-opts
   "Merges babashka CLI options."
   [m & ms]
@@ -242,7 +245,9 @@
              (let [arg-count (count args)
                    cnt (min arg-count
                             (bounded-count arg-count args->opt-keys))]
-               [(concat (interleave args->opt-keys args)
+               [(concat (interleave #?(:squint (map ->Injected args->opt-keys)
+                                       :default args->opt-keys)
+                                    args)
                         (drop cnt args))
                 (drop cnt args->opt-keys)])
              [args args->opt-keys])
@@ -295,7 +300,8 @@
              ::resolved true))))
 
 (defn- kw->str [kw]
-  (subs (str kw) 1))
+  #?(:squint (str kw)
+     :default (subs (str kw) 1)))
 
 (defn- option-label
   "User-facing name for option `opt` in an error message: the literal flag the
@@ -346,7 +352,7 @@
                 (let [coll-coerce? (coll? coerce-k)
                       empty-coll (when coll-coerce? (or (empty coerce-k) []))
                       cf (coerce-coerce-fn coerce-k)
-                      iv (and implicit-values (k implicit-values))]
+                      iv (and implicit-values (get implicit-values k))]
                   (try
                     (cond
                       (and coll-coerce? (coll? v))
@@ -368,7 +374,9 @@
                                            ;; instead of "cannot transform (implicit) true to ..."
                                            :msg (case iv
                                                   true (str "Missing value for option " (option-label km k))
-                                                  false (str "Cannot negate option " (str/replace-first (option-label km k) "no-" ""))
+                                                  ;; NOTE: squint lacks clojure.string/replace-first until > 0.14.196; use JS interop for now
+                                                  false (str "Cannot negate option " #?(:squint (.replace (option-label km k) "no-" "")
+                                                                                        :default (str/replace-first (option-label km k) "no-" "")))
                                                   (str "Invalid value for option " (option-label km k) ": "
                                                        (coerce-failure-reason (:input data) iv (:coerce-fn data))))
                                            :option k
@@ -463,7 +471,7 @@
                       (:pred vf))
                      vf)]
            (when-let [[_ v] (find m k)]
-             (when-not (f v)
+             (when-not (if (set? f) (contains? f v) (f v))
                (let [ex-msg-fn (or (:ex-msg vf)
                                    (fn [{:keys [flag value]}]
                                      (str "Invalid value for option " flag ": " value)))
@@ -567,7 +575,9 @@
               ;; exit loop: no command line args left
               [acc open-opt valued-opt implicit-values opt-parse-order]
               (let [raw-arg (first args)
-                    opt-injected? (keyword? raw-arg)]
+                    opt-injected? #?(:squint (instance? Injected raw-arg)
+                                     :default (keyword? raw-arg))
+                    #?@(:squint [raw-arg (if opt-injected? (.-opt raw-arg) raw-arg)])]
                 (if opt-injected?
                   ;; continue loop: this opt and its value was injected by args->opts
                   ;; opt-val-collector does not apply for injected opts, so is `nil`
@@ -616,7 +626,7 @@
                                     next-arg (first next-args)
                                     next-arg-info (analyze-arg next-arg mode open-opt boolean-opt? valued-opt known-keys alias-keys)
                                     negated-opt? (when-not (contains? known-keys parsed-opt)
-                                                   (str/starts-with? (str parsed-opt) ":no-"))]
+                                                   (str/starts-with? (str parsed-opt) #?(:squint "no-" :default ":no-")))]
                                 (if (or (:hyphen-opt next-arg-info) ;; --open-opt --next
                                         (empty? next-args)          ;; --open-opt
                                         negated-opt?)               ;; --no-foo
@@ -630,7 +640,7 @@
                                              mode (concat expanded next-args) a->o
                                              implicit-values opt-parse-order))
                                     (let [parsed-opt (if negated-opt?
-                                                       (keyword (str/replace (str parsed-opt) ":no-" ""))
+                                                       (keyword (str/replace (str parsed-opt) #?(:squint "no-" :default ":no-") ""))
                                                        parsed-opt)]
                                       ;; continue loop: adding true for --foo or false for --no-foo to args
                                       (recur (stamp (maybe-close-open-opt acc open-opt valued-opt opt-val-collector) parsed-opt literal-opt)
@@ -945,7 +955,7 @@
                      (if desc desc ""))]))
           (if (map? spec)
             (let [order (or order (keys spec))]
-              (map (fn [k] [k (spec k)]) order))
+              (map (fn [k] [k (get spec k)]) order))
             spec))))
 
 (defn- opts->help-rows
@@ -957,7 +967,7 @@
   `format-opts`."
   [{:keys [spec order required]}]
   (let [entries (if (map? spec)
-                  (map (fn [k] [k (spec k)]) (or order (keys spec)))
+                  (map (fn [k] [k (get spec k)]) (or order (keys spec)))
                   spec)
         ;; `:no-doc` options still parse but are hidden from help, like `:no-doc`
         ;; commands are hidden from the command list
@@ -1022,7 +1032,7 @@
           (= k prev) (conj (pop acc) (str "<" (name prev) ">..."))
           :else (recur (next s) (conj acc (str "<" (name k) ">")) k (inc n)))))))
 
-(defn #?(:cljd ^:no-doc cmd-children :default ^:private cmd-children)
+(defn #?(:cljd ^:no-doc cmd-children :squint ^:no-doc cmd-children :default ^:private cmd-children)
   "Visible `[name child]` pairs of `node`'s commands, for display (help,
   completions, error suggestions): `:no-doc` children are dropped. An explicit
   node `:cmd-order` (vector of names) selects which children are shown and in
@@ -1185,8 +1195,8 @@
 (defn- deep-merge [a b]
   (reduce (fn [acc k] (update acc k (fn [v]
                                       (if (map? v)
-                                        (deep-merge v (b k))
-                                        (b k)))))
+                                        (deep-merge v (get b k))
+                                        (get b k)))))
           a (keys b)))
 
 (defn- inherited-entries
@@ -1379,7 +1389,7 @@
     (str/split token #"=" 2)
     [token]))
 
-(defn #?(:cljd ^:no-doc complete-tree* :default ^:private complete-tree*)
+(defn #?(:cljd ^:no-doc complete-tree* :squint ^:no-doc complete-tree* :default ^:private complete-tree*)
   "Returns completion candidate maps (`{:value :description}`) for dispatch tree
   `cmd-tree` and `args` (a vector of tokens, last = the token being completed).
   `global-opts` are the dispatch-level opts, accepted at every level like

@@ -107,6 +107,29 @@ jobs:
     - name: nushell completions
       run: nu script/completion-smoke.nu
 
+  test-squint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: "Checkout code"
+      uses: "actions/checkout@v7"
+
+    - name: Prepare java
+      uses: actions/setup-java@v5
+      with:
+        distribution: "zulu"
+        java-version: 21
+
+    - name: Setup Clojure
+      uses: DeLaGuardo/setup-clojure@13.6.1
+      with:
+        bb: 1.12.218
+        cli: latest
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Run tests
+      run: bb squint-test
+
   test-cljd:
     runs-on: ubuntu-latest
 

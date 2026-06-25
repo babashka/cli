@@ -6,6 +6,7 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
+- Squint support (v0.14.196+)
 - [#166](https://github.com/babashka/cli/issues/166): trigger negation invalid error for `--no-foo` when `:foo`'s specified `:coerce` is not `:boolean`
 ([@lread](https://github.com/lread))
 
