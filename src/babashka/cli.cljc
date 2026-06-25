@@ -1590,10 +1590,7 @@ $env.config.completions.external.completer = {|spans|
       (println (if desc (str value \tab desc) value)))))
 
 (defn- eprintln [s]
-  #?(:squint (if (and (exists? js/process) js/process.stderr)
-               (.write js/process.stderr (str s "\n"))
-               (println s))
-     :cljs (binding [*print-fn* *print-err-fn*] (println s))
+  #?(:cljs (binding [*print-fn* *print-err-fn*] (println s))
      :default (binding [*out* *err*] (println s))))
 
 (defn- has-parse-opts? [m]
