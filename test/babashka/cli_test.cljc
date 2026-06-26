@@ -98,7 +98,13 @@
          (cli/parse-opts [":foo"] {:coerce {:foo :string}})))
     (is (thrown-with-msg?
          #?(:cljd Object :default Exception) #"Missing value for option :foo"
-         (cli/parse-opts [":foo"] {:coerce {:foo [:string]}}))))
+         (cli/parse-opts [":foo"] {:coerce {:foo [:string]}})))
+    (is (thrown-with-msg?
+         #?(:cljd Object :default Exception) #"Missing value for option :foo"
+         (cli/parse-opts [":foo"] {:coerce {:foo :edn}})))
+    (is (thrown-with-msg?
+         #?(:cljd Object :default Exception) #"Missing value for option :foo"
+         (cli/parse-opts [":foo"] {:coerce {:foo [:edn]}}))))
   (testing "composite opts"
     (is (= {:a true, :b true, :c true, :foo true}
            (cli/parse-opts ["--foo" "-abc"]))))
@@ -112,7 +118,7 @@
     (is (= {:opts {:option false}}
            (cli/parse-args [":no-option"]))))
   (testing "--no-foo throws on non-boolean"
-    (doseq [coerce-fn [:long :number :symbol :keyword :string]]
+    (doseq [coerce-fn [:long :number :symbol :keyword :string :edn]]
       (is (thrown-with-msg?
             #?(:cljd Object :default Exception) #"Negation --no-foo invalid for option --foo"
             (cli/parse-opts ["--no-foo"] {:coerce {:foo coerce-fn}}))
@@ -129,6 +135,15 @@
             #?(:cljd Object :default Exception) #"Negation :no-foo invalid for option :foo"
             (cli/parse-opts [":no-foo"] {:coerce {:foo [coerce-fn]}}))
           (str "for coerce to: [" coerce-fn "]")))))
+
+(deftest coerce-to-edn-test
+  (testing "explicits aren't confused with implicits"
+    (is (= {:foo nil} (cli/parse-opts ["--foo" "nil"] {:coerce {:foo :edn}})))
+    (is (= {:foo true} (cli/parse-opts ["--foo" "true"] {:coerce {:foo :edn}})))
+    (is (= {:foo false} (cli/parse-opts ["--foo" "false"] {:coerce {:foo :edn}}))))
+  (testing "show behaviour is just like clojure CLI -X"
+    (is (= {:foo "string"} (cli/parse-opts ["-foo" "\"string\""] {:coerce {:foo :edn}})))
+    (is (= {:foo 'some-symbol} (cli/parse-opts ["-foo" "some-symbol"] {:coerce {:foo :edn}})))))
 
 (deftest equals-value-test
   (testing "--opt=val splits on the first = only"

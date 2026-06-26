@@ -454,6 +454,19 @@ It automatically tries to convert booleans, numbers, and keywords.
 ;;     :str ["bar" java.lang.String]}
 ```
 
+### Coercion to EDN
+
+`:edn` coercion behaves like Clojure CLI `-X` coercion:
+
+```clojure
+(cli/parse-opts ["--foo" ":some-keyword"] {:spec {:foo {:coerce :edn}}})
+;; => {:foo :some-keyword}
+(cli/parse-opts ["--foo" "some-symbol"] {:spec {:foo {:coerce :edn}}})
+;; => {:foo some-symbol}
+(cli/parse-opts ["--foo" "\"some-string\""] {:spec {:foo {:coerce :edn}}})
+;; => {:foo "some-string"}
+```
+
 ### Aliases
 
 An `:alias` specifies a synonym short option name for the option name.
