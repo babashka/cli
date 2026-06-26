@@ -155,7 +155,10 @@
              :symbol symbol
              :keyword parse-keyword
              :string identity
-             :edn edn/read-string
+             :edn (fn [s]
+                    (when (some? implicit-value)
+                      (throw-coerce s implicit-value f nil))
+                    (edn/read-string s))
              :auto auto-coerce
              ;; default
              f)

@@ -4,6 +4,11 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- [#174](https://github.com/babashka/cli/issues/174): `:edn` `:coerce` option must provide an explicit value
+([@lread](https://github.com/lread))
+
 ## v0.12.75 (2026-06-25)
 
 - Squint support (v0.14.196+)
