@@ -370,17 +370,19 @@
                       (let [data (ex-data e)
                             km (::opt->flag m-meta)
                             flag (get km k)
-                            iv (:implicit-value data)]
+                            iv (:implicit-value data)
+                            label (option-label km k)]
                         (error-fn (cond-> {:cause :coerce
                                            ;; same shape as validate: name the option, then the reason.
                                            ;; when implicit-value, give a more nuanced error message
                                            ;; instead of "cannot transform (implicit) true to ..."
                                            :msg (case iv
-                                                  true (str "Missing value for option " (option-label km k))
+                                                  true (str "Missing value for option " label)
                                                   ;; NOTE: squint lacks clojure.string/replace-first until > 0.14.196; use JS interop for now
-                                                  false (str "Cannot negate option " #?(:squint (.replace (option-label km k) "no-" "")
-                                                                                        :default (str/replace-first (option-label km k) "no-" "")))
-                                                  (str "Invalid value for option " (option-label km k) ": "
+                                                  false (str "Negation " label " invalid for option "
+                                                             #?(:squint (.replace label "no-" "")
+                                                                :default (str/replace-first label "no-" "")))
+                                                  (str "Invalid value for option " label ": "
                                                        (coerce-failure-reason (:input data) iv (:coerce-fn data))))
                                            :option k
                                            :value v
