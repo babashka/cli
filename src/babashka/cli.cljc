@@ -479,7 +479,10 @@
              (when-not (if (set? f) (contains? f v) (f v))
                (let [ex-msg-fn (or (:ex-msg vf)
                                    (fn [{:keys [flag value]}]
-                                     (str "Invalid value for option " flag ": " value)))
+                                     (str "Invalid value for option " flag ": " value
+                                          (when (set? f)
+                                            (str ". Expected one of: "
+                                                 (str/join ", " (sort (map #(if (keyword? %) (kw->str %) (str %)) f))))))))
                      flag (get opt->flag k)]
                  (error-fn (cond-> {:cause :validate
                                     :msg (ex-msg-fn {:option k :value v :flag (flag-for k)})
