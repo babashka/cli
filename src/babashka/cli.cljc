@@ -1061,8 +1061,9 @@
              ;; a runnable command: show labeled positionals from :args->opts, if
              ;; any. We don't show a generic `[<args>]` placeholder otherwise
              ;; (matches argparse/clap/click/picocli/cli-tools).
-             (:fn node)        (when-let [labels (args->opts-labels (:args->opts node))]
-                                 (str " " (str/join " " labels)))
+             (or (:fn node)
+                 (:exec-fn node)) (when-let [labels (args->opts-labels (:args->opts node))]
+                                    (str " " (str/join " " labels)))
              :else             "")))
 
 (defn- help-commands-table [node]
@@ -1871,7 +1872,7 @@ $env.config.completions.external.completer = {|spans|
          (if-let [subcmd-info (get (:cmd cmd-info) arg)]
            (recur (conj cmds arg) all-opts rest subcmd-info
                   (merge inherited (inherited-entries (:spec kwm) inherit-opt)))
-           (if (:fn cmd-info)
+           (if (or (:fn cmd-info) (:exec-fn cmd-info))
              {:cmd-info cmd-info
               :dispatch cmds
               :opts (dissoc all-opts ::opts-by-cmds)
@@ -1922,7 +1923,13 @@ $env.config.completions.external.completer = {|spans|
                             :tree tree}
                            (select-keys res [:wrong-input :opts :dispatch]))
                     opts))
-         nil ((:fn cmd-info) (dissoc res :cmd-info)))))))
+         nil (let [res (dissoc res :cmd-info)]
+               ;; `:fn` gets the whole dispatch result map; `:exec-fn` is a
+               ;; convenience that gets only the parsed `:opts`. `:exec-fn` wins
+               ;; if a node somehow has both.
+               (if-let [exec-fn (:exec-fn cmd-info)]
+                 (exec-fn (:opts res))
+                 ((:fn cmd-info) res))))))))
 
 (defn- node-with-help
   "Give one node a `--help`/`-h` option: add `:help` to its `:spec` (so it parses
@@ -2059,6 +2066,10 @@ $env.config.completions.external.completer = {|spans|
   * `:dispatch` - the matching commands
   * `:args` - concatenation of unparsed commands and args
   * `:rest-cmds`: DEPRECATED, this will be removed in a future version
+
+  A node may use `:exec-fn` instead of `:fn` as a convenience: it is called with
+  just the parsed `:opts` map rather than the whole dispatch result. `:exec-fn`
+  wins if a node has both.
 
   Use an empty `:cmds` vector to always match or to provide global options.
 
