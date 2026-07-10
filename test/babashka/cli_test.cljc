@@ -671,6 +671,26 @@
       (is (str/includes? help "Custom"))
       (is (not (str/includes? help "Does a thing")))))))
 
+(deftest set-validate-test
+  (testing "a set :validate of strings validates, and lists the values on error"
+    (is (submap? {:env "staging"}
+                 (cli/parse-opts ["--env" "staging"]
+                                 {:spec {:env {:validate #{"production" "staging"}}}})))
+    (is (thrown-with-msg?
+         #?(:cljd Object :default Exception)
+         #"Invalid value for option --env: foo\. Expected one of: production, staging"
+         (cli/parse-opts ["--env" "foo"]
+                         {:spec {:env {:validate #{"production" "staging"}}}}))))
+  (testing "a set :validate of numbers (coerced) validates, and lists the values on error"
+    (is (submap? {:n 2}
+                 (cli/parse-opts ["--n" "2"]
+                                 {:spec {:n {:coerce :long :validate #{1 2 3}}}})))
+    (is (thrown-with-msg?
+         #?(:cljd Object :default Exception)
+         #"Invalid value for option --n: 5\. Expected one of: 1, 2, 3"
+         (cli/parse-opts ["--n" "5"]
+                         {:spec {:n {:coerce :long :validate #{1 2 3}}}})))))
+
 (defn- listed-command-names
   "Command names from the `Commands:` section of help/error output, in order."
   [s]

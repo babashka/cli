@@ -223,6 +223,14 @@
     (is (= #{"a" "b"}
            (set (complete-options {:spec {:mode {:coerce :keyword :validate #{:a :b}}}}
                                   ["--mode" ""])))))
+  (testing "set-valued :validate auto-completes strings"
+    (is (= #{"production" "staging"}
+           (set (complete-options {:spec {:env {:validate #{"production" "staging"}}}}
+                                  ["--env" ""])))))
+  (testing "set-valued :validate auto-completes numbers"
+    (is (= #{"1" "2" "3"}
+           (set (complete-options {:spec {:n {:coerce :long :validate #{1 2 3}}}}
+                                  ["--n" ""])))))
   (testing ":complete-fn receives :to-complete and parsed :opts (dependent completion)"
     (let [spec {:from {:coerce :string :complete ["x" "y"]}
                 :to {:coerce :string
