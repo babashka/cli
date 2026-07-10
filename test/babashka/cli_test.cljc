@@ -612,6 +612,29 @@
         (is (= (cli/format-command-help {:table table :cmds ["dev"] :prog "tool"})
                (cli/format-command-help {:table tree :cmds ["dev"] :prog "tool"})))))))
 
+;; symbol command names are a bb/JVM convenience; squint's symbol? is true for
+;; strings and cljd has no runtime symbol?, so both keep string keys and skip this
+#?(:squint nil :cljd nil :default
+   (deftest dispatch-symbol-cmd-test
+  (testing "symbol :cmd keys are stringified and dispatch like string keys"
+    (let [tree {:cmd {'lock {:fn identity} 'unlock {:fn identity}}}]
+      (is (= ["lock" "unlock"] (keys (:cmd (cli/table->tree tree)))))
+      (is (submap? {:dispatch ["lock"] :opts {:force true}}
+                   (cli/dispatch tree ["lock" "--force"])))
+      (is (str/includes? (cli/format-command-help {:table tree :prog "t"}) "lock"))))
+  (testing "symbol :cmds in a table are stringified too"
+    (is (submap? {:dispatch ["add"]}
+                 (cli/dispatch [{:cmds ['add] :fn identity} {:cmds [] :fn identity}]
+                               ["add"]))))
+  (testing "a symbol :cmd-order matches the stringified keys"
+    (let [tree {:cmd-order ['b 'a] :cmd {'a {:fn identity} 'b {:fn identity}}}]
+      (is (= ["b" "a"]
+             (->> (str/split-lines (cli/format-command-help {:table tree :prog "t"}))
+                  (drop-while #(not= "Commands:" %))
+                  rest
+                  (take-while #(str/starts-with? % "  "))
+                  (mapv #(str/trim %)))))))))
+
 (deftest dispatch-exec-fn-test
   (testing ":exec-fn is called with just the parsed opts; :fn with the whole map"
     (is (= {:foo 1 :bar true}
