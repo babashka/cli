@@ -1159,19 +1159,43 @@
           node))
       node)))
 
+(defn- cmd-name
+  "Command names are strings. A symbol key (nicer in bb, where the task is
+  already a symbol) is stringified; other names are left as is."
+  [c]
+  (if (symbol? c) (str c) c))
+
+(defn- stringify-cmds
+  "Stringify symbol command names in `:cmd` keys and `:cmd-order` / `::cmd-order`
+  entries. Returns `node` unchanged (identical) when there is nothing to do.
+  Symbol command names are a bb/JVM convenience, so skip this for squint (its
+  `symbol?` is true for strings) and cljd (which lacks a runtime `symbol?`);
+  both use string keys."
+  [node]
+  (if #?(:squint false
+         :cljd false
+         :default (or (some symbol? (keys (:cmd node)))
+                      (some symbol? (::cmd-order node))
+                      (some symbol? (:cmd-order node))))
+    (cond-> node
+      (:cmd node) (update :cmd #(into {} (map (fn [[k v]] [(cmd-name k) v])) %))
+      (::cmd-order node) (update ::cmd-order #(mapv cmd-name %))
+      (:cmd-order node) (update :cmd-order #(mapv cmd-name %)))
+    node))
+
 (defn- normalize-node
   "Normalize tree `node`, recursively. Rejects table-entry `:cmds` on a node,
   dedupes an explicit `:cmd-order` and
   reconciles the recorded `::cmd-order` with the actual `:cmd` children -
   stale names dropped, unrecorded children appended in `:cmd` map order
   (whatever order the map iterates in is at least stable from then on).
-  Folds a var `:fn` / `:exec-fn`'s spec and docstring into the node.
-  Idempotent."
+  Folds a var `:fn` / `:exec-fn`'s spec and docstring into the node. Symbol
+  command names are stringified. Idempotent."
   [node]
   (when (:cmds node)
     (throw (ex-info "A tree node contains :cmds (table entry syntax): nest children under :cmd, or pass a table (vector of entries)"
                     {:node node})))
-  (let [node (enrich-from-var node)]
+  (let [node (-> node enrich-from-var stringify-cmds)]
    (if-let [m (:cmd node)]
     (let [recorded (into [] (comp (distinct) (filter #(contains? m %))) (::cmd-order node))
           order (into recorded (remove (set recorded)) (keys m))
@@ -2059,7 +2083,8 @@ $env.config.completions.external.completer = {|spans|
 
   Instead of a table, bb.cli also accepts a tree-shaped format: a map node with
   the root options and a `:cmd` map from command name to child node. Each node
-  takes the same keys a table entry does (except `:cmds`):
+  takes the same keys a table entry does (except `:cmds`). Command names may be
+  strings or symbols; symbols are stringified.
 
   ```clojure
   {:spec {:format {:desc \"edn or table\"}}
