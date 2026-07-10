@@ -1151,7 +1151,7 @@
   value or symbol is left as is."
   [node]
   (let [fv (or (:fn node) (:exec-fn node))]
-    (if (var? fv)
+    (if #?(:cljd false :default (var? fv))
       (let [m (meta fv)
             node (merge (:org.babashka/cli m) node)]
         (if (and (:doc m) (not (:doc node)))

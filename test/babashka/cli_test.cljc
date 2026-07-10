@@ -641,15 +641,16 @@
       (is (= {:dispatch ["add"] :args ["extra"]}
              (:org.babashka/cli (meta opts)))))))
 
-;; squint has no vars, so the #'a-command literal below is clj/cljs/cljd only
-#?(:squint nil :default
+;; vars: squint has none, cljd has no var? predicate, so the #'a-command
+;; literal below is clj/cljs only
+#?(:squint nil :cljd nil :default
    (defn a-command
      "Does a thing"
      {:org.babashka/cli {:spec {:force {:coerce :boolean :desc "Force it"}}}}
      [opts]
      (assoc opts :ran :a-command)))
 
-#?(:squint nil :default
+#?(:squint nil :cljd nil :default
    (deftest dispatch-var-fn-test
   (testing "a var :fn / :exec-fn contributes its spec and docstring to the node"
     (let [tree {:cmd {"do" {:exec-fn #'a-command}}}]
