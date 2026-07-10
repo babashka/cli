@@ -612,6 +612,35 @@
         (is (= (cli/format-command-help {:table table :cmds ["dev"] :prog "tool"})
                (cli/format-command-help {:table tree :cmds ["dev"] :prog "tool"})))))))
 
+(deftest dispatch-exec-fn-test
+  (testing ":exec-fn is called with just the parsed opts; :fn with the whole map"
+    (is (= {:foo 1 :bar true}
+           (cli/dispatch {:exec-fn identity} ["--foo" "1" "--bar"])))
+    (is (= [:args :dispatch :opts]
+           (sort (keys (cli/dispatch {:fn identity} ["--foo" "1"]))))))
+  (testing ":exec-fn works as a subcommand and honors its :spec"
+    (is (= {:x 2}
+           (cli/dispatch {:cmd {"add" {:exec-fn identity :spec {:x {:coerce :long}}}}}
+                         ["add" "--x" "2"]))))
+  (testing "--help on an :exec-fn node renders its spec, does not call the fn"
+    (let [called (atom false)
+          out (with-out-str
+                (cli/dispatch {:cmd {"add" {:exec-fn (fn [_] (reset! called true))
+                                            :spec {:x {:desc "the x"}}}}}
+                              ["add" "--help"] {:prog "t" :help true}))]
+      (is (str/includes? out "Usage: t add"))
+      (is (str/includes? out "the x"))
+      (is (false? @called))))
+  (testing ":exec-fn wins if a node has both"
+    (is (= {:foo true}
+           (cli/dispatch {:exec-fn identity :fn (fn [_] :never)} ["--foo"]))))
+  (testing "the opts map carries the dispatch path and leftover args on its meta"
+    (let [opts (cli/dispatch {:cmd {"add" {:exec-fn identity
+                                           :args->opts [:y]}}}
+                             ["add" "5" "extra"])]
+      (is (= {:dispatch ["add"] :args ["extra"]}
+             (:org.babashka/cli (meta opts)))))))
+
 (defn- listed-command-names
   "Command names from the `Commands:` section of help/error output, in order."
   [s]
