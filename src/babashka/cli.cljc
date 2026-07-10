@@ -1144,19 +1144,35 @@
         extra (assoc :cmd (merge (:cmd node) extra))
         extra (update ::cmd-order (fnil into []) (keys extra))))))
 
+(defn- enrich-from-var
+  "When a node's `:fn` / `:exec-fn` is a var, fold in what the var already
+  declares: its `:org.babashka/cli` metadata (`:spec`, `:args->opts`, ...) and,
+  when the node has no `:doc`, its docstring. Explicit node keys win. A plain fn
+  value or symbol is left as is."
+  [node]
+  (let [fv (or (:fn node) (:exec-fn node))]
+    (if (var? fv)
+      (let [m (meta fv)
+            node (merge (:org.babashka/cli m) node)]
+        (if (and (:doc m) (not (:doc node)))
+          (assoc node :doc (:doc m))
+          node))
+      node)))
+
 (defn- normalize-node
   "Normalize tree `node`, recursively. Rejects table-entry `:cmds` on a node,
   dedupes an explicit `:cmd-order` and
   reconciles the recorded `::cmd-order` with the actual `:cmd` children -
   stale names dropped, unrecorded children appended in `:cmd` map order
   (whatever order the map iterates in is at least stable from then on).
-  Idempotent; an already-normalized node comes back `identical?` (subtrees
-  are shared, not copied)."
+  Folds a var `:fn` / `:exec-fn`'s spec and docstring into the node.
+  Idempotent."
   [node]
   (when (:cmds node)
     (throw (ex-info "A tree node contains :cmds (table entry syntax): nest children under :cmd, or pass a table (vector of entries)"
                     {:node node})))
-  (if-let [m (:cmd node)]
+  (let [node (enrich-from-var node)]
+   (if-let [m (:cmd node)]
     (let [recorded (into [] (comp (distinct) (filter #(contains? m %))) (::cmd-order node))
           order (into recorded (remove (set recorded)) (keys m))
           m' (reduce-kv (fn [acc k v]
@@ -1168,7 +1184,7 @@
         (not (identical? m m')) (assoc :cmd m')
         (not= order (::cmd-order node)) (assoc ::cmd-order order)
         (and deduped (not= deduped (:cmd-order node))) (assoc :cmd-order deduped)))
-    node))
+    node)))
 
 (defn table->tree
   "Converts a `dispatch` table into a tree. Each `:cmds` becomes a path of
@@ -2068,6 +2084,10 @@ $env.config.completions.external.completer = {|spans|
   A node may use `:exec-fn` instead of `:fn` as a convenience: it is called with
   just the parsed `:opts` map rather than the whole dispatch result. `:exec-fn`
   wins if a node has both.
+
+  When `:fn` / `:exec-fn` is a var, its `:org.babashka/cli` metadata (`:spec`,
+  `:args->opts`, ...) and its docstring (as `:doc`) are folded into the node.
+  Explicit node keys win.
 
   Use an empty `:cmds` vector to always match or to provide global options.
 

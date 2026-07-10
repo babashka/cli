@@ -641,6 +641,35 @@
       (is (= {:dispatch ["add"] :args ["extra"]}
              (:org.babashka/cli (meta opts)))))))
 
+;; squint has no vars, so the #'a-command literal below is clj/cljs/cljd only
+#?(:squint nil :default
+   (defn a-command
+     "Does a thing"
+     {:org.babashka/cli {:spec {:force {:coerce :boolean :desc "Force it"}}}}
+     [opts]
+     (assoc opts :ran :a-command)))
+
+#?(:squint nil :default
+   (deftest dispatch-var-fn-test
+  (testing "a var :fn / :exec-fn contributes its spec and docstring to the node"
+    (let [tree {:cmd {"do" {:exec-fn #'a-command}}}]
+      (testing "spec from the var's :org.babashka/cli meta drives parsing"
+        (is (= {:force true :ran :a-command}
+               (cli/dispatch tree ["do" "--force"]))))
+      (testing "--help shows the option from the var spec and the docstring"
+        (let [help (with-out-str (cli/dispatch tree ["do" "--help"] {:prog "t" :help true}))]
+          (is (str/includes? help "Does a thing"))
+          (is (str/includes? help "Force it"))))
+      (testing "the command listing uses the var's docstring"
+        (let [help (with-out-str (cli/dispatch tree ["--help"] {:prog "t" :help true}))]
+          (is (str/includes? help "Does a thing"))))))
+  (testing "an explicit node :doc wins over the var docstring"
+    (let [help (with-out-str
+                 (cli/dispatch {:cmd {"do" {:exec-fn #'a-command :doc "Custom"}}}
+                               ["--help"] {:prog "t" :help true}))]
+      (is (str/includes? help "Custom"))
+      (is (not (str/includes? help "Does a thing")))))))
+
 (defn- listed-command-names
   "Command names from the `Commands:` section of help/error output, in order."
   [s]
