@@ -633,7 +633,13 @@
       (is (false? @called))))
   (testing ":exec-fn wins if a node has both"
     (is (= {:foo true}
-           (cli/dispatch {:exec-fn identity :fn (fn [_] :never)} ["--foo"])))))
+           (cli/dispatch {:exec-fn identity :fn (fn [_] :never)} ["--foo"]))))
+  (testing "the opts map carries the dispatch path and leftover args on its meta"
+    (let [opts (cli/dispatch {:cmd {"add" {:exec-fn identity
+                                           :args->opts [:y]}}}
+                             ["add" "5" "extra"])]
+      (is (= {:dispatch ["add"] :args ["extra"]}
+             (:org.babashka/cli (meta opts)))))))
 
 (defn- listed-command-names
   "Command names from the `Commands:` section of help/error output, in order."

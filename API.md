@@ -24,6 +24,12 @@
 -  [`babashka.cli.exec`](#babashka.cli.exec) 
     -  [`-main`](#babashka.cli.exec/-main) - Main entrypoint for command line usage.
     -  [`main`](#babashka.cli.exec/main)
+-  [`scratch`](#scratch) 
+    -  [`-main`](#scratch/-main)
+    -  [`dns-get-spec`](#scratch/dns-get-spec)
+    -  [`dns-spec`](#scratch/dns-spec)
+    -  [`global-spec`](#scratch/global-spec)
+    -  [`table`](#scratch/table)
 
 -----
 # <a name="babashka.cli">babashka.cli</a>
@@ -61,7 +67,7 @@ Terminates the process after `dispatch`'s `:help` option prints an *error*
   Must exit or throw.
 
   Default: `System/exit` (JVM), `js/process.exit` (Node), `throw` (browser).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1696-L1724">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1697-L1725">Source</a></sub></p>
 
 ## <a name="babashka.cli/apply-defaults">`apply-defaults`</a>
 ``` clojure
@@ -182,13 +188,17 @@ Command dispatcher.
   * `:args` - concatenation of unparsed commands and args
   * `:rest-cmds`: DEPRECATED, this will be removed in a future version
 
+  A node may use `:exec-fn` instead of `:fn` as a convenience: it is called with
+  just the parsed `:opts` map rather than the whole dispatch result. `:exec-fn`
+  wins if a node has both.
+
   Use an empty `:cmds` vector to always match or to provide global options.
 
   For a single-command CLI (no commands), use a one-entry table whose `:cmds`
-  is `[]`:
+  is `[]` (or just a single node map). `:exec-fn` hands `f` the parsed opts:
 
   ```clojure
-  (dispatch [{:cmds [] :fn f :spec spec}] args {:prog "tool" :help true})
+  (dispatch [{:cmds [] :exec-fn f :spec spec}] args {:prog "tool" :help true})
   ```
 
   Provide an `:error-fn` to deal with non-matches.
@@ -209,7 +219,7 @@ Command dispatcher.
   Each entry in the table may have additional [`parse-args`](#babashka.cli/parse-args) options.
 
   For more information and examples, see [README.md](README.md#commands).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L2025-L2113">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L2030-L2122">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-command-error">`format-command-error`</a>
 ``` clojure
@@ -233,7 +243,7 @@ Render a terse, helpful message (a string) for a dispatch error.
   this, then calls [`*exit-fn*`](#babashka.cli/*exit-fn*)). Call it from a custom `:error-fn` to keep the
   standard message and add your own output. `--help`/`-h` is not an error - it
   goes to the `:help-fn`, rendered by [`format-command-help`](#babashka.cli/format-command-help).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1735-L1782">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1736-L1783">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-command-help">`format-command-help`</a>
 ``` clojure
@@ -278,7 +288,7 @@ Render conventional `--help` text (a string) for the command at path `cmds`
   This is the renderer the `:help` option uses; call it from a custom `:help-fn`
   to render the standard help and then add your own output. An entry may carry
   `:no-doc true` to be omitted from `Commands:`.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1653-L1694">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1654-L1695">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-opts">`format-opts`</a>
 ``` clojure
@@ -445,7 +455,7 @@ Converts a `dispatch` table into a tree. Each `:cmds` becomes a path of
   ```
 
   A tree passed in is normalized and returned, so the function is idempotent.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1172-L1194">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1173-L1195">Source</a></sub></p>
 
 ## <a name="babashka.cli/validate-opts">`validate-opts`</a>
 ``` clojure
@@ -504,3 +514,42 @@ Main entrypoint for command line usage.
 ```
 Function.
 <p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L92-L95">Source</a></sub></p>
+
+-----
+# <a name="scratch">scratch</a>
+
+
+
+
+
+
+## <a name="scratch/-main">`-main`</a>
+``` clojure
+(-main & args)
+```
+Function.
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/scratch.clj#L15-L17">Source</a></sub></p>
+
+## <a name="scratch/dns-get-spec">`dns-get-spec`</a>
+
+
+
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/scratch.clj#L8-L8">Source</a></sub></p>
+
+## <a name="scratch/dns-spec">`dns-spec`</a>
+
+
+
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/scratch.clj#L7-L7">Source</a></sub></p>
+
+## <a name="scratch/global-spec">`global-spec`</a>
+
+
+
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/scratch.clj#L4-L6">Source</a></sub></p>
+
+## <a name="scratch/table">`table`</a>
+
+
+
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/scratch.clj#L10-L13">Source</a></sub></p>

@@ -137,14 +137,18 @@ stand-in for `git`. Save it to `mygit.clj`.
    :bare  {:coerce :boolean           ; defines a boolean flag
            :desc "Create a bare repository"}})
 
-(defn run [{:keys [opts]}]
+(defn run [opts]
   (println "Here are your cli args!:" opts))
 
 (defn -main [& args]
-  (cli/dispatch {:fn run :spec spec} args {:prog "mygit" :help true}))
+  (cli/dispatch {:exec-fn run :spec spec} args {:prog "mygit" :help true}))
 
 (apply -main *command-line-args*)
 ```
+
+An `:exec-fn` is called with the parsed options map, which is usually all
+you need. Use `:fn` instead when you want the whole dispatch result
+(`{:opts ... :dispatch ... :args ...}`).
 
 The `:help true` option supplied to `dispatch` wires up automatic `--help`/`-h` support and terse error messages (as opposed to thrown exceptions) for you.
 
@@ -198,7 +202,7 @@ To add commands to this CLI, we need to specify a command structure. We'll just 
 Alter `mygit.clj`:
 ``` clojure
 ;; renamed from `run`
-(defn clone [{:keys [opts]}]
+(defn clone [opts]
   (println "Here are your cli args!:" opts))
 
 ;; new
@@ -207,7 +211,7 @@ Alter `mygit.clj`:
 
 ;; new
 (def tree
-  {:cmd {"clone"   {:fn clone   :doc "Clone a repository" :spec spec}
+  {:cmd {"clone"   {:exec-fn clone   :doc "Clone a repository" :spec spec}
          "version" {:fn version :doc "Print version"}}})
 
 ;; updated to use `tree` command structure

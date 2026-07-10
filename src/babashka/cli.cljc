@@ -1875,7 +1875,8 @@ $env.config.completions.external.completer = {|spans|
            (if (or (:fn cmd-info) (:exec-fn cmd-info))
              {:cmd-info cmd-info
               :dispatch cmds
-              :opts (dissoc all-opts ::opts-by-cmds)
+              :opts (vary-meta (dissoc all-opts ::opts-by-cmds)
+                               update :org.babashka/cli merge {:dispatch cmds :args args})
               :args args}
              (if arg
                {:error :no-match
@@ -1924,9 +1925,6 @@ $env.config.completions.external.completer = {|spans|
                            (select-keys res [:wrong-input :opts :dispatch]))
                     opts))
          nil (let [res (dissoc res :cmd-info)]
-               ;; `:fn` gets the whole dispatch result map; `:exec-fn` is a
-               ;; convenience that gets only the parsed `:opts`. `:exec-fn` wins
-               ;; if a node somehow has both.
                (if-let [exec-fn (:exec-fn cmd-info)]
                  (exec-fn (:opts res))
                  ((:fn cmd-info) res))))))))
@@ -2074,10 +2072,10 @@ $env.config.completions.external.completer = {|spans|
   Use an empty `:cmds` vector to always match or to provide global options.
 
   For a single-command CLI (no commands), use a one-entry table whose `:cmds`
-  is `[]`:
+  is `[]` (or just a single node map). `:exec-fn` hands `f` the parsed opts:
 
   ```clojure
-  (dispatch [{:cmds [] :fn f :spec spec}] args {:prog \"tool\" :help true})
+  (dispatch [{:cmds [] :exec-fn f :spec spec}] args {:prog \"tool\" :help true})
   ```
 
   Provide an `:error-fn` to deal with non-matches.
