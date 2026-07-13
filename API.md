@@ -24,12 +24,6 @@
 -  [`babashka.cli.exec`](#babashka.cli.exec) 
     -  [`-main`](#babashka.cli.exec/-main) - Main entrypoint for command line usage.
     -  [`main`](#babashka.cli.exec/main)
--  [`scratch`](#scratch) 
-    -  [`-main`](#scratch/-main)
-    -  [`dns-get-spec`](#scratch/dns-get-spec)
-    -  [`dns-spec`](#scratch/dns-spec)
-    -  [`global-spec`](#scratch/global-spec)
-    -  [`table`](#scratch/table)
 
 -----
 # <a name="babashka.cli">babashka.cli</a>
@@ -67,7 +61,7 @@ Terminates the process after `dispatch`'s `:help` option prints an *error*
   Must exit or throw.
 
   Default: `System/exit` (JVM), `js/process.exit` (Node), `throw` (browser).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1735-L1763">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1828-L1856">Source</a></sub></p>
 
 ## <a name="babashka.cli/apply-defaults">`apply-defaults`</a>
 ``` clojure
@@ -82,7 +76,7 @@ Fills missing keys in `m` from defaults. Existing keys in `m` win.
   Supported options:
   * `:exec-args` - map of defaults. Not subject to `:restrict`.
   * `:spec` - spec; `:default` entries become defaults via `spec->opts`.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L493-L509">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L544-L560">Source</a></sub></p>
 
 ## <a name="babashka.cli/auto-coerce">`auto-coerce`</a>
 ``` clojure
@@ -95,7 +89,7 @@ Auto-coerces `s` to data. Does not coerce when `s` is not a string.
   * is `true` or `false`, it is coerced as boolean
   * starts with number, it is coerced as a number (through Clojure's `edn/read-string`)
   * starts with `:`, it is coerced as a keyword (through [`parse-keyword`](#babashka.cli/parse-keyword))
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L89-L120">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L86-L117">Source</a></sub></p>
 
 ## <a name="babashka.cli/coerce">`coerce`</a>
 ``` clojure
@@ -107,7 +101,7 @@ Coerce string `s` using `f`. Does not coerce when `s` is not a string.
   `f` may be a keyword (`:boolean`, `:int`, `:double`, `:symbol`,
   `:keyword`) or a function. When `f` return `nil`, this is
   interpreted as a parse failure and throws.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L174-L180">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L171-L177">Source</a></sub></p>
 
 ## <a name="babashka.cli/coerce-opts">`coerce-opts`</a>
 ``` clojure
@@ -129,7 +123,7 @@ Coerces values in the map `m` using the provided configuration.
   `"--foo"`, `"-f"`, or `":foo"`), as opposed to `:option`, the normalized
   keyword (`:foo`). It lets a handler echo what the user actually typed rather
   than reconstruct it. It is omitted when no originating token is known.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L317-L398">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L334-L419">Source</a></sub></p>
 
 ## <a name="babashka.cli/default-width-fn">`default-width-fn`</a>
 ``` clojure
@@ -142,7 +136,7 @@ The default `:max-width-fn` for [`format-table`](#babashka.cli/format-table)/[`f
   width or nil: node `process.stdout.columns`, else `$COLUMNS`, else a JLine
   provider probe (clj, when JLine is on the classpath, e.g. babashka), else nil
   (the caller then falls back to 80).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L818-L836">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L868-L886">Source</a></sub></p>
 
 ## <a name="babashka.cli/dispatch">`dispatch`</a>
 ``` clojure
@@ -224,7 +218,7 @@ Command dispatcher.
   Each entry in the table may have additional [`parse-args`](#babashka.cli/parse-args) options.
 
   For more information and examples, see [README.md](README.md#commands).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L2068-L2165">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L2161-L2258">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-command-error">`format-command-error`</a>
 ``` clojure
@@ -248,7 +242,7 @@ Render a terse, helpful message (a string) for a dispatch error.
   this, then calls [`*exit-fn*`](#babashka.cli/*exit-fn*)). Call it from a custom `:error-fn` to keep the
   standard message and add your own output. `--help`/`-h` is not an error - it
   goes to the `:help-fn`, rendered by [`format-command-help`](#babashka.cli/format-command-help).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1774-L1821">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1867-L1914">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-command-help">`format-command-help`</a>
 ``` clojure
@@ -293,7 +287,7 @@ Render conventional `--help` text (a string) for the command at path `cmds`
   This is the renderer the `:help` option uses; call it from a custom `:help-fn`
   to render the standard help and then add your own output. An entry may carry
   `:no-doc true` to be omitted from `Commands:`.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1692-L1733">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1785-L1826">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-opts">`format-opts`</a>
 ``` clojure
@@ -304,7 +298,7 @@ Function.
 Formats options into an options usage help string.
 
   See [Printing options](/README.md#printing-options).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1000-L1011">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1054-L1065">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-table">`format-table`</a>
 ``` clojure
@@ -317,7 +311,7 @@ Function.
 
 Formats `rows` into a table (string).
   See [Printing options](/README.md#printing-options).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L889-L911">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L939-L961">Source</a></sub></p>
 
 ## <a name="babashka.cli/merge-opts">`merge-opts`</a>
 ``` clojure
@@ -326,7 +320,7 @@ Formats `rows` into a table (string).
 Function.
 
 Merges babashka CLI options.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L17-L20">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L14-L17">Source</a></sub></p>
 
 ## <a name="babashka.cli/opts->table">`opts->table`</a>
 ``` clojure
@@ -336,7 +330,7 @@ Function.
 
 Converts options to a table of rows.
   See [Printing options](/README.md#printing-options).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L941-L964">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1001-L1021">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-args">`parse-args`</a>
 ``` clojure
@@ -350,7 +344,7 @@ Same as [`parse-opts`](#babashka.cli/parse-opts) with return data reshaped.
   Returns a map with:
   * `:opts` parsed opts
   * `:args` remaining unparsed `args`
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L759-L769">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L809-L819">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-cmds">`parse-cmds`</a>
 ``` clojure
@@ -362,7 +356,7 @@ Function.
 Parses sub-commands (arguments not starting with an option prefix). Returns a map with:
   * `:cmds` - The parsed commands
   * `:args` - The remaining (unparsed) arguments
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L229-L239">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L227-L237">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-keyword">`parse-keyword`</a>
 ``` clojure
@@ -371,7 +365,7 @@ Parses sub-commands (arguments not starting with an option prefix). Returns a ma
 Function.
 
 Parse keyword from `s`. Ignores leading `:`.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L77-L82">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L74-L79">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-opts">`parse-opts`</a>
 ``` clojure
@@ -391,6 +385,7 @@ Returns a map of options parsed from command line arguments `args`, a seq of str
   * `:alias` - a map of short names to long names.
   * `:spec` - a spec of options. See [spec](/README.md#spec).
   * `:restrict` - `true` or coll of keys. Throw on first parsed option not in set of keys or keys of `:spec` and `:coerce` combined.
+  * `:restrict-args` - `true`. Throw on positional args not consumed by `:args->opts`.
   * `:require` - a coll of options that are required. See [require](/README.md#restrict).
   * `:validate` - a map of validator functions. See [validate](/README.md#validate).
   * `:exec-args` - a map of default args. Will be overridden by args specified in `args`. Values from `:exec-args` are NOT coerced or auto-coerced; provide them in their final form. Not subject to `:restrict`.
@@ -410,11 +405,11 @@ Returns a map of options parsed from command line arguments `args`, a seq of str
   ;; => throws 'Unknown option --qux' exception b/c there is no :qux key in the spec
   ```
   See also: [`parse-args`](#babashka.cli/parse-args)
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L711-L757">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L763-L807">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-opts*">`parse-opts*`</a>
 ``` clojure
-(parse-opts* args {:keys [coerce collect no-keyword-opts repeated-opts], :as opts})
+(parse-opts* args opts)
 ```
 Function.
 
@@ -430,7 +425,9 @@ Parses CLI `args` into a raw opts map. Returns string values unchanged
 
   Supported options (subset of `parse-opts`): `:alias`/`:aliases`, `:coerce`,
   `:collect`, `:no-keyword-opts`, `:repeated-opts`, `:args->opts`, `:spec`.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L514-L709">Source</a></sub></p>
+  A `:spec`'s `:coerce`/`:collect`/`:alias` entries steer parsing (e.g. boolean
+  disambiguation) like they do in `parse-opts` - values still come back raw.
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L565-L761">Source</a></sub></p>
 
 ## <a name="babashka.cli/spec->opts">`spec->opts`</a>
 ``` clojure
@@ -440,7 +437,7 @@ Parses CLI `args` into a raw opts map. Returns string values unchanged
 Function.
 
 Converts spec into opts format. Pass existing opts as optional second argument.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L206-L227">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L203-L225">Source</a></sub></p>
 
 ## <a name="babashka.cli/table->tree">`table->tree`</a>
 ``` clojure
@@ -460,7 +457,7 @@ Converts a `dispatch` table into a tree. Each `:cmds` becomes a path of
   ```
 
   A tree passed in is normalized and returned, so the function is idempotent.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1211-L1233">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1304-L1326">Source</a></sub></p>
 
 ## <a name="babashka.cli/validate-opts">`validate-opts`</a>
 ``` clojure
@@ -473,6 +470,7 @@ Validates the map `m` using the provided configuration. Returns `m`.
 
   Supported options:
   * `:restrict` - `true` or coll of keys. Error on keys in `m` not in the restrict set or not derivable from `:spec` and `:coerce`.
+  * `:restrict-args` - `true`. Error on positional args not consumed by `:args->opts`.
   * `:require` - a coll of options that are required.
   * `:validate` - a map of option keys to validator functions (or maps with `:pred` and `:ex-msg`).
   * `:spec` - a spec of options (restrict, require, validate extracted from it).
@@ -484,7 +482,7 @@ Validates the map `m` using the provided configuration. Returns `m`.
   keyword (`:foo`). It lets a handler echo what the user actually typed rather
   than reconstruct it. It is present for `:restrict` and `:validate`, and absent
   for `:require` (a missing required option was never typed, so it has no token).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L400-L491">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L421-L542">Source</a></sub></p>
 
 -----
 # <a name="babashka.cli.exec">babashka.cli.exec</a>
@@ -519,42 +517,3 @@ Main entrypoint for command line usage.
 ```
 Function.
 <p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli/exec.clj#L92-L95">Source</a></sub></p>
-
------
-# <a name="scratch">scratch</a>
-
-
-
-
-
-
-## <a name="scratch/-main">`-main`</a>
-``` clojure
-(-main & args)
-```
-Function.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/scratch.clj#L15-L17">Source</a></sub></p>
-
-## <a name="scratch/dns-get-spec">`dns-get-spec`</a>
-
-
-
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/scratch.clj#L8-L8">Source</a></sub></p>
-
-## <a name="scratch/dns-spec">`dns-spec`</a>
-
-
-
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/scratch.clj#L7-L7">Source</a></sub></p>
-
-## <a name="scratch/global-spec">`global-spec`</a>
-
-
-
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/scratch.clj#L4-L6">Source</a></sub></p>
-
-## <a name="scratch/table">`table`</a>
-
-
-
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/scratch.clj#L10-L13">Source</a></sub></p>
