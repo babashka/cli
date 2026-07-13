@@ -9,6 +9,16 @@ For breaking changes, check [here](#breaking-changes).
 - [#174](https://github.com/babashka/cli/issues/174): `:edn` `:coerce` option must provide an explicit value
 ([@lread](https://github.com/lread))
 - Introduce `:exec-fn` option in dispatch
+- [#196](https://github.com/babashka/cli/pull/196): symbol `:cmd` keys, stringified during normalization
+- [#197](https://github.com/babashka/cli/pull/197): `:positional` spec marker: positional args get argument-worded errors, an `Arguments:` help section, and may not be passed as options
+- [#197](https://github.com/babashka/cli/pull/197): `:restrict-args`: error on positional args not consumed by `:args->opts`
+- [#197](https://github.com/babashka/cli/pull/197): usage help brackets optional positional args and wraps a bare `:ref` in `<>`
+- [#198](https://github.com/babashka/cli/pull/198): `:cmd` may be a vector of `[name command]` pairs, preserving command order without `:cmd-order`
+- [#199](https://github.com/babashka/cli/pull/199): fix hang on a non-collecting variadic `:args->opts` (e.g. `(repeat :k)`)
+- [#199](https://github.com/babashka/cli/pull/199): keyword command names, namespace preserved (`:git/push` -> `"git/push"`)
+- [#201](https://github.com/babashka/cli/pull/201): `:order` is honored for a vec-of-pairs spec in help output
+- [#202](https://github.com/babashka/cli/pull/202): an option token no longer occupies a positional `:args->opts` slot (it used to leave the key with an implicit `true`)
+- [#203](https://github.com/babashka/cli/pull/203): `parse-opts*` resolves `:spec` so its `:coerce`/`:collect` entries steer parsing like in `parse-opts` (values still raw)
 
 ## v0.12.75 (2026-06-25)
 
