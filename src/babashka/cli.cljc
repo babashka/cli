@@ -1150,9 +1150,12 @@
         spec-map (->spec-map spec)
         order (:order node)                     ; display order (see node-with-help)
         ;; positional (arg-only) keys are rendered under `Arguments:`, not in the
-        ;; `Options:` table
+        ;; `Options:` table. Keep the original spec structure so a vec-of-pairs
+        ;; spec keeps its order (map order is not portable, e.g. cljd).
         positional-keys (into #{} (keep (fn [[k v]] (when (:positional v) k))) spec-map)
-        opt-spec-map (apply dissoc spec-map positional-keys)
+        opt-spec (cond (empty? positional-keys) spec
+                       (map? spec) (apply dissoc spec positional-keys)
+                       :else (remove (fn [[k]] (contains? positional-keys k)) spec))
         opt-order (when order (remove positional-keys order))
         arg-rows (positional-help-rows spec-map order (:args->opts node))
         ;; drop inherited options this node redefines (child wins); mapify for the
@@ -1161,7 +1164,7 @@
         desc (help-description (:doc node))
         cmds (help-commands-table node)
         sections
-        (cond-> [(help-usage-line prog node (or (visible-spec? opt-spec-map) (visible-spec? inherited)))]
+        (cond-> [(help-usage-line prog node (or (visible-spec? opt-spec) (visible-spec? inherited)))]
           desc
           (conj desc)
 
@@ -1171,8 +1174,8 @@
           (seq arg-rows)
           (conj (str "Arguments:\n" (format-table {:rows arg-rows :indent 2 :divider "  "})))
 
-          (visible-spec? opt-spec-map)
-          (conj (str "Options:\n" (format-opts (cond-> {:spec opt-spec-map :required (:require node)}
+          (visible-spec? opt-spec)
+          (conj (str "Options:\n" (format-opts (cond-> {:spec opt-spec :required (:require node)}
                                                  opt-order (assoc :order opt-order)))))
 
           (visible-spec? inherited)
