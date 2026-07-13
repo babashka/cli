@@ -208,10 +208,11 @@
   ([spec] (spec->opts spec nil))
   ([spec {:keys [exec-args]}]
    (reduce
-    (fn [acc [k {:keys [coerce collect alias default require validate]}]]
+    (fn [acc [k {:keys [coerce collect alias default require validate positional]}]]
       (cond-> acc
         coerce (update :coerce assoc k coerce)
         collect (update :collect assoc k collect)
+        positional (update :positional (fnil #(conj % k) #{}))
         alias (update :alias
                       (fn [aliases]
                         (when (contains? aliases alias)
@@ -314,6 +315,18 @@
   [opt->flag opt]
   (or (get opt->flag opt) (str "--" (kw->str opt))))
 
+(defn- ->spec-map [spec]
+  (cond (nil? spec) {}
+        (map? spec) spec
+        :else (into {} spec)))
+
+(defn- arg-label
+  "User-facing label for a positional argument `k` in error messages and help:
+  its `:ref` verbatim if set (the `<...>` bracket convention is the caller's),
+  else `<name>`. Matches the usage-line labels from `args->opts-labels`."
+  [spec-map k]
+  (or (:ref (get spec-map k)) (str "<" (kw->str k) ">")))
+
 (defn coerce-opts
   "Coerces values in the map `m` using the provided configuration.
   Does not coerce values that are not strings.
@@ -333,6 +346,8 @@
    (let [spec (:spec opts)
          opts (resolve-opts opts)
          coerce-map (:coerce opts)
+         spec-map (->spec-map spec)
+         positional (:positional opts)
          m-meta (meta m)
          implicit-values (or (::implicit-values opts)
                              (::implicit-values m-meta))
@@ -371,7 +386,8 @@
                             km (::opt->flag m-meta)
                             flag (get km k)
                             iv (:implicit-value data)
-                            label (option-label km k)]
+                            pos? (contains? positional k)
+                            label (if pos? (arg-label spec-map k) (option-label km k))]
                         (error-fn (cond-> {:cause :coerce
                                            ;; same shape as validate: name the option, then the reason.
                                            ;; when implicit-value, give a more nuanced error message
@@ -382,11 +398,12 @@
                                                   false (str "Negation " label " invalid for option "
                                                              #?(:squint (.replace label "no-" "")
                                                                 :default (str/replace-first label "no-" "")))
-                                                  (str "Invalid value for option " label ": "
+                                                  (str "Invalid value for " (if pos? "argument " "option ") label ": "
                                                        (coerce-failure-reason (:input data) iv (:coerce-fn data))))
                                            :option k
                                            :value v
                                            :opts acc}
+                                    pos? (assoc :arg label)
                                     flag (assoc :flag flag)
                                     iv (assoc :implicit-value (:implicit-value data)))))
                       acc)))
@@ -402,6 +419,7 @@
 
   Supported options:
   * `:restrict` - `true` or coll of keys. Error on keys in `m` not in the restrict set or not derivable from `:spec` and `:coerce`.
+  * `:restrict-args` - `true`. Error on positional args not consumed by `:args->opts`.
   * `:require` - a coll of options that are required.
   * `:validate` - a map of option keys to validator functions (or maps with `:pred` and `:ex-msg`).
   * `:spec` - a spec of options (restrict, require, validate extracted from it).
@@ -422,6 +440,7 @@
                      (:aliases opts))
          spec-map (if (map? spec)
                     spec (when spec (into {} spec)))
+         positional (:positional opts)
          known-keys (set (concat (keys spec-map)
                                  (vals aliases)
                                  (keys coerce-map)))
@@ -444,6 +463,24 @@
          opt->flag (::opt->flag (meta m))
          flag-for (fn [k] (option-label opt->flag k))
          error-fn (->error-fn spec (:error-fn opts))]
+     ;; a `:positional` key is arg-only: reject it when typed as a flag (only
+     ;; typed opts are stamped in `::opt->flag`, injected positional values are not)
+     (when (seq positional)
+       (doseq [k positional]
+         (when-let [flag (get opt->flag k)]
+           (error-fn {:cause :restrict
+                      :msg (str "Not an option: " flag " (positional argument " (arg-label spec-map k) ")")
+                      :option k
+                      :arg (arg-label spec-map k)
+                      :flag flag
+                      :opts m}))))
+     ;; `:restrict-args` rejects positional args not consumed by `:args->opts`
+     (when (:restrict-args opts)
+       (doseq [a (-> (meta m) :org.babashka/cli :args)]
+         (error-fn {:cause :restrict-args
+                    :msg (str "Unexpected argument: " a)
+                    :value a
+                    :opts m})))
      (when restrict
        (doseq [k (keys m)]
          (when (and (not (contains? restrict k))
@@ -460,12 +497,16 @@
      (when require
        (doseq [k require]
          (when-not (find m k)
-           (let [flag (get opt->flag k)]
+           (let [flag (get opt->flag k)
+                 pos? (contains? positional k)]
              (error-fn (cond-> {:cause :require
-                                :msg (str "Required option: " (flag-for k))
+                                :msg (if pos?
+                                       (str "Required argument: " (arg-label spec-map k))
+                                       (str "Required option: " (flag-for k)))
                                 :require require
                                 :option k
                                 :opts m}
+                         pos? (assoc :arg (arg-label spec-map k))
                          flag (assoc :flag flag)))))))
      (when validate
        (doseq [[k vf] validate]
@@ -477,19 +518,22 @@
                      vf)]
            (when-let [[_ v] (find m k)]
              (when-not (if (set? f) (contains? f v) (f v))
-               (let [ex-msg-fn (or (:ex-msg vf)
-                                   (fn [{:keys [flag value]}]
-                                     (str "Invalid value for option " flag ": " value
+               (let [pos? (contains? positional k)
+                     ex-msg-fn (or (:ex-msg vf)
+                                   (fn [{:keys [flag value arg]}]
+                                     (str "Invalid value for " (if arg (str "argument " arg) (str "option " flag)) ": " value
                                           (when (set? f)
                                             (str ". Expected one of: "
                                                  (str/join ", " (sort (map #(if (keyword? %) (kw->str %) (str %)) f))))))))
                      flag (get opt->flag k)]
                  (error-fn (cond-> {:cause :validate
-                                    :msg (ex-msg-fn {:option k :value v :flag (flag-for k)})
+                                    :msg (ex-msg-fn (cond-> {:option k :value v :flag (flag-for k)}
+                                                      pos? (assoc :arg (arg-label spec-map k))))
                                     :validate validate
                                     :option k
                                     :value v
                                     :opts m}
+                             pos? (assoc :arg (arg-label spec-map k))
                              flag (assoc :flag flag)))))))))
      m)))
 
@@ -723,6 +767,7 @@
   * `:alias` - a map of short names to long names.
   * `:spec` - a spec of options. See [spec](/README.md#spec).
   * `:restrict` - `true` or coll of keys. Throw on first parsed option not in set of keys or keys of `:spec` and `:coerce` combined.
+  * `:restrict-args` - `true`. Throw on positional args not consumed by `:args->opts`.
   * `:require` - a coll of options that are required. See [require](/README.md#restrict).
   * `:validate` - a map of validator functions. See [validate](/README.md#validate).
   * `:exec-args` - a map of default args. Will be overridden by args specified in `args`. Values from `:exec-args` are NOT coerced or auto-coerced; provide them in their final form. Not subject to `:restrict`.
@@ -750,6 +795,7 @@
          ;; Step 2: Coerce
          coerced (coerce-opts parsed {:coerce (:coerce opts)
                                       :spec (:spec opts)
+                                      :positional (:positional opts)
                                       :error-fn (:error-fn opts)
                                       ::auto-coerce true
                                       ::resolved true})
@@ -1027,18 +1073,33 @@
       (when (seq ls) (str/join "\n" ls)))))
 
 (defn- args->opts-labels
-  "Render a command's `:args->opts` as usage labels: each key as `<key>`, and a
-  key repeated at the tail (the `(cons :foo (repeat :bar))` variadic form) as
-  `<key>...`. Returns a vector of label strings, or nil when there are none.
-  Bounded so an unrealizable infinite seq can't hang."
-  [args->opts]
-  (when (seq args->opts)
-    (loop [s (seq args->opts), acc [], prev nil, n 0]
-      (let [k (first s)]
-        (cond
-          (or (nil? s) (>= n 64)) acc
-          (= k prev) (conj (pop acc) (str "<" (name prev) ">..."))
-          :else (recur (next s) (conj acc (str "<" (name k) ">")) k (inc n)))))))
+  "Render a command's `:args->opts` as usage labels: each key as its `:ref` (from
+  `spec-map`) or `<key>`, and a key repeated at the tail (the
+  `(cons :foo (repeat :bar))` variadic form) as `<key>...`. Returns a vector of
+  label strings, or nil when there are none. Bounded so an unrealizable infinite
+  seq can't hang."
+  ([args->opts] (args->opts-labels args->opts nil))
+  ([args->opts spec-map]
+   (when (seq args->opts)
+     (loop [s (seq args->opts), acc [], prev nil, n 0]
+       (let [k (first s)]
+         (cond
+           (or (nil? s) (>= n 64)) acc
+           (= k prev) (conj (pop acc) (str (arg-label spec-map prev) "..."))
+           :else (recur (next s) (conj acc (arg-label spec-map k)) k (inc n))))))))
+
+(defn- positional-help-rows
+  "Rows `[label desc]` for the `Arguments:` help section: the `:positional` keys
+  of `spec-map`, ordered by `:args->opts` (matching the usage line), then `order`
+  / spec order for any not consumed positionally. `:no-doc` keys are skipped.
+  Bounded against an infinite `:args->opts`."
+  [spec-map order args->opts]
+  (let [pos? (fn [k] (:positional (get spec-map k)))
+        ordered (->> (concat (take 64 args->opts) (or order (keys spec-map)))
+                     (filter pos?)
+                     distinct
+                     (remove (fn [k] (:no-doc (get spec-map k)))))]
+    (mapv (fn [k] [(arg-label spec-map k) (or (:desc (get spec-map k)) "")]) ordered)))
 
 (defn #?(:cljd ^:no-doc cmd-children :squint ^:no-doc cmd-children :default ^:private cmd-children)
   "Visible `[name child]` pairs of `node`'s commands, for display (help,
@@ -1065,7 +1126,7 @@
              ;; any. We don't show a generic `[<args>]` placeholder otherwise
              ;; (matches argparse/clap/click/picocli/cli-tools).
              (or (:fn node)
-                 (:exec-fn node)) (when-let [labels (args->opts-labels (:args->opts node))]
+                 (:exec-fn node)) (when-let [labels (args->opts-labels (:args->opts node) (->spec-map (:spec node)))]
                                     (str " " (str/join " " labels)))
              :else             "")))
 
@@ -1073,11 +1134,6 @@
   (mapv (fn [[cmd subnode]]
           [(str cmd) (or (help-first-line (:doc subnode)) "")])
         (cmd-children node)))
-
-(defn- ->spec-map [spec]
-  (cond (nil? spec) {}
-        (map? spec) spec
-        :else (into {} spec)))
 
 (defn- visible-spec?
   "Does `spec` have any non-`:no-doc` option? Gates the help sections, so an
@@ -1091,23 +1147,33 @@
   pointers. Renders Options in the node's `:order` (see [[node-with-help]])."
   [node {:keys [prog inherited parents]}]
   (let [spec (:spec node)                       ; map or vec-of-pairs
+        spec-map (->spec-map spec)
         order (:order node)                     ; display order (see node-with-help)
+        ;; positional (arg-only) keys are rendered under `Arguments:`, not in the
+        ;; `Options:` table
+        positional-keys (into #{} (keep (fn [[k v]] (when (:positional v) k))) spec-map)
+        opt-spec-map (apply dissoc spec-map positional-keys)
+        opt-order (when order (remove positional-keys order))
+        arg-rows (positional-help-rows spec-map order (:args->opts node))
         ;; drop inherited options this node redefines (child wins); mapify for the
         ;; key set, since a standalone format-command-help spec may be a vec
-        inherited (apply dissoc inherited (keys (->spec-map spec)))
+        inherited (apply dissoc inherited (keys spec-map))
         desc (help-description (:doc node))
         cmds (help-commands-table node)
         sections
-        (cond-> [(help-usage-line prog node (or (visible-spec? spec) (visible-spec? inherited)))]
+        (cond-> [(help-usage-line prog node (or (visible-spec? opt-spec-map) (visible-spec? inherited)))]
           desc
           (conj desc)
 
           (seq cmds)
           (conj (str "Commands:\n" (format-table {:rows cmds :indent 2})))
 
-          (visible-spec? spec)
-          (conj (str "Options:\n" (format-opts (cond-> {:spec spec :required (:require node)}
-                                                 order (assoc :order order)))))
+          (seq arg-rows)
+          (conj (str "Arguments:\n" (format-table {:rows arg-rows :indent 2 :divider "  "})))
+
+          (visible-spec? opt-spec-map)
+          (conj (str "Options:\n" (format-opts (cond-> {:spec opt-spec-map :required (:require node)}
+                                                 opt-order (assoc :order opt-order)))))
 
           (visible-spec? inherited)
           (conj (str "Inherited options:\n" (format-opts {:spec inherited})))

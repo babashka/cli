@@ -326,6 +326,95 @@
     (cli/parse-args ["foo" "--baz" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}})))
   (is (= {:foo [1 2]} (cli/parse-opts ["1" "2"] {:args->opts [:foo :foo] :coerce {:foo [:int]}}))))
 
+(defn- err-data [f]
+  (try (f) nil
+       (catch #?(:cljd Object :clj Exception :cljs :default) e
+         (ex-data e))))
+
+(deftest positional-test
+  (testing "error messages name the argument, not an option"
+    (testing "coerce"
+      (is (submap? {:cause :coerce
+                    :msg "Invalid value for argument <my-arg>: cannot transform input \"x\" to long"
+                    :option :my-arg
+                    :arg "<my-arg>"}
+                   (err-data #(cli/parse-args ["x"] {:args->opts [:my-arg]
+                                                     :spec {:my-arg {:coerce :long :positional true}}})))))
+    (testing "require"
+      (is (submap? {:cause :require
+                    :msg "Required argument: <my-arg>"
+                    :option :my-arg
+                    :arg "<my-arg>"}
+                   (err-data #(cli/parse-args [] {:args->opts [:my-arg]
+                                                  :spec {:my-arg {:require true :positional true}}})))))
+    (testing "validate"
+      (is (submap? {:cause :validate
+                    :msg "Invalid value for argument <my-arg>: 3"
+                    :arg "<my-arg>"}
+                   (err-data #(cli/parse-args ["3"] {:args->opts [:my-arg]
+                                                     :spec {:my-arg {:coerce :long :positional true
+                                                                     :validate neg-int?}}})))))
+    (testing ":ref supplies the label"
+      (is (submap? {:msg "Required argument: <file>" :arg "<file>"}
+                   (err-data #(cli/parse-args [] {:args->opts [:my-arg]
+                                                  :spec {:my-arg {:require true :positional true
+                                                                  :ref "<file>"}}}))))))
+  (testing "a positional binds from a bare value"
+    (is (submap? {:opts {:my-arg 42}}
+                 (cli/parse-args ["42"] {:args->opts [:my-arg]
+                                         :spec {:my-arg {:coerce :long :positional true}}}))))
+  (testing "a positional may not be passed as an option"
+    (is (submap? {:cause :restrict
+                  :msg "Not an option: --my-arg (positional argument <my-arg>)"
+                  :option :my-arg
+                  :flag "--my-arg"}
+                 (err-data #(cli/parse-args ["--my-arg" "x"] {:args->opts [:my-arg]
+                                                              :spec {:my-arg {:positional true}}}))))
+    (is (submap? {:msg "Not an option: :my-arg (positional argument <my-arg>)"}
+                 (err-data #(cli/parse-args [":my-arg" "x"] {:args->opts [:my-arg]
+                                                             :spec {:my-arg {:positional true}}}))))
+    (testing "without :positional the same key is still accepted as an option"
+      (is (submap? {:opts {:my-arg "x"}}
+                   (cli/parse-args ["--my-arg" "x"] {:args->opts [:my-arg]
+                                                     :spec {:my-arg {}}})))))
+  (testing "help renders positionals under Arguments:, not Options:"
+    (let [help (cli/format-command-help
+                {:prog "mycli"
+                 :table [{:cmds [] :fn identity
+                          :args->opts [:file]
+                          :spec {:file {:positional true :ref "<file>" :desc "File to process"}
+                                 :verbose {:coerce :boolean :desc "Print more"}}}]})]
+      (is (str/includes? help "Usage: mycli [options] <file>"))
+      (is (str/includes? help "Arguments:"))
+      (is (str/includes? help "<file>  File to process"))
+      (is (str/includes? help "--verbose"))
+      ;; the positional is not rendered as an option
+      (is (not (str/includes? help "--file")))))
+  (testing "variadic positional label in usage"
+    (let [help (cli/format-command-help
+                {:prog "mycli"
+                 :table [{:cmds [] :fn identity
+                          :args->opts (cons :file (repeat :file))
+                          :spec {:file {:positional true :desc "Files"}}}]})]
+      (is (str/includes? help "Usage: mycli <file>..."))
+      (is (str/includes? help "Arguments:")))))
+
+(deftest restrict-args-test
+  (testing "extra args beyond :args->opts are rejected"
+    (is (submap? {:cause :restrict-args
+                  :msg "Unexpected argument: b"
+                  :value "b"}
+                 (err-data #(cli/parse-args ["a" "b"] {:restrict-args true :args->opts [:x]})))))
+  (testing "exactly the declared args are accepted"
+    (is (submap? {:opts {:x "a"}}
+                 (cli/parse-args ["a"] {:restrict-args true :args->opts [:x]}))))
+  (testing "with no :args->opts, any positional arg is unexpected"
+    (is (submap? {:cause :restrict-args :msg "Unexpected argument: stray"}
+                 (err-data #(cli/parse-args ["stray"] {:restrict-args true})))))
+  (testing "without :restrict-args, extra args land in :args"
+    (is (submap? {:args ["b" "c"] :opts {:x "a"}}
+                 (cli/parse-args ["a" "b" "c"] {:args->opts [:x]})))))
+
 (deftest dispatch-test
   (let [f (fn [m]
             m)
