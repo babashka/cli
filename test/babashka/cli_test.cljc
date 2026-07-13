@@ -971,6 +971,10 @@
   (is (submap? {:ipv6 true} (cli/parse-opts ["-6"] {:aliases {:6 :ipv6}}))))
 
 (deftest format-opts-test
+  (testing ":order is honored for a vec-of-pairs spec"
+    (is (= "  --b  B\n  --a  A"
+           (cli/format-opts {:spec [[:a {:desc "A"}] [:b {:desc "B"}]]
+                             :order [:b :a]}))))
   (testing "default width with default and default-desc"
     (is (= "  -f, --foo <foo>  Thingy (default: yupyupyupyup)\n  -b, --bar <bar>  Barbarbar (default: Mos def)"
            (cli/format-opts

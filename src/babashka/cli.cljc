@@ -1011,6 +1011,16 @@
   ;;     "                           r3c3 l3"]
   )
 
+(defn- spec-entries
+  "Spec as `[k v]` pairs in display order: explicit `order` when given, else a
+  vec-of-pairs spec's own order, else map key order. The one place display
+  order is derived, so it never depends on map iteration order."
+  [spec order]
+  (cond order (let [m (->spec-map spec)]
+                (map (fn [k] [k (get m k)]) order))
+        (map? spec) (map (juxt key val) spec)
+        :else spec))
+
 (defn opts->table
   "Converts options to a table of rows.
   See [Printing options](/README.md#printing-options)."
@@ -1031,10 +1041,7 @@
                      (str (or default-desc (str default) "")))
                    (when (:desc columns)
                      (if desc desc ""))]))
-          (if (map? spec)
-            (let [order (or order (keys spec))]
-              (map (fn [k] [k (get spec k)]) order))
-            spec))))
+          (spec-entries spec order))))
 
 (defn- opts->help-rows
   "Rows for [[format-opts]]: the conventional two-column layout `option | desc`.
@@ -1044,12 +1051,9 @@
   Honors `:order`. The two columns are joined with a 2-space divider by
   `format-opts`."
   [{:keys [spec order required]}]
-  (let [entries (if (map? spec)
-                  (map (fn [k] [k (get spec k)]) (or order (keys spec)))
-                  spec)
-        ;; `:no-doc` options still parse but are hidden from help, like `:no-doc`
+  (let [;; `:no-doc` options still parse but are hidden from help, like `:no-doc`
         ;; commands are hidden from the command list
-        entries (remove (fn [[_ v]] (:no-doc v)) entries)
+        entries (remove (fn [[_ v]] (:no-doc v)) (spec-entries spec order))
         ;; effective required set, matching validation: per-option `:require true`
         ;; or membership in a top-level `:require` coll (both fold into one set)
         required (set required)
@@ -1179,14 +1183,11 @@
   (let [spec (:spec node)                       ; map or vec-of-pairs
         spec-map (->spec-map spec)
         order (:order node)                     ; display order (see node-with-help)
-        ;; positional (arg-only) keys are rendered under `Arguments:`, not in the
-        ;; `Options:` table. Keep the original spec structure so a vec-of-pairs
-        ;; spec keeps its order (map order is not portable, e.g. cljd).
+        ;; positional (arg-only) keys are rendered under `Arguments:`, not in
+        ;; the `Options:` table
         positional-keys (into #{} (keep (fn [[k v]] (when (:positional v) k))) spec-map)
-        opt-spec (cond (empty? positional-keys) spec
-                       (map? spec) (apply dissoc spec positional-keys)
-                       :else (remove (fn [[k]] (contains? positional-keys k)) spec))
-        opt-order (when order (remove positional-keys order))
+        opt-spec (remove (fn [[k]] (contains? positional-keys k))
+                         (spec-entries spec order))
         arg-rows (positional-help-rows spec-map order (:args->opts node))
         ;; drop inherited options this node redefines (child wins); mapify for the
         ;; key set, since a standalone format-command-help spec may be a vec
@@ -1205,8 +1206,7 @@
           (conj (str "Arguments:\n" (format-table {:rows arg-rows :indent 2 :divider "  "})))
 
           (visible-spec? opt-spec)
-          (conj (str "Options:\n" (format-opts (cond-> {:spec opt-spec :required (:require node)}
-                                                 opt-order (assoc :order opt-order)))))
+          (conj (str "Options:\n" (format-opts {:spec opt-spec :required (:require node)})))
 
           (visible-spec? inherited)
           (conj (str "Inherited options:\n" (format-opts {:spec inherited})))
