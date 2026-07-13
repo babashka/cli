@@ -576,6 +576,50 @@ variadic `:args->opts` parses options before, among, or after its positional
 arguments. Without `:args->opts`, `dispatch` stops at the first positional argument
 (to route commands), so trailing options would not be parsed.
 
+### :positional
+
+The `:positional` marker tells Babashka CLI to explicitly treat an option as an argument so it can never be passed as an option.
+
+``` clojure
+(def cli-opts {:args->opts [:file] :spec {:file {:positional true}}})
+
+(cli/parse-args ["a.txt"] cli-opts)
+;;=> {:opts {:file "a.txt"}}
+```
+
+In case of an error, the output suggests it to be used as an argument:
+
+``` clojure
+(cli/parse-args [] {:args->opts [:file] :spec {:file {:positional true :require true}}})
+;; Required argument: <file>
+
+(cli/parse-args ["x"] {:args->opts [:n] :spec {:n {:positional true :coerce :long}}})
+;; Invalid value for argument <n>: cannot transform input "x" to long
+```
+
+Passing it as an option throws an error about not being able to use it as a command line option:
+
+``` clojure
+(cli/parse-args ["--file" "a.txt"] {:args->opts [:file] :spec {:file {:positional true}}})
+;; Not an option: --file (positional argument <file>)
+```
+
+In [help](#help), positional arguments are listed in an `Arguments:` section,
+labeled by `:ref` (or key name) and described by `:desc`. A key without
+`:require` is optional and shown in brackets. A `:ref` without brackets of its
+own is wrapped in `<>`.
+
+### :restrict-args
+
+Set `:restrict-args` to error on positional arguments that `:args->opts` does
+not consume. A variadic `:args->opts` consumes the remaining arguments, so none
+are left to reject:
+
+``` clojure
+(cli/parse-args ["a" "b"] {:args->opts [:x] :restrict-args true})
+;; Unexpected argument: b
+```
+
 ## Commands
 
 Babashka CLI handles commands with [dispatch](/API.md#dispatch).
@@ -1003,6 +1047,32 @@ The `:help true` option works for a command-less CLI too.
                 args
                 {:prog "some-prog" :help true})
   ```
+
+A CLI with [positional arguments](#positional) shows them in an `Arguments:`
+section, before `Options:`:
+
+``` clojure
+(cli/dispatch
+  {:fn run
+   :args->opts [:src :dest]
+   :spec {:src {:positional true :require true :desc "Source"}
+          :dest {:positional true :desc "Destination"}
+          :verbose {:coerce :boolean :desc "Verbose"}}}
+  ["--help"]
+  {:prog "myctl" :help true})
+```
+Outputs:
+```
+Usage: myctl [options] <src> [<dest>]
+
+Arguments:
+  <src>   Source
+  <dest>  Destination
+
+Options:
+      --verbose  Verbose
+  -h, --help     Show this help
+```
 
 `--help`/`-h` are success paths: they print help and return naturally (no exit call), so
 your `-main` ends and the process exits with a status of 0, like a normal command. Errors go
