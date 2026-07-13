@@ -326,6 +326,16 @@
     (cli/parse-args ["foo" "--baz" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}})))
   (is (= {:foo [1 2]} (cli/parse-opts ["1" "2"] {:args->opts [:foo :foo] :coerce {:foo [:int]}}))))
 
+(deftest variadic-args->opts-test
+  (testing "a non-collecting variadic :args->opts terminates, last value wins"
+    (is (= {:y "c"} (cli/parse-opts ["a" "b" "c"] {:args->opts (repeat :y)})))
+    (is (= {:x "a" :y "c"} (cli/parse-opts ["a" "b" "c"] {:args->opts (concat [:x] (repeat :y))}))))
+  (testing "a collecting variadic :args->opts gathers the tail"
+    (is (= {:y ["a" "b" "c"]}
+           (cli/parse-opts ["a" "b" "c"] {:args->opts (repeat :y) :spec {:y {:coerce []}}})))
+    (is (= {:first "a" :rest ["b" "c"]}
+           (cli/parse-opts ["a" "b" "c"] {:args->opts (cons :first (repeat :rest)) :spec {:rest {:coerce []}}})))))
+
 (defn- err-data [f]
   (try (f) nil
        (catch #?(:cljd Object :clj Exception :cljs :default) e
@@ -740,6 +750,32 @@
                   rest
                   (take-while #(str/starts-with? % "  "))
                   (mapv #(str/trim %)))))))))
+
+;; keyword command names are a bb/JVM convenience, like symbol names above
+#?(:squint nil :cljd nil :default
+   (deftest dispatch-keyword-cmd-test
+     (testing "keyword :cmd keys are stringified and dispatch like string keys"
+       (let [tree {:cmd {:lock {:fn identity} :unlock {:fn identity}}}]
+         (is (= ["lock" "unlock"] (keys (:cmd (cli/table->tree tree)))))
+         (is (submap? {:dispatch ["lock"] :opts {:force true}}
+                      (cli/dispatch tree ["lock" "--force"])))
+         (is (str/includes? (cli/format-command-help {:table tree :prog "t"}) "lock"))))
+     (testing "a namespaced keyword :cmd key keeps its namespace"
+       (let [tree {:cmd {:git/push {:fn identity}}}]
+         (is (= ["git/push"] (keys (:cmd (cli/table->tree tree)))))
+         (is (submap? {:dispatch ["git/push"]} (cli/dispatch tree ["git/push"])))))
+     (testing "keyword :cmds in a table are stringified too"
+       (is (submap? {:dispatch ["add"]}
+                    (cli/dispatch [{:cmds [:add] :fn identity} {:cmds [] :fn identity}]
+                                  ["add"]))))
+     (testing "a keyword :cmd-order matches the stringified keys"
+       (let [tree {:cmd-order [:b :a] :cmd {:a {:fn identity} :b {:fn identity}}}]
+         (is (= ["b" "a"]
+                (->> (str/split-lines (cli/format-command-help {:table tree :prog "t"}))
+                     (drop-while #(not= "Commands:" %))
+                     rest
+                     (take-while #(str/starts-with? % "  "))
+                     (mapv #(str/trim %)))))))))
 
 (deftest dispatch-exec-fn-test
   (testing ":exec-fn is called with just the parsed opts; :fn with the whole map"

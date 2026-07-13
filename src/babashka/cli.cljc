@@ -655,10 +655,11 @@
                     #?@(:squint [raw-arg (if opt-injected? (.-opt raw-arg) raw-arg)])]
                 (if opt-injected?
                   ;; continue loop: this opt and its value was injected by args->opts
-                  ;; opt-val-collector does not apply for injected opts, so is `nil`
+                  ;; opt-val-collector does not apply for injected opts, so is `nil`.
+                  ;; valued-opt resets to nil: a freshly injected opt has no value yet
                   (recur (maybe-close-open-opt acc open-opt valued-opt nil)
                          :found-injected-opt
-                         raw-arg valued-opt
+                         raw-arg nil
                          mode (next args) a->o
                          (track-ivs implicit-values open-opt valued-opt)
                          (track-kpo opt-parse-order raw-arg))
@@ -1262,22 +1263,26 @@
 
 (defn- cmd-name
   "Command names are strings. A symbol key (nicer in bb, where the task is
-  already a symbol) is stringified; other names are left as is."
+  already a symbol) or keyword key is stringified, namespace preserved
+  (`foo/bar`/`:foo/bar` -> `\"foo/bar\"`); other names are left as is."
   [c]
-  (if (symbol? c) (str c) c))
+  (cond (symbol? c) (str c)
+        (keyword? c) (kw->str c)
+        :else c))
 
 (defn- stringify-cmds
-  "Stringify symbol command names in `:cmd` keys and `:cmd-order` / `::cmd-order`
-  entries. Returns `node` unchanged (identical) when there is nothing to do.
-  Symbol command names are a bb/JVM convenience, so skip this for squint (its
-  `symbol?` is true for strings) and cljd (which lacks a runtime `symbol?`);
-  both use string keys."
+  "Stringify symbol and keyword command names in `:cmd` keys and `:cmd-order` /
+  `::cmd-order` entries. Returns `node` unchanged (identical) when there is
+  nothing to do. Symbol and keyword command names are a bb/JVM convenience, so
+  skip this for squint (its `symbol?` is true for strings) and cljd (which lacks
+  a runtime `symbol?`); both use string keys."
   [node]
   (if #?(:squint false
          :cljd false
-         :default (or (some symbol? (keys (:cmd node)))
-                      (some symbol? (::cmd-order node))
-                      (some symbol? (:cmd-order node))))
+         :default (let [sym-or-kw? #(or (symbol? %) (keyword? %))]
+                    (or (some sym-or-kw? (keys (:cmd node)))
+                        (some sym-or-kw? (::cmd-order node))
+                        (some sym-or-kw? (:cmd-order node)))))
     (cond-> node
       (:cmd node) (update :cmd #(into {} (map (fn [[k v]] [(cmd-name k) v])) %))
       (::cmd-order node) (update ::cmd-order #(mapv cmd-name %))
