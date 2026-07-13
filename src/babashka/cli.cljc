@@ -655,10 +655,11 @@
                     #?@(:squint [raw-arg (if opt-injected? (.-opt raw-arg) raw-arg)])]
                 (if opt-injected?
                   ;; continue loop: this opt and its value was injected by args->opts
-                  ;; opt-val-collector does not apply for injected opts, so is `nil`
+                  ;; opt-val-collector does not apply for injected opts, so is `nil`.
+                  ;; valued-opt resets to nil: a freshly injected opt has no value yet
                   (recur (maybe-close-open-opt acc open-opt valued-opt nil)
                          :found-injected-opt
-                         raw-arg valued-opt
+                         raw-arg nil
                          mode (next args) a->o
                          (track-ivs implicit-values open-opt valued-opt)
                          (track-kpo opt-parse-order raw-arg))

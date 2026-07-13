@@ -326,6 +326,16 @@
     (cli/parse-args ["foo" "--baz" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}})))
   (is (= {:foo [1 2]} (cli/parse-opts ["1" "2"] {:args->opts [:foo :foo] :coerce {:foo [:int]}}))))
 
+(deftest variadic-args->opts-test
+  (testing "a non-collecting variadic :args->opts terminates, last value wins"
+    (is (= {:y "c"} (cli/parse-opts ["a" "b" "c"] {:args->opts (repeat :y)})))
+    (is (= {:x "a" :y "c"} (cli/parse-opts ["a" "b" "c"] {:args->opts (concat [:x] (repeat :y))}))))
+  (testing "a collecting variadic :args->opts gathers the tail"
+    (is (= {:y ["a" "b" "c"]}
+           (cli/parse-opts ["a" "b" "c"] {:args->opts (repeat :y) :spec {:y {:coerce []}}})))
+    (is (= {:first "a" :rest ["b" "c"]}
+           (cli/parse-opts ["a" "b" "c"] {:args->opts (cons :first (repeat :rest)) :spec {:rest {:coerce []}}})))))
+
 (defn- err-data [f]
   (try (f) nil
        (catch #?(:cljd Object :clj Exception :cljs :default) e
