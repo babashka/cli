@@ -962,9 +962,10 @@ The table format represents this structure flatly:
 
 The tree format, as you would guess, uses nesting.
 The root accepts a `:spec` for top-level options.
-The first level of commands is specified under `:cmd`
-in a map of strings to command options, which are the same as in the table
-above, minus the `:cmds` entry. You can nest arbitrarily deep.
+The first level of commands is specified under `:cmd` as a map of strings to
+command options, or a vector of `[name command]` pairs. The command options are
+the same as in the table above, minus the `:cmds` entry. You can nest
+arbitrarily deep.
 
 ``` clojure
 (def tree
@@ -981,24 +982,27 @@ above, minus the `:cmds` entry. You can nest arbitrarily deep.
 The table or tree format can be used interchangeably in `dispatch`,
 `format-command-help` and the like.
 
+Command names may also be symbols or keywords. Symbols come in handy in
+`bb.edn` tasks, where the task name is already a symbol.
+
 You'll want consistent ordering for help output.
-The tree format uses a map; the nature of Clojure maps is that they become unordered hash-maps after 8 entries.
-You probably don't want to rely on this implementation detail and can explicitly control order with `:cmd-order`.
-Commands not mentioned in `:cmd-order` are left out of printed output, but are still callable on the
-command line.
+A map `:cmd` does not guarantee key order. Clojure maps become unordered
+hash-maps after 8 entries. Specify `:cmd` as a vector of `[name command]` pairs
+to preserve the order you wrote:
+
+``` clojure
+{:cmd [["copy" {...}]
+       ["cache" {...}]]}
+```
+
+To make the display order differ from the declaration order, or to hide
+commands, use `:cmd-order`. Commands not mentioned in `:cmd-order` are left out
+of printed output, but are still callable on the command line.
 
 ``` clojure
 {:cmd-order ["copy" "cache"]
  :cmd {"copy" {...}
        "cache" {...}}}
-```
-
-Alternatively, specify `:cmd` as a vector of `[name command]` pairs. The order is
-preserved, so no separate `:cmd-order` is needed:
-
-``` clojure
-{:cmd [["copy" {...}]
-       ["cache" {...}]]}
 ```
 
 ### Help
