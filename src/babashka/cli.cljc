@@ -574,17 +574,19 @@
   -> `coerce-opts` -> `validate-opts`.
 
   Supported options (subset of `parse-opts`): `:alias`/`:aliases`, `:coerce`,
-  `:collect`, `:no-keyword-opts`, `:repeated-opts`, `:args->opts`, `:spec`."
-  [args {:keys [coerce collect no-keyword-opts repeated-opts] :as opts}]
+  `:collect`, `:no-keyword-opts`, `:repeated-opts`, `:args->opts`, `:spec`.
+  A `:spec`'s `:coerce`/`:collect`/`:alias` entries steer parsing (e.g. boolean
+  disambiguation) like they do in `parse-opts` - values still come back raw."
+  [args opts]
   ;; terminology: given cli args ["--foo" "x" "bar"]
   ;;  --foo becomes an "opt"
   ;;  x becomes an option "value"
   ;;  bar remains an "arg"
   ;; parsed "arg"s can only be leading or trailing.
-  (let [parse-opts opts ;; disambiguate from cli opts (without making fn sig odd-looking)
+  (let [parse-opts (resolve-opts opts) ;; disambiguate from cli opts (without making fn sig odd-looking)
+        {:keys [coerce collect no-keyword-opts repeated-opts]} parse-opts
         aliases (or (:alias parse-opts) (:aliases parse-opts))
-        spec (:spec parse-opts)
-        spec-map (or (::spec-map parse-opts) (->spec-map spec))
+        spec-map (::spec-map parse-opts)
         alias-keys (set (concat (keys aliases) (keep :alias (vals spec-map))))
         known-keys (set (concat (keys spec-map) (vals aliases) (keys coerce)))
         expects-bool-val? (fn [opt-key] (#{:boolean :bool} (coerce-coerce-fn (get coerce opt-key))))

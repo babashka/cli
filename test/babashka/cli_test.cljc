@@ -1739,7 +1739,13 @@
       (is (= {:foo "--foo" :bar "--bar" :baz "--no-baz"} (:babashka.cli/opt->flag (meta r))))))
   (testing "parse-opts* skips :restrict / :require / :validate"
     (is (= {:bar "1"} (cli/parse-opts* ["--bar" "1"]
-                                       {:restrict #{:foo} :require [:foo]})))))
+                                       {:restrict #{:foo} :require [:foo]}))))
+  (testing "spec :coerce steers parsing like in parse-opts, values still raw"
+    (let [r (cli/parse-opts* ["--foo" "bar"] {:spec {:foo {:coerce :boolean}}})]
+      (is (= {:foo true} r))
+      (is (= ["bar"] (-> r meta :org.babashka/cli :args))))
+    (is (= {:paths ["a" "b"]} (cli/parse-opts* ["--paths" "a" "b"] {:spec {:paths {:coerce []}}})))
+    (is (= {:n "5"} (cli/parse-opts* ["--n" "5"] {:spec {:n {:coerce :long}}})))))
 
 (deftest apply-defaults-test
   (testing "spec :default fills missing keys"
