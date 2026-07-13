@@ -55,4 +55,5 @@
                         (shell "git push --tags"))}
 
   publish {:doc "Publish to clojars"
-           :task (clojure "-T:build deploy")}}}
+           :task (do (clojure "-T:build deploy")
+                     (shell "npm publish"))}}}
