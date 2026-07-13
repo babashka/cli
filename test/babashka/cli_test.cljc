@@ -382,7 +382,7 @@
                 {:prog "mycli"
                  :table [{:cmds [] :fn identity
                           :args->opts [:file]
-                          :spec {:file {:positional true :ref "<file>" :desc "File to process"}
+                          :spec {:file {:positional true :require true :ref "<file>" :desc "File to process"}
                                  :verbose {:coerce :boolean :desc "Print more"}}}]})]
       (is (str/includes? help "Usage: mycli [options] <file>"))
       (is (str/includes? help "Arguments:"))
@@ -390,12 +390,25 @@
       (is (str/includes? help "--verbose"))
       ;; the positional is not rendered as an option
       (is (not (str/includes? help "--file")))))
-  (testing "variadic positional label in usage"
+  (testing "usage brackets an optional positional and wraps a bare :ref"
+    (let [usage (fn [spec a->o]
+                  (first (str/split-lines
+                          (cli/format-command-help
+                           {:prog "p" :table [{:cmds [] :fn identity :args->opts a->o :spec spec}]}))))]
+      (is (= "Usage: p <src> [<dest>]"
+             (usage {:src {:positional true :require true} :dest {:positional true}} [:src :dest])))
+      (is (= "Usage: p <file>"
+             (usage {:f {:positional true :require true :ref "file"}} [:f])))
+      (is (= "Usage: p <f>..."
+             (usage {:f {:positional true :require true}} (cons :f (repeat :f)))))
+      (is (= "Usage: p [<f>...]"
+             (usage {:f {:positional true}} (cons :f (repeat :f)))))))
+  (testing "variadic required positional label in usage"
     (let [help (cli/format-command-help
                 {:prog "mycli"
                  :table [{:cmds [] :fn identity
                           :args->opts (cons :file (repeat :file))
-                          :spec {:file {:positional true :desc "Files"}}}]})]
+                          :spec {:file {:positional true :require true :desc "Files"}}}]})]
       (is (str/includes? help "Usage: mycli <file>..."))
       (is (str/includes? help "Arguments:")))))
 

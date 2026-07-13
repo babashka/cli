@@ -320,12 +320,34 @@
         (map? spec) spec
         :else (into {} spec)))
 
+(defn- decorate-label
+  "Decorate a positional argument label `raw` (its `:ref` or key name). Wraps in
+  `<...>` unless `raw` already starts with `<` or `[`. Appends `...` when
+  `variadic?`. Wraps in `[...]` (optional) unless `required?` or already
+  bracketed. Examples: `file`/`<file>` -> `<file>`, optional -> `[<file>]`,
+  variadic -> `<file>...`, optional variadic -> `[<file>...]`."
+  [raw {:keys [required? variadic?]}]
+  (let [angled (if (or (str/starts-with? raw "<") (str/starts-with? raw "["))
+                 raw
+                 (str "<" raw ">"))
+        with-dots (if variadic? (str angled "...") angled)]
+    (if (or required? (str/starts-with? with-dots "["))
+      with-dots
+      (str "[" with-dots "]"))))
+
 (defn- arg-label
-  "User-facing label for a positional argument `k` in error messages and help:
-  its `:ref` verbatim if set (the `<...>` bracket convention is the caller's),
-  else `<name>`. Matches the usage-line labels from `args->opts-labels`."
+  "Bare positional label for `k` (error messages and the `Arguments:` list): its
+  `:ref` or `<name>`, `<...>`-wrapped, never optional-bracketed."
   [spec-map k]
-  (or (:ref (get spec-map k)) (str "<" (kw->str k) ">")))
+  (decorate-label (or (:ref (get spec-map k)) (kw->str k)) {:required? true}))
+
+(defn- spec-required-keys
+  "Effective required keys of `spec-map`: the top-level `:require` coll plus any
+  key with per-key `:require true`."
+  [spec-map node-require]
+  (into (set node-require)
+        (keep (fn [[k v]] (when (:require v) k)))
+        spec-map))
 
 (defn coerce-opts
   "Coerces values in the map `m` using the provided configuration.
@@ -1073,20 +1095,26 @@
       (when (seq ls) (str/join "\n" ls)))))
 
 (defn- args->opts-labels
-  "Render a command's `:args->opts` as usage labels: each key as its `:ref` (from
-  `spec-map`) or `<key>`, and a key repeated at the tail (the
-  `(cons :foo (repeat :bar))` variadic form) as `<key>...`. Returns a vector of
-  label strings, or nil when there are none. Bounded so an unrealizable infinite
-  seq can't hang."
-  ([args->opts] (args->opts-labels args->opts nil))
-  ([args->opts spec-map]
+  "Render a command's `:args->opts` as usage labels: each key `<...>`-wrapped
+  from its `:ref` (in `spec-map`) or name, bracketed `[...]` when the key is not
+  in `req-keys` (optional), and suffixed `...` when repeated at the tail (the
+  `(cons :foo (repeat :bar))` variadic form). Returns a vector of label strings,
+  or nil when there are none. Bounded so an unrealizable infinite seq can't hang."
+  ([args->opts] (args->opts-labels args->opts nil nil))
+  ([args->opts spec-map req-keys]
    (when (seq args->opts)
-     (loop [s (seq args->opts), acc [], prev nil, n 0]
-       (let [k (first s)]
-         (cond
-           (or (nil? s) (>= n 64)) acc
-           (= k prev) (conj (pop acc) (str (arg-label spec-map prev) "..."))
-           :else (recur (next s) (conj acc (arg-label spec-map k)) k (inc n))))))))
+     (let [label (fn [k variadic?]
+                   (if (:positional (get spec-map k))
+                     (decorate-label (or (:ref (get spec-map k)) (kw->str k))
+                                     {:required? (contains? req-keys k) :variadic? variadic?})
+                     ;; legacy `:args->opts` key (not `:positional`): bare `<name>`
+                     (str "<" (name k) ">" (when variadic? "..."))))]
+       (loop [s (seq args->opts), acc [], prev nil, n 0]
+         (let [k (first s)]
+           (cond
+             (or (nil? s) (>= n 64)) acc
+             (= k prev) (conj (pop acc) (label prev true))
+             :else (recur (next s) (conj acc (label k false)) k (inc n)))))))))
 
 (defn- positional-help-rows
   "Rows `[label desc]` for the `Arguments:` help section: the `:positional` keys
@@ -1126,8 +1154,10 @@
              ;; any. We don't show a generic `[<args>]` placeholder otherwise
              ;; (matches argparse/clap/click/picocli/cli-tools).
              (or (:fn node)
-                 (:exec-fn node)) (when-let [labels (args->opts-labels (:args->opts node) (->spec-map (:spec node)))]
-                                    (str " " (str/join " " labels)))
+                 (:exec-fn node)) (let [spec-map (->spec-map (:spec node))
+                                        req-keys (spec-required-keys spec-map (:require node))]
+                                    (when-let [labels (args->opts-labels (:args->opts node) spec-map req-keys)]
+                                      (str " " (str/join " " labels))))
              :else             "")))
 
 (defn- help-commands-table [node]
