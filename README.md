@@ -982,10 +982,8 @@ arbitrarily deep.
 The table or tree format can be used interchangeably in `dispatch`,
 `format-command-help` and the like.
 
-Command names may also be symbols or keywords, stringified during
-normalization. A namespaced keyword keeps its namespace: `:git/push` matches
-`git/push` on the command line. Symbols come in handy in `bb.edn` tasks, where
-the task name is already a symbol.
+Command names may also be symbols or keywords. Symbols come in handy in
+`bb.edn` tasks, where the task name is already a symbol.
 
 You'll want consistent ordering for help output.
 A map `:cmd` does not guarantee key order. Clojure maps become unordered
