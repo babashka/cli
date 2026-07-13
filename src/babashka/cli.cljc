@@ -11,9 +11,6 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-;; squint can't tell an injected keyword from a string arg, so wrap injected opts
-#?(:squint (deftype Injected [opt]))
-
 (defn merge-opts
   "Merges babashka CLI options."
   [m & ms]
@@ -238,26 +235,6 @@
                                (str/starts-with? % "-"))) args)]
      {:cmds cmds
       :args args})))
-
-(defn- args->opts
-  ([args args->opt-keys] (args->opts args args->opt-keys #{}))
-  ([args args->opt-keys ignored-args]
-   (let [[new-args args->opts]
-         (if args->opt-keys
-           (if (and (seq args)
-                    (not (contains? ignored-args (first args))))
-             (let [arg-count (count args)
-                   cnt (min arg-count
-                            (bounded-count arg-count args->opt-keys))]
-               [(concat (interleave #?(:squint (map ->Injected args->opt-keys)
-                                       :default args->opt-keys)
-                                    args)
-                        (drop cnt args))
-                (drop cnt args->opt-keys)])
-             [args args->opt-keys])
-           [args args->opt-keys])]
-     {:args new-args
-      :args->opts args->opts})))
 
 (defn- analyze-arg [arg mode open-opt boolean-opt? valued-opt known-keys alias-keys]
   (let [fst-char (first-char arg)
@@ -624,54 +601,53 @@
         ;; metadata (e.g., parsed option :foo might have been typed as :foo, --foo or -f),
         ;; so error messages can echo what the user actually typed
         stamp (fn [m k lit] (if lit (vary-meta m assoc-in [::opt->flag k] lit) m))
-        ;; inject leading positional args (in CLIs these are typically commands)
-        ;; as options as per :args->opts
+        ignored-args (::dispatch-tree-ignored-args parse-opts)
+        a->o (or (:args->opts parse-opts)
+                 ;; :cmd-opts is the old name for :args->opts, left in for backward compat
+                 (:cmds-opts parse-opts))
+        ;; bind leading positional args (in CLIs these are typically commands)
+        ;; to :args->opts keys, pairwise. An ignored first arg (a subcommand
+        ;; name) leaves the whole leading group alone for dispatch to route.
         {leading-pos-args :cmds args :args} (parse-cmds args)
-        {new-leading-pos-args :args a->o :args->opts}
-        (if-let [a->o (or (:args->opts parse-opts)
-                          ;; :cmd-opts is the old name for :args->opts, left in for backward compat
-                          (:cmds-opts parse-opts))]
-          (args->opts leading-pos-args a->o (::dispatch-tree-ignored-args parse-opts))
-          {:args->opts nil :args args})
-        [leading-pos-args args] (if (not= new-leading-pos-args args)
-                                  [nil (concat new-leading-pos-args args)]
+        bind-leading? (and (seq a->o) (seq leading-pos-args)
+                           (not (contains? ignored-args (first leading-pos-args))))
+        [acc0 kpo0 leftover-leading a->o last-bound]
+        (if bind-leading?
+          (loop [acc {} kpo [] toks (seq leading-pos-args) ks a->o bound nil]
+            (if (and toks (seq ks))
+              (let [k (first ks)]
+                (recur (add-val-to-opt acc k (collect-fn collect coerce k) (first toks))
+                       (track-kpo kpo k) (next toks) (rest ks) k))
+              [acc kpo toks ks bound]))
+          [{} [] nil a->o nil])
+        ;; leftover leading args (keys exhausted) re-enter the loop and stop
+        ;; option parsing at the trailing-args rule, like any unbound arg
+        [leading-pos-args args] (if bind-leading?
+                                  [nil (concat leftover-leading args)]
                                   [leading-pos-args args])
         [parsed last-open-opt last-valued-opt implicit-values key-parse-order]
         (if (and (::dispatch-tree parse-opts) (seq leading-pos-args))
           [(vary-meta {} assoc-in [:org.babashka/cli :args] (into (vec leading-pos-args) args)) nil nil #{} []]
-          (loop [acc {}
+          (loop [acc acc0
                  #_{:clj-kondo/ignore [:unused-binding]}
                  recur-action nil                     ;; for debugging only
-                 open-opt nil                         ;; the cli option keyword we are working on
-                 valued-opt nil                       ;; the cli option keyword that has been given value(s) (but not necessarily all values)
+                 open-opt last-bound                  ;; the cli option keyword we are working on
+                 valued-opt last-bound                ;; the cli option keyword that has been given value(s) (but not necessarily all values)
                  mode (when no-keyword-opts :hyphens) ;; :hyphens --foo/-f else :keywords :foo
                  args (seq args)                      ;; remaining cli args
-                 a->o a->o                            ;; requested args->opts
+                 a->o a->o                            ;; remaining args->opts keys
                  implicit-values {}
-                 opt-parse-order []]
+                 opt-parse-order kpo0]
             #_(println (format "loop %-31s o: %-10s v: %-10s a: %s" recur-action open-opt valued-opt args))
             (if-not args
               ;; exit loop: no command line args left
               [acc open-opt valued-opt implicit-values opt-parse-order]
               (let [raw-arg (first args)
-                    opt-injected? #?(:squint (instance? Injected raw-arg)
-                                     :default (keyword? raw-arg))
-                    #?@(:squint [raw-arg (if opt-injected? (.-opt raw-arg) raw-arg)])]
-                (if opt-injected?
-                  ;; continue loop: this opt and its value was injected by args->opts
-                  ;; opt-val-collector does not apply for injected opts, so is `nil`.
-                  ;; valued-opt resets to nil: a freshly injected opt has no value yet
-                  (recur (maybe-close-open-opt acc open-opt valued-opt nil)
-                         :found-injected-opt
-                         raw-arg nil
-                         mode (next args) a->o
-                         (track-ivs implicit-values open-opt valued-opt)
-                         (track-kpo opt-parse-order raw-arg))
-                  (let [arg (str raw-arg)
-                        opt-val-collector (collect-fn collect coerce open-opt)
-                        boolean-opt? (expects-bool-val? open-opt)
-                        {:keys [hyphen-opt composite-opt kwd-opt mode fst-colon]}
-                        (analyze-arg arg mode open-opt boolean-opt? valued-opt known-keys alias-keys)]
+                    arg (str raw-arg)
+                    opt-val-collector (collect-fn collect coerce open-opt)
+                    boolean-opt? (expects-bool-val? open-opt)
+                    {:keys [hyphen-opt composite-opt kwd-opt mode fst-colon]}
+                    (analyze-arg arg mode open-opt boolean-opt? valued-opt known-keys alias-keys)]
                     (if (or hyphen-opt kwd-opt)
                       ;; arg is -f/-foo or :foo
                       (let [long-opt? (str/starts-with? arg "--")
@@ -749,19 +725,18 @@
                                                             repeated-opts           ;; must specify --foo a --foo and not --foo a b
                                                             (contains? (::dispatch-tree-ignored-args parse-opts) (first args)))))]
                         (if done-parsing-options?
-                          (let [{new-trailing-pos-args :args a->o :args->opts}
-                                (if (and args a->o)
-                                  (args->opts args a->o (::dispatch-tree-ignored-args parse-opts))
-                                  {:args args})
-                                new-args? (not= args new-trailing-pos-args)]
-                            (if new-args?
-                              ;; continue loop: with trailing args -> options
-                              (recur acc
-                                     :injected-trailing-args-to-opts
-                                     open-opt valued-opt
-                                     mode new-trailing-pos-args a->o
-                                     implicit-values opt-parse-order)
-                              ;; exit loop: args -> options resulted in no new args
+                          (let [k (when-not (contains? ignored-args arg)
+                                    (first a->o))]
+                            (if k
+                              ;; continue loop: bind this arg to the next :args->opts key
+                              (recur (add-val-to-opt (maybe-close-open-opt acc open-opt valued-opt opt-val-collector)
+                                                     k (collect-fn collect coerce k) arg)
+                                     :bound-positional
+                                     k k
+                                     mode (next args) (rest a->o)
+                                     (track-ivs implicit-values open-opt valued-opt)
+                                     (track-kpo opt-parse-order k))
+                              ;; exit loop: no keys left (or a subcommand name): the rest are args
                               [(vary-meta acc assoc-in [:org.babashka/cli :args] (vec args)) open-opt valued-opt implicit-values opt-parse-order]))
                           (let [opt (when-not (and (= :keywords mode) fst-colon) open-opt)]
                             ;; continue loop: add/update opt with value (arg), and setup to parse next arg
@@ -772,7 +747,7 @@
                                    opt opt ;; keep opt open
                                    mode (next args) a->o
                                    (cond-> implicit-values (boolean? raw-arg) (assoc open-opt raw-arg))
-                                   opt-parse-order)))))))))))
+                                   opt-parse-order)))))))))
         ;; Finalize: process last opt, prepend leading positional args to args metadata
         implicit-values (track-ivs implicit-values last-open-opt last-valued-opt)
         opt-val-collector (collect-fn collect coerce last-open-opt)
