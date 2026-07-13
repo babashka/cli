@@ -751,6 +751,32 @@
                   (take-while #(str/starts-with? % "  "))
                   (mapv #(str/trim %)))))))))
 
+;; keyword command names are a bb/JVM convenience, like symbol names above
+#?(:squint nil :cljd nil :default
+   (deftest dispatch-keyword-cmd-test
+     (testing "keyword :cmd keys are stringified and dispatch like string keys"
+       (let [tree {:cmd {:lock {:fn identity} :unlock {:fn identity}}}]
+         (is (= ["lock" "unlock"] (keys (:cmd (cli/table->tree tree)))))
+         (is (submap? {:dispatch ["lock"] :opts {:force true}}
+                      (cli/dispatch tree ["lock" "--force"])))
+         (is (str/includes? (cli/format-command-help {:table tree :prog "t"}) "lock"))))
+     (testing "a namespaced keyword :cmd key keeps its namespace"
+       (let [tree {:cmd {:git/push {:fn identity}}}]
+         (is (= ["git/push"] (keys (:cmd (cli/table->tree tree)))))
+         (is (submap? {:dispatch ["git/push"]} (cli/dispatch tree ["git/push"])))))
+     (testing "keyword :cmds in a table are stringified too"
+       (is (submap? {:dispatch ["add"]}
+                    (cli/dispatch [{:cmds [:add] :fn identity} {:cmds [] :fn identity}]
+                                  ["add"]))))
+     (testing "a keyword :cmd-order matches the stringified keys"
+       (let [tree {:cmd-order [:b :a] :cmd {:a {:fn identity} :b {:fn identity}}}]
+         (is (= ["b" "a"]
+                (->> (str/split-lines (cli/format-command-help {:table tree :prog "t"}))
+                     (drop-while #(not= "Commands:" %))
+                     rest
+                     (take-while #(str/starts-with? % "  "))
+                     (mapv #(str/trim %)))))))))
+
 (deftest dispatch-exec-fn-test
   (testing ":exec-fn is called with just the parsed opts; :fn with the whole map"
     (is (= {:foo 1 :bar true}
