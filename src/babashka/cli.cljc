@@ -296,11 +296,21 @@
     (fn [data]
       (f (merge {:spec spec :type :org.babashka/cli} data)))))
 
-(defn- resolve-opts [opts]
+(defn- ->spec-map [spec]
+  (cond (nil? spec) {}
+        (map? spec) spec
+        :else (into {} spec)))
+
+(defn- resolve-opts
+  "Resolve `opts` once: merge the spec-derived opts (see [[spec->opts]]) and
+  stash the mapified spec as `::spec-map`. Idempotent via `::resolved`.
+  Consumers read `::spec-map` instead of re-deriving it."
+  [opts]
   (if (::resolved opts)
     opts
     (let [spec (:spec opts)]
       (assoc (if spec (merge-opts opts (spec->opts spec opts)) opts)
+             ::spec-map (->spec-map spec)
              ::resolved true))))
 
 (defn- kw->str [kw]
@@ -314,11 +324,6 @@
   `kw->str` so a namespaced key like `:foo/bar` renders as `--foo/bar`."
   [opt->flag opt]
   (or (get opt->flag opt) (str "--" (kw->str opt))))
-
-(defn- ->spec-map [spec]
-  (cond (nil? spec) {}
-        (map? spec) spec
-        :else (into {} spec)))
 
 (defn- decorate-label
   "Decorate a positional argument label `raw` (its `:ref` or key name). Wraps in
@@ -368,7 +373,7 @@
    (let [spec (:spec opts)
          opts (resolve-opts opts)
          coerce-map (:coerce opts)
-         spec-map (->spec-map spec)
+         spec-map (::spec-map opts)
          positional (:positional opts)
          m-meta (meta m)
          implicit-values (or (::implicit-values opts)
@@ -460,8 +465,7 @@
          coerce-map (:coerce opts)
          aliases (or (:alias opts)
                      (:aliases opts))
-         spec-map (if (map? spec)
-                    spec (when spec (into {} spec)))
+         spec-map (::spec-map opts)
          positional (:positional opts)
          known-keys (set (concat (keys spec-map)
                                  (vals aliases)
@@ -603,7 +607,7 @@
   (let [parse-opts opts ;; disambiguate from cli opts (without making fn sig odd-looking)
         aliases (or (:alias parse-opts) (:aliases parse-opts))
         spec (:spec parse-opts)
-        spec-map (if (map? spec) spec (when spec (into {} spec)))
+        spec-map (or (::spec-map parse-opts) (->spec-map spec))
         alias-keys (set (concat (keys aliases) (keep :alias (vals spec-map))))
         known-keys (set (concat (keys spec-map) (vals aliases) (keys coerce)))
         expects-bool-val? (fn [opt-key] (#{:boolean :bool} (coerce-coerce-fn (get coerce opt-key))))
@@ -816,13 +820,9 @@
    (let [opts (resolve-opts opts)
          ;; Step 1: Parse (raw strings, no coercion)
          parsed (parse-opts* args opts)
-         ;; Step 2: Coerce
-         coerced (coerce-opts parsed {:coerce (:coerce opts)
-                                      :spec (:spec opts)
-                                      :positional (:positional opts)
-                                      :error-fn (:error-fn opts)
-                                      ::auto-coerce true
-                                      ::resolved true})
+         ;; Step 2: Coerce. Pass the resolved opts through whole, so per-key
+         ;; config never needs re-threading per pipeline stage.
+         coerced (coerce-opts parsed (assoc opts ::auto-coerce true))
          ;; Step 3: Apply defaults
          coerced (apply-defaults coerced opts)
          ;; Step 4: Validate
