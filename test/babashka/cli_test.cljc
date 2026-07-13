@@ -402,7 +402,11 @@
       (is (= "Usage: p <f>..."
              (usage {:f {:positional true :require true}} (cons :f (repeat :f)))))
       (is (= "Usage: p [<f>...]"
-             (usage {:f {:positional true}} (cons :f (repeat :f)))))))
+             (usage {:f {:positional true}} (cons :f (repeat :f)))))
+      (testing "an :args->opts key honors :ref and is bracketed when not required, with or without :positional"
+        (is (= "Usage: p [options] [<source>]" (usage {:src {:ref "source"}} [:src])))
+        (is (= "Usage: p [options] [<a>] [<b>]" (usage {:a {} :b {}} [:a :b])))
+        (is (= "Usage: p [options] <a>" (usage {:a {:require true}} [:a]))))))
   (testing "variadic required positional label in usage"
     (let [help (cli/format-command-help
                 {:prog "mycli"
@@ -1001,11 +1005,11 @@
       (let [t [{:cmds ["copy"] :fn identity :doc "Copy" :args->opts [:src :dest]
                 :spec {:force {:desc "Force"}}}]]
         (is (str/starts-with? (cli/format-command-help {:table t :cmds ["copy"] :prog "p"})
-                              "Usage: p copy [options] <src> <dest>\n")))
+                              "Usage: p copy [options] [<src>] [<dest>]\n")))
       (testing "the (cons k (repeat k')) variadic form renders <k'>..."
         (let [t [{:cmds ["rm"] :fn identity :doc "Remove" :args->opts (cons :first (repeat :file))}]]
           (is (str/starts-with? (cli/format-command-help {:table t :cmds ["rm"] :prog "p"})
-                                "Usage: p rm <first> <file>...\n"))))
+                                "Usage: p rm [<first>] [<file>...]\n"))))
       (testing "no :args->opts shows no positional placeholder"
         (let [t [{:cmds ["ls"] :fn identity :doc "List" :spec {:all {:desc "All"}}}]]
           (is (str/starts-with? (cli/format-command-help {:table t :cmds ["ls"] :prog "p"})

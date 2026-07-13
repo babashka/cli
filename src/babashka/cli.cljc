@@ -1096,19 +1096,17 @@
 
 (defn- args->opts-labels
   "Render a command's `:args->opts` as usage labels: each key `<...>`-wrapped
-  from its `:ref` (in `spec-map`) or name, bracketed `[...]` when the key is not
-  in `req-keys` (optional), and suffixed `...` when repeated at the tail (the
+  from its `:ref` (in `spec-map`) or name, bracketed `[...]` when not in `req-keys`
+  (optional), and suffixed `...` when repeated at the tail (the
   `(cons :foo (repeat :bar))` variadic form). Returns a vector of label strings,
   or nil when there are none. Bounded so an unrealizable infinite seq can't hang."
   ([args->opts] (args->opts-labels args->opts nil nil))
   ([args->opts spec-map req-keys]
    (when (seq args->opts)
      (let [label (fn [k variadic?]
-                   (if (:positional (get spec-map k))
-                     (decorate-label (or (:ref (get spec-map k)) (kw->str k))
-                                     {:required? (contains? req-keys k) :variadic? variadic?})
-                     ;; legacy `:args->opts` key (not `:positional`): bare `<name>`
-                     (str "<" (name k) ">" (when variadic? "..."))))]
+                   (decorate-label (or (:ref (get spec-map k)) (kw->str k))
+                                   {:required? (if req-keys (contains? req-keys k) true)
+                                    :variadic? variadic?}))]
        (loop [s (seq args->opts), acc [], prev nil, n 0]
          (let [k (first s)]
            (cond
