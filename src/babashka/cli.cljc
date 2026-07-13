@@ -1296,7 +1296,15 @@
   (when (:cmds node)
     (throw (ex-info "A tree node contains :cmds (table entry syntax): nest children under :cmd, or pass a table (vector of entries)"
                     {:node node})))
-  (let [node (-> node enrich-from-var stringify-cmds)]
+  (let [;; a vector `:cmd` (pairs `[[name child] ...]`) preserves child order without
+        ;; relying on map iteration order; fold it into the lookup map + `::cmd-order`
+        node (if (vector? (:cmd node))
+               (let [cmd (:cmd node)]
+                 (-> node
+                     (assoc :cmd (into {} cmd))
+                     (update ::cmd-order (fnil into []) (map first cmd))))
+               node)
+        node (-> node enrich-from-var stringify-cmds)]
    (if-let [m (:cmd node)]
     (let [recorded (into [] (comp (distinct) (filter #(contains? m %))) (::cmd-order node))
           order (into recorded (remove (set recorded)) (keys m))
