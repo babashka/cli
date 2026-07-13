@@ -490,12 +490,13 @@
      (when (seq positional)
        (doseq [k positional]
          (when-let [flag (get opt->flag k)]
-           (error-fn {:cause :restrict
-                      :msg (str "Not an option: " flag " (positional argument " (arg-label spec-map k) ")")
-                      :option k
-                      :arg (arg-label spec-map k)
-                      :flag flag
-                      :opts m}))))
+           (let [arg (arg-label spec-map k)]
+             (error-fn {:cause :restrict
+                        :msg (str "Not an option: " flag " (positional argument " arg ")")
+                        :option k
+                        :arg arg
+                        :flag flag
+                        :opts m})))))
      ;; `:restrict-args` rejects positional args not consumed by `:args->opts`
      (when (:restrict-args opts)
        (doseq [a (-> (meta m) :org.babashka/cli :args)]
@@ -520,15 +521,15 @@
        (doseq [k require]
          (when-not (find m k)
            (let [flag (get opt->flag k)
-                 pos? (contains? positional k)]
+                 arg (when (contains? positional k) (arg-label spec-map k))]
              (error-fn (cond-> {:cause :require
-                                :msg (if pos?
-                                       (str "Required argument: " (arg-label spec-map k))
+                                :msg (if arg
+                                       (str "Required argument: " arg)
                                        (str "Required option: " (flag-for k)))
                                 :require require
                                 :option k
                                 :opts m}
-                         pos? (assoc :arg (arg-label spec-map k))
+                         arg (assoc :arg arg)
                          flag (assoc :flag flag)))))))
      (when validate
        (doseq [[k vf] validate]
@@ -540,7 +541,7 @@
                      vf)]
            (when-let [[_ v] (find m k)]
              (when-not (if (set? f) (contains? f v) (f v))
-               (let [pos? (contains? positional k)
+               (let [arg (when (contains? positional k) (arg-label spec-map k))
                      ex-msg-fn (or (:ex-msg vf)
                                    (fn [{:keys [flag value arg]}]
                                      (str "Invalid value for " (if arg (str "argument " arg) (str "option " flag)) ": " value
@@ -550,12 +551,12 @@
                      flag (get opt->flag k)]
                  (error-fn (cond-> {:cause :validate
                                     :msg (ex-msg-fn (cond-> {:option k :value v :flag (flag-for k)}
-                                                      pos? (assoc :arg (arg-label spec-map k))))
+                                                      arg (assoc :arg arg)))
                                     :validate validate
                                     :option k
                                     :value v
                                     :opts m}
-                             pos? (assoc :arg (arg-label spec-map k))
+                             arg (assoc :arg arg)
                              flag (assoc :flag flag)))))))))
      m)))
 
