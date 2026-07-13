@@ -334,7 +334,11 @@
     (is (= {:y ["a" "b" "c"]}
            (cli/parse-opts ["a" "b" "c"] {:args->opts (repeat :y) :spec {:y {:coerce []}}})))
     (is (= {:first "a" :rest ["b" "c"]}
-           (cli/parse-opts ["a" "b" "c"] {:args->opts (cons :first (repeat :rest)) :spec {:rest {:coerce []}}})))))
+           (cli/parse-opts ["a" "b" "c"] {:args->opts (cons :first (repeat :rest)) :spec {:rest {:coerce []}}}))))
+  (testing "an option token never occupies a positional slot"
+    (is (= {:x "a" :force true :y "b" :other "c"}
+           (cli/parse-opts ["a" "--force" "b" "--other" "c"]
+                           {:args->opts [:x :y :z] :coerce {:force :boolean}})))))
 
 (defn- err-data [f]
   (try (f) nil
