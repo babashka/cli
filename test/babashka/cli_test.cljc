@@ -877,6 +877,27 @@
       (is (= expected (listed-command-names
                        (:out (run-dispatch tree ["--help"] {:prog "p" :help true}))))))))
 
+(deftest cmd-tree-vector-test
+  (testing "a vector :cmd (pairs) preserves child order in help"
+    (let [tree {:cmd [["zebra" {:fn identity :doc "Z"}]
+                      ["apple" {:fn identity :doc "A"}]
+                      ["mango" {:fn identity :doc "M"}]]}]
+      (is (= ["zebra" "apple" "mango"]
+             (listed-command-names (cli/format-command-help {:table tree :prog "p"}))))))
+  (testing "a vector :cmd dispatches like a map"
+    (let [tree {:cmd [["apple" {:fn identity}] ["mango" {:fn identity}]]}]
+      (is (submap? {:dispatch ["mango"]} (cli/dispatch tree ["mango"])))))
+  (testing "symbol command names in a vector :cmd are stringified"
+    (let [tree {:cmd [['add {:fn identity :doc "Add"}]
+                      ['sub {:fn identity :doc "Sub"}]]}]
+      (is (= ["add" "sub"]
+             (listed-command-names (cli/format-command-help {:table tree :prog "p"}))))))
+  (testing "a nested vector :cmd preserves order"
+    (let [tree {:cmd [["a" {:cmd [["a2" {:fn identity :doc "A2"}]
+                                  ["a1" {:fn identity :doc "A1"}]]}]]}]
+      (is (= ["a2" "a1"]
+             (listed-command-names (cli/format-command-help {:table tree :cmds ["a"] :prog "p"})))))))
+
 (deftest no-keyword-opts-test (is (= {:query [:a :b :c]}
                                      (cli/parse-opts
                                       ["--query" ":a" ":b" ":c"]

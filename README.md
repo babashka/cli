@@ -993,6 +993,14 @@ command line.
        "cache" {...}}}
 ```
 
+Alternatively, specify `:cmd` as a vector of `[name command]` pairs. The order is
+preserved, so no separate `:cmd-order` is needed:
+
+``` clojure
+{:cmd [["copy" {...}]
+       ["cache" {...}]]}
+```
+
 ### Help
 
 > For a guided walkthrough of automatic help and shell completions, see this
