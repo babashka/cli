@@ -7,10 +7,13 @@ $env.config.completions.external.completer = {|spans|
     if ($spans | first | path basename) in ["myprogram"] {
         let res = (do { ^($spans | first) org.babashka.cli/completions complete --shell nushell -- ...($spans | skip 1) } | complete)
         let lines = (if $res.exit_code == 0 { $res.stdout | lines } else { [] })
-        if "org.babashka.cli/file-completion" in $lines {
+        let cands = ($lines | where {|l| $l != "org.babashka.cli/file-completion" })
+        if ($cands | is-empty) {
             null  # defer to nushell's own file completion
         } else {
-            $lines | each {|l|
+            # candidates win; nushell cannot mix a file default into an
+            # external completer's results, so the file marker is dropped here
+            $cands | each {|l|
                 let parts = ($l | split row -n 2 "\t")
                 if ($parts | length) == 2 {
                     {value: $parts.0, description: $parts.1}
