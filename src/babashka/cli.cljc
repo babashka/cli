@@ -302,6 +302,14 @@
   [opt->flag opt]
   (or (get opt->flag opt) (str "--" (kw->str opt))))
 
+(defn- sort-set-values
+  "Sort a set's values for display: numerically when all are numbers, else by
+  their string form. A set has no order of its own."
+  [s]
+  (if (every? number? s)
+    (sort s)
+    (sort-by str s)))
+
 (defn- decorate-label
   "Decorate a positional argument label `raw` (its `:ref` or key name). Wraps in
   `<...>` unless `raw` already starts with `<` or `[`. Appends `...` when
@@ -528,7 +536,7 @@
                                      (str "Invalid value for " (if arg (str "argument " arg) (str "option " flag)) ": " value
                                           (when (set? f)
                                             (str ". Expected one of: "
-                                                 (str/join ", " (sort (map #(if (keyword? %) (kw->str %) (str %)) f))))))))
+                                                 (str/join ", " (map #(if (keyword? %) (kw->str %) (str %)) (sort-set-values f))))))))
                      flag (get opt->flag k)]
                  (error-fn (cond-> {:cause :validate
                                     :msg (ex-msg-fn (cond-> {:option k :value v :flag (flag-for k)}
@@ -1390,13 +1398,15 @@
   "Value candidates for spec `entry` (key `k`): `:complete-fn` (called with
   `{:to-complete :opts :option}`), `:complete`, or a set-valued `:validate`.
   Normalized to `{:value :description}` maps and prefix-filtered against
-  `to-complete` (powershell does not filter shell-side)."
+  `to-complete` (powershell does not filter shell-side). A `:complete` coll
+  keeps its author-defined order; a set is unordered, so its candidates are
+  sorted (some shells display emission order as-is)."
   [entry k to-complete parsed]
   (let [candidates (cond
                      (:complete-fn entry) ((:complete-fn entry)
                                            {:to-complete to-complete :opts parsed :option k})
                      (:complete entry) (:complete entry)
-                     (set? (:validate entry)) (:validate entry))]
+                     (set? (:validate entry)) (sort-set-values (:validate entry)))]
     (->> candidates
          (map normalize-value-candidate)
          (filter #(str/starts-with? (:value %) to-complete)))))
@@ -1559,12 +1569,25 @@
        (let [{parsed :opts} (safe-parse (vec (butlast level)) opts)]
          (value-candidates spec opts previous raw-last parsed))
        :else
-       (let [{parsed :opts pos-args :args} (safe-parse level opts)]
-         (concat (when-not (gnu-option? raw-last)
-                   (command-candidates node raw-last))
-                 (option-candidates spec opts aliases known parsed raw-last)
-                 (when-not (gnu-option? raw-last)
-                   (positional-candidates node spec pos-args parsed raw-last))))))))
+       (let [{parsed :opts pos-args :args} (safe-parse level opts)
+             dash? (str/starts-with? raw-last "-")
+             opt-cands (option-candidates spec opts aliases known parsed raw-last)
+             cands (concat (when-not (gnu-option? raw-last)
+                             (command-candidates node raw-last))
+                           ;; option names only once the word starts with a
+                           ;; dash, like _arguments / cobra / fish: a fresh
+                           ;; word completes commands and positional values
+                           (when dash? opt-cands)
+                           (when-not (gnu-option? raw-last)
+                             (positional-candidates node spec pos-args parsed raw-last)))]
+         (if (and (empty? cands) (not dash?) (seq opt-cands)
+                  (not (seq (:args->opts node))))
+           ;; nothing else can go here (no subcommands, no declared
+           ;; positional): the options are the only legal next word, so offer
+           ;; them after all. A declared positional keeps its own file
+           ;; default / :complete false opt-out.
+           opt-cands
+           cands))))))
 
 ;; The stub a user installs. On each TAB it calls the program back with the
 ;; hidden `org.babashka.cli/completions complete` command, passing the
@@ -1630,7 +1653,7 @@ complete -F " fn " " names-sp "
 ")
     :zsh (str "#compdef " names-sp "
 " fn "() {
-    local -a lines described
+    local -a lines described optdescribed bare
     lines=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions complete --shell zsh -- \"${(@)words[2,CURRENT]}\" 2>/dev/null)}\")
     local do_files= l v d
     for l in $lines; do
@@ -1640,14 +1663,21 @@ complete -F " fn " " names-sp "
         # _describe eats backslashes and splits on ':', so escape both
         v=\"${v//\\\\/\\\\\\\\}\"; d=\"${d//\\\\/\\\\\\\\}\"
         v=\"${v//:/\\\\:}\"; d=\"${d//:/\\\\:}\"
-        described+=(\"$v${d:+:$d}\")
+        if [[ -z $d ]]; then bare+=(\"$v\")
+        elif [[ $v == -* ]]; then optdescribed+=(\"$v:$d\")
+        else described+=(\"$v:$d\"); fi
     done
     local ret=1
     # claim success whenever we produced candidates: _describe's own exit status
     # is not reliably 0 under a user matcher-list / multi-completer setup, and a
     # non-zero return makes zsh retry other completers (_match, _approximate, ...)
     # and re-list everything with detached descriptions
-    (( $#described )) && { _describe -t values completion described; ret=0; }
+    (( $#described )) && { _describe -t completions completion described; ret=0; }
+    # options arrive alone (the emission gates them behind a dash-prefixed or
+    # flags-only word), so their merged-alias display lines cannot inflate the
+    # column layout of another group
+    (( $#optdescribed )) && { _describe -t options option optdescribed; ret=0; }
+    (( $#bare )) && { _describe -t values value bare; ret=0; }
     [[ -n $do_files ]] && { _files; ret=0; }
     return $ret
 }
@@ -1704,10 +1734,13 @@ $env.config.completions.external.completer = {|spans|
     if ($spans | first | path basename) in " names-nu " {
         let res = (do { ^($spans | first) org.babashka.cli/completions complete --shell nushell -- ...($spans | skip 1) } | complete)
         let lines = (if $res.exit_code == 0 { $res.stdout | lines } else { [] })
-        if \"org.babashka.cli/file-completion\" in $lines {
+        let cands = ($lines | where {|l| $l != \"org.babashka.cli/file-completion\" })
+        if ($cands | is-empty) {
             null  # defer to nushell's own file completion
         } else {
-            $lines | each {|l|
+            # candidates win; nushell cannot mix a file default into an
+            # external completer's results, so the file marker is dropped here
+            $cands | each {|l|
                 let parts = ($l | split row -n 2 \"\\t\")
                 if ($parts | length) == 2 {
                     {value: $parts.0, description: $parts.1}

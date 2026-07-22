@@ -106,7 +106,7 @@
     (is (= #{} (set (complete cmd-table ["foo"])))))
 
   (testing "complete commands and options"
-    (is (= #{"bar" "-f" "--foo-opt" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" ""])))))
+    (is (= #{"bar"} (set (complete cmd-table ["foo" ""])))))
 
   (testing "complete suboption"
     (is (= #{"-f" "--foo-opt" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "-"])))))
@@ -117,7 +117,8 @@
     (is (files? cmd-table ["foo" "-f" ":foo"]))
     (is (files? cmd-table ["foo" "-f" "true"]))
     (testing "value consumed, the next token completes options again"
-      (is (= #{"bar" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "-f" "foo-val" ""]))))))
+      (is (= #{"bar"} (set (complete cmd-table ["foo" "-f" "foo-val" ""]))))
+      (is (= #{"--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "-f" "foo-val" "-"]))))))
 
   (testing "complete option with same prefix"
     (is (= #{"--foo-opt" "--foo-opt2" "--foo-flag"} (set (complete cmd-table ["foo" "--foo"]))))
@@ -125,17 +126,19 @@
 
   (testing "the long --opt form awaits a value the same way (shares the option-key path)"
     (is (files? cmd-table ["foo" "--foo-opt" ""]))
-    (is (= #{"bar" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "--foo-opt" "foo-val" ""])))))
+    (is (= #{"bar"} (set (complete cmd-table ["foo" "--foo-opt" "foo-val" ""]))))
+    (is (= #{"--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "--foo-opt" "foo-val" "-"])))))
 
   (is (= #{"--foo-flag"} (set (complete cmd-table ["foo" "--foo-f"]))))
 
   (testing "complete short flag"
     (is (= #{} (set (complete cmd-table ["foo" "-l"]))))
-    (is (= #{"bar" "-f" "--foo-opt" "--foo-opt2"} (set (complete cmd-table ["foo" "-l" ""])))))
+    (is (= #{"bar"} (set (complete cmd-table ["foo" "-l" ""]))))
+    (is (= #{"-f" "--foo-opt" "--foo-opt2"} (set (complete cmd-table ["foo" "-l" "-"])))))
 
   (testing "complete long flag"
     (is (= #{} (set (complete cmd-table ["foo" "--foo-flag"]))))
-    (is (= #{"bar" "-f" "--foo-opt" "--foo-opt2"} (set (complete cmd-table ["foo" "--foo-flag" ""])))))
+    (is (= #{"bar"} (set (complete cmd-table ["foo" "--foo-flag" ""])))))
 
   (is (= #{"-f" "--foo-opt" "--foo-opt2"} (set (complete cmd-table ["foo" "--foo-flag" "-"]))))
   (is (= #{"bar"} (set (complete cmd-table ["foo" "--foo-flag" "b"]))))
@@ -231,6 +234,18 @@
     (is (= #{"1" "2" "3"}
            (set (complete-options {:spec {:n {:coerce :long :validate #{1 2 3}}}}
                                   ["--n" ""])))))
+  (testing "a numeric set :validate completes in numeric order (not lexicographic)"
+    (is (= ["1" "2" "10"]
+           (complete-options {:spec {:n {:coerce :long :validate #{10 1 2}}}}
+                             ["--n" ""]))))
+  (testing "set-valued :validate candidates come out sorted (a set has no order)"
+    (is (= ["beta" "demo" "production" "staging"]
+           (complete-options {:spec {:env {:validate #{"production" "staging" "beta" "demo"}}}}
+                             ["--env" ""]))))
+  (testing "a :complete coll keeps author order"
+    (is (= ["prod" "beta" "alpha"]
+           (complete-options {:spec {:env {:complete ["prod" "beta" "alpha"]}}}
+                             ["--env" ""]))))
   (testing ":complete-fn receives :to-complete and parsed :opts (dependent completion)"
     (let [spec {:from {:coerce :string :complete ["x" "y"]}
                 :to {:coerce :string
@@ -428,7 +443,7 @@
     (let [o {:spec {:level {:require true} :host {}}}]
       (is (= #{"--level"} (set (complete-options o ["--host" "h" "--"]))))))
   (testing "dispatch-level :require does not kill the completion callback"
-    (is (= #{"sub" "--env"}
+    (is (= #{"sub"}
            (->> (complete-via-cmd [{:cmds ["sub"] :fn identity}]
                                   {:require [:env] :spec {:env {}}}
                                   "p ")
