@@ -1561,12 +1561,25 @@
        (let [{parsed :opts} (safe-parse (vec (butlast level)) opts)]
          (value-candidates spec opts previous raw-last parsed))
        :else
-       (let [{parsed :opts pos-args :args} (safe-parse level opts)]
-         (concat (when-not (gnu-option? raw-last)
-                   (command-candidates node raw-last))
-                 (option-candidates spec opts aliases known parsed raw-last)
-                 (when-not (gnu-option? raw-last)
-                   (positional-candidates node spec pos-args parsed raw-last))))))))
+       (let [{parsed :opts pos-args :args} (safe-parse level opts)
+             dash? (str/starts-with? raw-last "-")
+             opt-cands (option-candidates spec opts aliases known parsed raw-last)
+             cands (concat (when-not (gnu-option? raw-last)
+                             (command-candidates node raw-last))
+                           ;; option names only once the word starts with a
+                           ;; dash, like _arguments / cobra / fish: a fresh
+                           ;; word completes commands and positional values
+                           (when dash? opt-cands)
+                           (when-not (gnu-option? raw-last)
+                             (positional-candidates node spec pos-args parsed raw-last)))]
+         (if (and (empty? cands) (not dash?) (seq opt-cands)
+                  (not (seq (:args->opts node))))
+           ;; options withheld and nothing else declared at this node: defer
+           ;; to the shell's file completion (bash and nushell have no
+           ;; fallback of their own). A declared positional handles its own
+           ;; file default / :complete false opt-out.
+           [{:file-completion true}]
+           cands))))))
 
 ;; The stub a user installs. On each TAB it calls the program back with the
 ;; hidden `org.babashka.cli/completions complete` command, passing the

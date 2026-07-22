@@ -72,18 +72,18 @@
                           :coerce :boolean}}})
 
 (deftest complete-options-test
-  (is (= #{"--aopt" "--aopt2" "--bflag" "-b" "-a"} (set (complete-options opts [""]))))
+  (is (files-options? opts [""]))
   (is (= #{"--aopt" "--aopt2" "--bflag" "-b" "-a"} (set (complete-options opts ["-"]))))
   (is (= #{"--aopt" "--aopt2" "--bflag"} (set (complete-options opts ["--"]))))
   (is (= #{"--aopt" "--aopt2"} (set (complete-options opts ["--a"]))))
   (is (= #{"--bflag"} (set (complete-options opts ["--b"]))))
   (is (= #{} (set (complete-options opts ["--bflag"]))))
-  (is (= #{"--aopt" "--aopt2" "-a"} (set (complete-options opts ["--bflag" ""]))))
+  (is (= #{"--aopt" "--aopt2" "-a"} (set (complete-options opts ["--bflag" "-"]))))
   (testing "an unconfigured option value defaults to file completion"
     (is (files-options? opts ["--aopt" ""]))
     (is (files-options? opts ["--aopt" "aval"])))
-  (is (= #{"--aopt2" "--bflag" "-b"} (set (complete-options opts ["--aopt" "aval" ""]))))
-  (is (= #{"--aopt" "--bflag" "-b" "-a"} (set (complete-options opts ["--aopt2" "aval2" ""]))))
+  (is (= #{"--aopt2" "--bflag" "-b"} (set (complete-options opts ["--aopt" "aval" "-"]))))
+  (is (= #{"--aopt" "--bflag" "-b" "-a"} (set (complete-options opts ["--aopt2" "aval2" "-"]))))
   (testing "failing options"
     (is (files-options? opts ["--aopt" "-"]))
     (is (files-options? opts ["--aopt" "--bflag"]))
@@ -106,7 +106,7 @@
     (is (= #{} (set (complete cmd-table ["foo"])))))
 
   (testing "complete commands and options"
-    (is (= #{"bar" "-f" "--foo-opt" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" ""])))))
+    (is (= #{"bar"} (set (complete cmd-table ["foo" ""])))))
 
   (testing "complete suboption"
     (is (= #{"-f" "--foo-opt" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "-"])))))
@@ -117,7 +117,8 @@
     (is (files? cmd-table ["foo" "-f" ":foo"]))
     (is (files? cmd-table ["foo" "-f" "true"]))
     (testing "value consumed, the next token completes options again"
-      (is (= #{"bar" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "-f" "foo-val" ""]))))))
+      (is (= #{"bar"} (set (complete cmd-table ["foo" "-f" "foo-val" ""]))))
+      (is (= #{"--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "-f" "foo-val" "-"]))))))
 
   (testing "complete option with same prefix"
     (is (= #{"--foo-opt" "--foo-opt2" "--foo-flag"} (set (complete cmd-table ["foo" "--foo"]))))
@@ -125,29 +126,32 @@
 
   (testing "the long --opt form awaits a value the same way (shares the option-key path)"
     (is (files? cmd-table ["foo" "--foo-opt" ""]))
-    (is (= #{"bar" "--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "--foo-opt" "foo-val" ""])))))
+    (is (= #{"bar"} (set (complete cmd-table ["foo" "--foo-opt" "foo-val" ""]))))
+    (is (= #{"--foo-opt2" "-l" "--foo-flag"} (set (complete cmd-table ["foo" "--foo-opt" "foo-val" "-"])))))
 
   (is (= #{"--foo-flag"} (set (complete cmd-table ["foo" "--foo-f"]))))
 
   (testing "complete short flag"
     (is (= #{} (set (complete cmd-table ["foo" "-l"]))))
-    (is (= #{"bar" "-f" "--foo-opt" "--foo-opt2"} (set (complete cmd-table ["foo" "-l" ""])))))
+    (is (= #{"bar"} (set (complete cmd-table ["foo" "-l" ""]))))
+    (is (= #{"-f" "--foo-opt" "--foo-opt2"} (set (complete cmd-table ["foo" "-l" "-"])))))
 
   (testing "complete long flag"
     (is (= #{} (set (complete cmd-table ["foo" "--foo-flag"]))))
-    (is (= #{"bar" "-f" "--foo-opt" "--foo-opt2"} (set (complete cmd-table ["foo" "--foo-flag" ""])))))
+    (is (= #{"bar"} (set (complete cmd-table ["foo" "--foo-flag" ""])))))
 
   (is (= #{"-f" "--foo-opt" "--foo-opt2"} (set (complete cmd-table ["foo" "--foo-flag" "-"]))))
   (is (= #{"bar"} (set (complete cmd-table ["foo" "--foo-flag" "b"]))))
 
   (testing "complete command"
-    (is (= #{"--bar-opt" "--bar-flag"} (set (complete cmd-table ["foo" "--foo-flag" "bar" ""]))))
+    (is (files? cmd-table ["foo" "--foo-flag" "bar" ""]))
     (is (= #{"--bar-opt" "--bar-flag"} (set (complete cmd-table ["foo" "--foo-flag" "bar" "-"]))))
     (is (= #{"--bar-opt" "--bar-flag"} (set (complete cmd-table ["foo" "--foo-flag" "bar" "--"]))))
     (is (= #{"--bar-opt" "--bar-flag"} (set (complete cmd-table ["foo" "--foo-flag" "bar" "--bar-"]))))
     (is (= #{"--bar-opt"} (set (complete cmd-table ["foo" "--foo-flag" "bar" "--bar-o"]))))
     (is (files? cmd-table ["foo" "--foo-flag" "bar" "--bar-opt" "a"]))
-    (is (= #{"--bar-flag"} (set (complete cmd-table ["foo" "--foo-flag" "bar" "--bar-opt" "bar-val" ""]))))))
+    (is (files? cmd-table ["foo" "--foo-flag" "bar" "--bar-opt" "bar-val" ""]))
+    (is (= #{"--bar-flag"} (set (complete cmd-table ["foo" "--foo-flag" "bar" "--bar-opt" "bar-val" "-"]))))))
 
 
 (deftest dispatch-completion-snippet-test
@@ -263,13 +267,13 @@
 (deftest repeatable-option-test
   (testing "a single-value option drops out once used"
     (let [o {:spec {:env {:coerce :string} :verbose {:coerce :boolean}}}]
-      (is (= #{"--verbose"} (set (complete-options o ["--env" "x" ""]))))))
+      (is (= #{"--verbose"} (set (complete-options o ["--env" "x" "-"]))))))
   (testing "a list option (:coerce [...]) stays suggestable after use"
     (let [o {:spec {:file {:coerce [:string]} :verbose {:coerce :boolean}}}]
-      (is (= #{"--file" "--verbose"} (set (complete-options o ["--file" "a" ""]))))))
+      (is (= #{"--file" "--verbose"} (set (complete-options o ["--file" "a" "-"]))))))
   (testing "a :collect option stays suggestable after use"
     (let [o {:spec {:tag {:collect [] :coerce :string} :x {:coerce :boolean}}}]
-      (is (= #{"--tag" "--x"} (set (complete-options o ["--tag" "a" ""])))))))
+      (is (= #{"--tag" "--x"} (set (complete-options o ["--tag" "a" "-"])))))))
 
 (deftest restrict-completion-test
   ;; completion works under :restrict: it is env-driven and ignores args, and the
@@ -413,7 +417,7 @@
       (is (= #{"--env=dev"} (set (complete t ["deploy" "--env=d"]))))
       (is (= #{"--env=dev" "--env=prod"} (set (complete t ["deploy" "--env="])))))
     (testing "a completed --opt=val does not consume the next token"
-      (is (= #{"--force"} (set (complete t ["deploy" "--env=dev" ""])))))
+      (is (= #{"--force"} (set (complete t ["deploy" "--env=dev" "-"])))))
     (testing "no file fallback inside --opt= (shells match files against the whole token)"
       (let [u [{:cmds ["deploy"] :spec {:out {:coerce :string}}}]]
         (is (empty? (#?(:cljd cli/complete-tree* :squint cli/complete-tree* :default #'cli/complete-tree*) (cli/table->tree u) ["deploy" "--out="])))))
@@ -436,7 +440,7 @@
     (let [o {:spec {:level {:require true} :host {}}}]
       (is (= #{"--level"} (set (complete-options o ["--host" "h" "--"]))))))
   (testing "dispatch-level :require does not kill the completion callback"
-    (is (= #{"sub" "--env"}
+    (is (= #{"sub"}
            (->> (complete-via-cmd [{:cmds ["sub"] :fn identity}]
                                   {:require [:env] :spec {:env {}}}
                                   "p ")
@@ -446,12 +450,12 @@
   ;; the parser accepts --no-foo as {:foo false}, consuming no value; completion
   ;; must not treat it as an option awaiting a value
   (let [o {:spec {:verbose {:coerce :boolean} :host {}}}]
-    (is (= #{"--host"} (set (complete-options o ["--no-verbose" ""]))))))
+    (is (= #{"--host"} (set (complete-options o ["--no-verbose" "-"]))))))
 
 (deftest coerce-vector-boolean-test
   ;; :coerce [:boolean] is a (repeatable) flag for the parser, so for completion too
   (let [o {:spec {:verbose {:coerce [:boolean] :alias :v} :host {}}}]
-    (is (= #{"--verbose" "-v" "--host"} (set (complete-options o ["--verbose" ""]))))))
+    (is (= #{"--verbose" "-v" "--host"} (set (complete-options o ["--verbose" "-"]))))))
 
 (deftest inherit-completion-test
   (let [t [{:cmds [] :fn identity :spec {:verbose {:coerce :boolean :inherit true}}}
@@ -477,7 +481,7 @@
               :coerce {:force :boolean :env :string} :alias {:f :force}}]]
       (is (= #{"--force" "--env" "-f"} (set (complete t ["deploy" "-"]))))
       ;; --force is a flag: it must not swallow the next position
-      (is (= #{"--env"} (set (complete t ["deploy" "--force" ""])))))))
+      (is (= #{"--env"} (set (complete t ["deploy" "--force" "-"])))))))
 
 (deftest dispatch-level-spec-test
   ;; dispatch-level :spec options parse at every level, so they complete there too
@@ -496,7 +500,7 @@
                 (cli/dispatch t ["org.babashka.cli/completions" "complete"
                                  "--shell" "powershell" "--fresh" fresh "--" "deploy"]
                               {:prog "p"})))]
-    (is (= ["--env"] (lines* (out "true"))))
+    (is (= ["org.babashka.cli/file-completion"] (lines* (out "true"))))
     (testing "without a fresh word, deploy itself is the token being completed"
       (is (= "" (out "false"))))))
 
