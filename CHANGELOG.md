@@ -16,6 +16,8 @@ Minor bugfixes and enhancements:
 - [#174](https://github.com/babashka/cli/issues/174): `:edn` `:coerce` option must provide an explicit value
 ([@lread](https://github.com/lread))
 - Introduce `:exec-fn` option in dispatch that passes options directly
+- [#194](https://github.com/babashka/cli/pull/194): a var `:fn` / `:exec-fn` contributes its spec and docstring to the command
+- [#195](https://github.com/babashka/cli/pull/195): set-valued `:validate` of any primitive: completion + valid values in the error message
 - [#197](https://github.com/babashka/cli/pull/197): put brackets around optional args in help output
 - [#198](https://github.com/babashka/cli/pull/198): `:cmd` may be a [vector of `[name command]` pairs](https://github.com/babashka/cli#command-formats), preserving command order without `:cmd-order`
 - [#199](https://github.com/babashka/cli/pull/199): fix hang on variadic arguments that weren't "collected" (e.g. `(repeat :k)`)
