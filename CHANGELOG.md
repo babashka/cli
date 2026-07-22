@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- [#206](https://github.com/babashka/cli/pull/206): completion fixes: options complete on dash-prefixed words, set `:validate` candidates are sorted, zsh layout and nushell file-marker fixes
+
 ## v0.12.76 (2026-07-13)
 
 Highlights:
