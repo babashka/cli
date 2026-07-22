@@ -6,7 +6,7 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
-- [#206](https://github.com/babashka/cli/pull/206): completion fixes: options complete on dash-prefixed words, set `:validate` candidates are sorted, zsh layout and nushell file-marker fixes
+- [#206](https://github.com/babashka/cli/pull/206): shell completion: limit option candidates to dash-prefixed words and option-only commands, sort set-valued `:validate` candidates, fix zsh column layout, and prefer nushell candidates over file completion
 
 ## v0.12.76 (2026-07-13)
 
