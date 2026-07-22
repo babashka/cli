@@ -234,6 +234,10 @@
     (is (= #{"1" "2" "3"}
            (set (complete-options {:spec {:n {:coerce :long :validate #{1 2 3}}}}
                                   ["--n" ""])))))
+  (testing "a numeric set :validate completes in numeric order (not lexicographic)"
+    (is (= ["1" "2" "10"]
+           (complete-options {:spec {:n {:coerce :long :validate #{10 1 2}}}}
+                             ["--n" ""]))))
   (testing "set-valued :validate candidates come out sorted (a set has no order)"
     (is (= ["beta" "demo" "production" "staging"]
            (complete-options {:spec {:env {:validate #{"production" "staging" "beta" "demo"}}}}

@@ -858,7 +858,13 @@
          #?(:cljd Object :default Exception)
          #"Invalid value for option --n: 5\. Expected one of: 1, 2, 3"
          (cli/parse-opts ["--n" "5"]
-                         {:spec {:n {:coerce :long :validate #{1 2 3}}}})))))
+                         {:spec {:n {:coerce :long :validate #{1 2 3}}}}))))
+  (testing "a numeric set lists its values in numeric order in the error"
+    (is (thrown-with-msg?
+         #?(:cljd Object :default Exception)
+         #"Expected one of: 1, 2, 10"
+         (cli/parse-opts ["--n" "5"]
+                         {:spec {:n {:coerce :long :validate #{10 1 2}}}})))))
 
 (defn- listed-command-names
   "Command names from the `Commands:` section of help/error output, in order."

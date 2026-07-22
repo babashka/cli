@@ -302,6 +302,14 @@
   [opt->flag opt]
   (or (get opt->flag opt) (str "--" (kw->str opt))))
 
+(defn- sort-set-values
+  "Sort a set's values for display: numerically when all are numbers, else by
+  their string form. A set has no order of its own."
+  [s]
+  (if (every? number? s)
+    (sort s)
+    (sort-by str s)))
+
 (defn- decorate-label
   "Decorate a positional argument label `raw` (its `:ref` or key name). Wraps in
   `<...>` unless `raw` already starts with `<` or `[`. Appends `...` when
@@ -528,7 +536,7 @@
                                      (str "Invalid value for " (if arg (str "argument " arg) (str "option " flag)) ": " value
                                           (when (set? f)
                                             (str ". Expected one of: "
-                                                 (str/join ", " (sort (map #(if (keyword? %) (kw->str %) (str %)) f))))))))
+                                                 (str/join ", " (map #(if (keyword? %) (kw->str %) (str %)) (sort-set-values f))))))))
                      flag (get opt->flag k)]
                  (error-fn (cond-> {:cause :validate
                                     :msg (ex-msg-fn (cond-> {:option k :value v :flag (flag-for k)}
@@ -1398,7 +1406,7 @@
                      (:complete-fn entry) ((:complete-fn entry)
                                            {:to-complete to-complete :opts parsed :option k})
                      (:complete entry) (:complete entry)
-                     (set? (:validate entry)) (sort-by str (:validate entry)))]
+                     (set? (:validate entry)) (sort-set-values (:validate entry)))]
     (->> candidates
          (map normalize-value-candidate)
          (filter #(str/starts-with? (:value %) to-complete)))))
