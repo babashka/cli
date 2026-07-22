@@ -1574,11 +1574,11 @@
                              (positional-candidates node spec pos-args parsed raw-last)))]
          (if (and (empty? cands) (not dash?) (seq opt-cands)
                   (not (seq (:args->opts node))))
-           ;; options withheld and nothing else declared at this node: defer
-           ;; to the shell's file completion (bash and nushell have no
-           ;; fallback of their own). A declared positional handles its own
-           ;; file default / :complete false opt-out.
-           [{:file-completion true}]
+           ;; nothing else can go here (no subcommands, no declared
+           ;; positional): the options are the only legal next word, so offer
+           ;; them after all. A declared positional keeps its own file
+           ;; default / :complete false opt-out.
+           opt-cands
            cands))))))
 
 ;; The stub a user installs. On each TAB it calls the program back with the
@@ -1665,11 +1665,10 @@ complete -F " fn " " names-sp "
     # non-zero return makes zsh retry other completers (_match, _approximate, ...)
     # and re-list everything with detached descriptions
     (( $#described )) && { _describe -t completions completion described; ret=0; }
-    # -o (option mode): merges same-description aliases onto one line and only
-    # offers options when the current word starts with a dash, like _arguments.
-    # Merging options outside -o inflates the column layout of every other
-    # group in the listing.
-    (( $#optdescribed )) && { _describe -t options -o option optdescribed; ret=0; }
+    # options arrive alone (the emission gates them behind a dash-prefixed or
+    # flags-only word), so their merged-alias display lines cannot inflate the
+    # column layout of another group
+    (( $#optdescribed )) && { _describe -t options option optdescribed; ret=0; }
     (( $#bare )) && { _describe -t values value bare; ret=0; }
     [[ -n $do_files ]] && { _files; ret=0; }
     return $ret

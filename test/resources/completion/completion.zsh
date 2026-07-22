@@ -20,11 +20,10 @@ _babashka_cli_complete_myprogram() {
     # non-zero return makes zsh retry other completers (_match, _approximate, ...)
     # and re-list everything with detached descriptions
     (( $#described )) && { _describe -t completions completion described; ret=0; }
-    # -o (option mode): merges same-description aliases onto one line and only
-    # offers options when the current word starts with a dash, like _arguments.
-    # Merging options outside -o inflates the column layout of every other
-    # group in the listing.
-    (( $#optdescribed )) && { _describe -t options -o option optdescribed; ret=0; }
+    # options arrive alone (the emission gates them behind a dash-prefixed or
+    # flags-only word), so their merged-alias display lines cannot inflate the
+    # column layout of another group
+    (( $#optdescribed )) && { _describe -t options option optdescribed; ret=0; }
     (( $#bare )) && { _describe -t values value bare; ret=0; }
     [[ -n $do_files ]] && { _files; ret=0; }
     return $ret
