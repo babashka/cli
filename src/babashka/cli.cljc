@@ -1390,13 +1390,15 @@
   "Value candidates for spec `entry` (key `k`): `:complete-fn` (called with
   `{:to-complete :opts :option}`), `:complete`, or a set-valued `:validate`.
   Normalized to `{:value :description}` maps and prefix-filtered against
-  `to-complete` (powershell does not filter shell-side)."
+  `to-complete` (powershell does not filter shell-side). A `:complete` coll
+  keeps its author-defined order; a set is unordered, so its candidates are
+  sorted (some shells display emission order as-is)."
   [entry k to-complete parsed]
   (let [candidates (cond
                      (:complete-fn entry) ((:complete-fn entry)
                                            {:to-complete to-complete :opts parsed :option k})
                      (:complete entry) (:complete entry)
-                     (set? (:validate entry)) (:validate entry))]
+                     (set? (:validate entry)) (sort-by str (:validate entry)))]
     (->> candidates
          (map normalize-value-candidate)
          (filter #(str/starts-with? (:value %) to-complete)))))

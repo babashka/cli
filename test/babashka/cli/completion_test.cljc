@@ -231,6 +231,14 @@
     (is (= #{"1" "2" "3"}
            (set (complete-options {:spec {:n {:coerce :long :validate #{1 2 3}}}}
                                   ["--n" ""])))))
+  (testing "set-valued :validate candidates come out sorted (a set has no order)"
+    (is (= ["beta" "demo" "production" "staging"]
+           (complete-options {:spec {:env {:validate #{"production" "staging" "beta" "demo"}}}}
+                             ["--env" ""]))))
+  (testing "a :complete coll keeps author order"
+    (is (= ["prod" "beta" "alpha"]
+           (complete-options {:spec {:env {:complete ["prod" "beta" "alpha"]}}}
+                             ["--env" ""]))))
   (testing ":complete-fn receives :to-complete and parsed :opts (dependent completion)"
     (let [spec {:from {:coerce :string :complete ["x" "y"]}
                 :to {:coerce :string
