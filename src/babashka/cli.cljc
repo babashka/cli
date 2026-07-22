@@ -1630,7 +1630,7 @@ complete -F " fn " " names-sp "
 ")
     :zsh (str "#compdef " names-sp "
 " fn "() {
-    local -a lines described
+    local -a lines described bare
     lines=(\"${(@f)$(\"${words[1]}\" org.babashka.cli/completions complete --shell zsh -- \"${(@)words[2,CURRENT]}\" 2>/dev/null)}\")
     local do_files= l v d
     for l in $lines; do
@@ -1640,7 +1640,9 @@ complete -F " fn " " names-sp "
         # _describe eats backslashes and splits on ':', so escape both
         v=\"${v//\\\\/\\\\\\\\}\"; d=\"${d//\\\\/\\\\\\\\}\"
         v=\"${v//:/\\\\:}\"; d=\"${d//:/\\\\:}\"
-        described+=(\"$v${d:+:$d}\")
+        # candidates without a description get their own group so zsh lays
+        # them out in compact columns instead of the described group's grid
+        if [[ -n $d ]]; then described+=(\"$v:$d\"); else bare+=(\"$v\"); fi
     done
     local ret=1
     # claim success whenever we produced candidates: _describe's own exit status
@@ -1648,6 +1650,7 @@ complete -F " fn " " names-sp "
     # non-zero return makes zsh retry other completers (_match, _approximate, ...)
     # and re-list everything with detached descriptions
     (( $#described )) && { _describe -t values completion described; ret=0; }
+    (( $#bare )) && { _describe -t values value bare; ret=0; }
     [[ -n $do_files ]] && { _files; ret=0; }
     return $ret
 }
