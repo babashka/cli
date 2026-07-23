@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## v0.12.79
+
+- Verify that `:cmd` is a string, keyword or symbol
+
 ## v0.12.78
 
 - Fix `:restrict-args` with valid subcommands
