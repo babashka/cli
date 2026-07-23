@@ -532,19 +532,26 @@
                                 :opts m}
                          flag (assoc :flag flag)))))))
      (when require
-       (doseq [k require]
-         (when-not (find m k)
-           (let [flag (get opt->flag k)
-                 arg (when (contains? positional k) (arg-label spec-map k))]
-             (error-fn (cond-> {:cause :require
-                                :msg (if arg
-                                       (str "Required argument: " arg)
-                                       (str "Required option: " (flag-for k)))
-                                :require require
-                                :option k
-                                :opts m}
-                         arg (assoc :arg arg)
-                         flag (assoc :flag flag)))))))
+       ;; in a dispatch tree, a leading command word after this level's options
+       ;; routes to a child, where an `:inherit` option can still be supplied
+       ;; (`group sub --opt v`). Defer its requirement to that child; the terminal
+       ;; level, which does not descend, enforces it.
+       (let [descending? (contains? (::dispatch-tree-ignored-args opts)
+                                    (first (-> (meta m) :org.babashka/cli :args)))]
+         (doseq [k require]
+           (when (and (not (find m k))
+                      (not (and descending? (:inherit (get spec-map k)))))
+             (let [flag (get opt->flag k)
+                   arg (when (contains? positional k) (arg-label spec-map k))]
+               (error-fn (cond-> {:cause :require
+                                  :msg (if arg
+                                         (str "Required argument: " arg)
+                                         (str "Required option: " (flag-for k)))
+                                  :require require
+                                  :option k
+                                  :opts m}
+                           arg (assoc :arg arg)
+                           flag (assoc :flag flag))))))))
      (when validate
        (doseq [[k vf] validate]
          (let [f (or (and
