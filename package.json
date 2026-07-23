@@ -1,6 +1,6 @@
 {
   "name": "@babashka/cli",
-  "version": "0.12.78",
+  "version": "0.12.79",
   "description": "Turn functions into command line interfaces.",
   "exports": {
     ".": "./index.mjs"
