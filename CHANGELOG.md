@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- A required `:inherit` option may be supplied after its command, not only before it
+
 ## 0.12.80
 
 - Add ordered `:enum` values for validation, help and completion
