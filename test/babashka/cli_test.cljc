@@ -417,10 +417,10 @@
              (usage {:f {:positional true :require true}} (cons :f (repeat :f)))))
       (is (= "Usage: p [<f>...]"
              (usage {:f {:positional true}} (cons :f (repeat :f)))))
-      (testing "an :args->opts key honors :ref and is bracketed when not required, with or without :positional"
-        (is (= "Usage: p [options] [<source>]" (usage {:src {:ref "source"}} [:src])))
-        (is (= "Usage: p [options] [<a>] [<b>]" (usage {:a {} :b {}} [:a :b])))
-        (is (= "Usage: p [options] <a>" (usage {:a {:require true}} [:a]))))))
+      (testing "an :args->opts key renders as an argument (no phantom [options]) and honors :ref, bracketed when not required"
+        (is (= "Usage: p [<source>]" (usage {:src {:ref "source"}} [:src])))
+        (is (= "Usage: p [<a>] [<b>]" (usage {:a {} :b {}} [:a :b])))
+        (is (= "Usage: p <a>" (usage {:a {:require true}} [:a]))))))
   (testing "variadic required positional label in usage"
     (let [help (cli/format-command-help
                 {:prog "mycli"
@@ -872,6 +872,42 @@
          #"Expected one of: 1, 2, 10"
          (cli/parse-opts ["--n" "5"]
                          {:spec {:n {:coerce :long :validate #{10 1 2}}}})))))
+
+(deftest enum-test
+  (testing ":enum auto-derives validation; a member passes"
+    (is (submap? {:env "staging"}
+                 (cli/parse-opts ["--env" "staging"]
+                                 {:spec {:env {:enum ["dev" "staging" "prod"]}}}))))
+  (testing "a non-member errors, listing the choices in declared order"
+    (is (thrown-with-msg?
+         #?(:cljd Object :default Exception)
+         #"Invalid value for option --env: qa\. Expected one of: dev, staging, prod"
+         (cli/parse-opts ["--env" "qa"]
+                         {:spec {:env {:enum ["dev" "staging" "prod"]}}}))))
+  (testing "an explicit :validate is respected, not overwritten by :enum"
+    (is (thrown-with-msg?
+         #?(:cljd Object :default Exception)
+         #"Invalid value for option --env: dev"
+         (cli/parse-opts ["--env" "dev"]
+                         {:spec {:env {:enum ["dev" "prod"] :validate #{"prod"}}}}))))
+  (testing "keyword choices render as bare names"
+    (is (thrown-with-msg?
+         #?(:cljd Object :default Exception)
+         #"Expected one of: edn, json, table"
+         (cli/parse-opts ["--as" "xml"]
+                         {:spec {:as {:enum [:edn :json :table] :coerce :keyword}}}))))
+  (testing ":enum choices appear in --help in declared order"
+    (let [help (cli/format-command-help
+                {:prog "bb" :cmds ["run"]
+                 :table [{:cmds ["run"] :fn identity
+                          :spec {:env {:desc "Env" :enum ["dev" "staging" "prod"]}}}]})]
+      (is (str/includes? help "Env (one of: dev, staging, prod)"))))
+  (testing "a bare set :validate still self-documents in --help, sorted (enum > validate)"
+    (let [help (cli/format-command-help
+                {:prog "bb" :cmds ["run"]
+                 :table [{:cmds ["run"] :fn identity
+                          :spec {:env {:desc "Env" :validate #{"dev" "staging" "prod"}}}}]})]
+      (is (str/includes? help "Env (one of: dev, prod, staging)")))))
 
 (deftest restrict-args-dispatch-tree-test
   (let [tree {:fn (fn [{:keys [opts]}] [:root opts])

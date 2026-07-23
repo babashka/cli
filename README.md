@@ -1338,12 +1338,14 @@ To complete an option's value, give it one of:
 
 - `:complete` - a static collection of values (or `{:value .. :description ..}`
   maps)
-- A set-valued `:validate`, whose members double as completions
+- `:enum` - the allowed values (see [Enum](#enum)), in declared order
+- A set-valued `:validate`, whose members double as completions (sorted)
 - `:complete-fn` - a function for dynamic completion
 
 ``` clojure
 {:env   {:coerce :string
          :complete ["dev" "staging" "prod"]}         ; static list
+ :mode  {:enum ["fast" "safe"]}                       ; allowed values, in order
  :level {:coerce :keyword
          :validate #{:local :global :system}}        ; reused as completions
  :branch {:coerce :string
@@ -1442,6 +1444,42 @@ To gain more control over the error message, use `:pred` and `:ex-msg`:
 Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:378).
 Not a positive number: 0
 ```
+
+A `:validate` can also be a set, whose members are the allowed values. The set
+then doubles as the [completion](#completing-option-values) candidates and is
+listed in `--help` and in the error:
+
+``` clojure
+(cli/parse-args ["--env" "qa"] {:spec {:env {:validate #{"dev" "staging" "prod"}}}})
+;;=>
+Invalid value for option --env: qa. Expected one of: dev, prod, staging
+```
+
+## Enum
+
+`:enum` is an ordered list of allowed values. It is the declarative form of the
+set-valued `:validate` above: membership validation is derived from it, and the
+choices drive `--help`, [completion](#completing-option-values) and the error,
+all in the order you wrote them (a set has none, so it is sorted). Prefer `:enum`
+when the order carries meaning, like an environment progression:
+
+``` clojure
+(def spec {:env {:desc "Target environment"
+                 :enum ["dev" "staging" "prod"]
+                 :require true}})
+
+(cli/format-opts {:spec spec})
+;; --env  Target environment (one of: dev, staging, prod) (required)
+
+(cli/parse-args ["--env" "qa"] {:spec spec})
+;;=>
+Invalid value for option --env: qa. Expected one of: dev, staging, prod
+```
+
+Values may be of any type; keywords render as their bare name (`edn, json`), and
+like a keyword-valued `:validate` need `:coerce :keyword` to match user input.
+Supplying your own `:validate` alongside `:enum` keeps your predicate; `:enum`
+still drives the displayed choices.
 
 ## Error handling
 
