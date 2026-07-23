@@ -417,7 +417,7 @@
              (usage {:f {:positional true :require true}} (cons :f (repeat :f)))))
       (is (= "Usage: p [<f>...]"
              (usage {:f {:positional true}} (cons :f (repeat :f)))))
-      (testing "an :args->opts key renders as an argument (no phantom [options]) and honors :ref, bracketed when not required"
+      (testing ":args->opts keys render as arguments"
         (is (= "Usage: p [<source>]" (usage {:src {:ref "source"}} [:src])))
         (is (= "Usage: p [<a>] [<b>]" (usage {:a {} :b {}} [:a :b])))
         (is (= "Usage: p <a>" (usage {:a {:require true}} [:a]))))))
@@ -874,17 +874,17 @@
                          {:spec {:n {:coerce :long :validate #{10 1 2}}}})))))
 
 (deftest enum-test
-  (testing ":enum auto-derives validation; a member passes"
+  (testing ":enum accepts declared values"
     (is (submap? {:env "staging"}
                  (cli/parse-opts ["--env" "staging"]
                                  {:spec {:env {:enum ["dev" "staging" "prod"]}}}))))
-  (testing "a non-member errors, listing the choices in declared order"
+  (testing ":enum errors list choices in declared order"
     (is (thrown-with-msg?
          #?(:cljd Object :default Exception)
          #"Invalid value for option --env: qa\. Expected one of: dev, staging, prod"
          (cli/parse-opts ["--env" "qa"]
                          {:spec {:env {:enum ["dev" "staging" "prod"]}}}))))
-  (testing "an explicit :validate is respected, not overwritten by :enum"
+  (testing ":validate takes precedence over :enum"
     (is (thrown-with-msg?
          #?(:cljd Object :default Exception)
          #"Invalid value for option --env: dev"
@@ -896,17 +896,17 @@
          #"Expected one of: edn, json, table"
          (cli/parse-opts ["--as" "xml"]
                          {:spec {:as {:enum [:edn :json :table] :coerce :keyword}}}))))
-  (testing "a collected key (:coerce [...]) validates per element"
+  (testing "repeatable options validate each element"
     (is (submap? {:env ["dev" "prod"]}
                  (cli/parse-opts ["--env" "dev" "--env" "prod"]
                                  {:spec {:env {:coerce [:string] :enum ["dev" "staging" "prod"]}}})))
-    (testing "an offending element is named, not the whole collection"
+    (testing "validation errors identify the invalid element"
       (is (thrown-with-msg?
            #?(:cljd Object :default Exception)
            #"Invalid value for option --env: qa\. Expected one of: dev, staging, prod"
            (cli/parse-opts ["--env" "dev" "--env" "qa"]
                            {:spec {:env {:coerce [:string] :enum ["dev" "staging" "prod"]}}}))))
-    (testing "a function validator also applies per element"
+    (testing "function validators check each element"
       (is (submap? {:n [1 2]}
                    (cli/parse-opts ["--n" "1" "--n" "2"]
                                    {:spec {:n {:coerce [:long] :validate pos?}}})))
@@ -915,13 +915,13 @@
            #"Invalid value for option --n: -5"
            (cli/parse-opts ["--n" "1" "--n" "-5"]
                            {:spec {:n {:coerce [:long] :validate pos?}}})))))
-  (testing ":enum choices appear in --help in declared order"
+  (testing ":enum choices preserve declared order in help"
     (let [help (cli/format-command-help
                 {:prog "bb" :cmds ["run"]
                  :table [{:cmds ["run"] :fn identity
                           :spec {:env {:desc "Env" :enum ["dev" "staging" "prod"]}}}]})]
       (is (str/includes? help "Env (one of: dev, staging, prod)"))))
-  (testing "a bare set :validate still self-documents in --help, sorted (enum > validate)"
+  (testing "set-valued :validate choices are sorted in help"
     (let [help (cli/format-command-help
                 {:prog "bb" :cmds ["run"]
                  :table [{:cmds ["run"] :fn identity

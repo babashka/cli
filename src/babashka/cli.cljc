@@ -206,8 +206,6 @@
   ([spec {:keys [exec-args]}]
    (reduce
     (fn [acc [k {:keys [coerce collect alias default require validate positional enum]}]]
-      ;; `:enum` is the ordered choice list; membership validation falls out of it
-      ;; unless the author supplied their own `:validate`
       (let [validate (or validate (when enum (set enum)))]
         (cond-> acc
           coerce (update :coerce assoc k coerce)
@@ -315,21 +313,18 @@
     (sort-by str s)))
 
 (defn- render-choices
-  "A comma-separated list of choice values (keywords as their bare name), for
-  help, completion and the validation error. Input is an already-ordered seq."
+  "Returns comma-separated choices with keyword colons removed."
   [choices]
   (str/join ", " (map #(if (keyword? %) (kw->str %) (str %)) choices)))
 
 (defn- entry-choices
-  "The ordered choices of a spec entry for display: `:enum` in declared order, or
-  a set-valued `:validate` sorted (a set has no order). nil when neither."
+  "Returns `:enum` values in declared order or sorted `:validate` values."
   [v]
   (cond (:enum v) (:enum v)
         (set? (:validate v)) (sort-set-values (:validate v))))
 
 (defn- repeatable-opt?
-  "True when option `k` may appear more than once (collection-valued `:coerce`
-  or `:collect`)."
+  "Returns true when option `k` may occur more than once."
   [opts k]
   (or (coll? (get-in opts [:coerce k]))
       (contains? (:collect opts) k)))
@@ -560,17 +555,12 @@
                      vf)]
            (when-let [[_ v] (find m k)]
              (let [check (fn [x] (if (set? f) (contains? f x) (f x)))
-                   ;; a collected key (`:coerce [...]` / `:collect`) validates per
-                   ;; element; a scalar as a one-element list, so a nil that fails
-                   ;; still registers
                    failed (if (repeatable-opt? opts k)
                             (seq (remove check v))
                             (when-not (check v) [v]))]
                (when failed
                  (let [bad (first failed)
                        arg (when (contains? positional k) (arg-label spec-map k))
-                       ;; the choices to list, in :enum's declared order when given,
-                       ;; else the validate set sorted
                        choices (or (get enum k) (when (set? f) (sort-set-values f)))
                        ex-msg-fn (or (:ex-msg vf)
                                      (fn [{:keys [flag value arg]}]
@@ -1069,16 +1059,13 @@
           (spec-entries spec order))))
 
 (defn- choices-note
-  "A `(one of: ...)` note listing a spec entry's choices: `:enum` in declared
-  order, else a set-valued `:validate` sorted. `:enum` is the canonical ordered
-  form and wins when both are present; a plain set still self-documents. nil when
-  neither."
+  "Returns a choice note for spec entry `v`."
   [v]
   (when-let [cs (entry-choices v)]
     (str "(one of: " (render-choices cs) ")")))
 
 (defn- join-desc
-  "Join a description with trailing parenthetical notes, dropping blanks."
+  "Joins non-blank description parts."
   [& parts]
   (str/join " " (remove str/blank? parts)))
 
@@ -1165,11 +1152,7 @@
              :else (recur (next s) (conj acc (label k false)) k (inc n)))))))))
 
 (defn- arg-keys
-  "Keys shown positionally under `Arguments:` rather than in `Options:`: the
-  `:positional` keys plus any key consumed by `:args->opts`. Both appear in the
-  usage line as `<name>`, so also listing them as `--flags` would be redundant.
-  Only real spec keys, so an `:args->opts` key with no spec entry is ignored.
-  Bounded against an infinite `:args->opts`."
+  "Returns spec keys rendered under `Arguments:`."
   [spec-map args->opts]
   (into (into #{} (keep (fn [[k v]] (when (:positional v) k))) spec-map)
         (filter (fn [k] (contains? spec-map k)))
@@ -1239,8 +1222,6 @@
   (let [spec (:spec node)                       ; map or vec-of-pairs
         spec-map (->spec-map spec)
         order (:order node)                     ; display order (see node-with-help)
-        ;; keys shown positionally (`:positional` or `:args->opts`-consumed) are
-        ;; rendered under `Arguments:`, not in the `Options:` table
         arg-key-set (arg-keys spec-map (:args->opts node))
         opt-spec (remove (fn [[k]] (contains? arg-key-set k))
                          (spec-entries spec order))
@@ -1475,7 +1456,7 @@
   `{:to-complete :opts :option}`), `:complete`, or a set-valued `:validate`.
   Normalized to `{:value :description}` maps and prefix-filtered against
   `to-complete` (powershell does not filter shell-side). A `:complete` coll and
-  an `:enum` keep their author-defined order; a set-valued `:validate` is
+  an `:enum` keep their declared order. A set-valued `:validate` is
   unordered, so its candidates are sorted (some shells display emission order
   as-is)."
   [entry k to-complete parsed]

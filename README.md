@@ -1338,14 +1338,14 @@ To complete an option's value, give it one of:
 
 - `:complete` - a static collection of values (or `{:value .. :description ..}`
   maps)
-- `:enum` - the allowed values (see [Enum](#enum)), in declared order
+- `:enum` - allowed values in declared order (see [Enum](#enum))
 - A set-valued `:validate`, whose members double as completions (sorted)
 - `:complete-fn` - a function for dynamic completion
 
 ``` clojure
 {:env   {:coerce :string
          :complete ["dev" "staging" "prod"]}         ; static list
- :mode  {:enum ["fast" "safe"]}                       ; allowed values, in order
+ :mode  {:enum ["fast" "safe"]}
  :level {:coerce :keyword
          :validate #{:local :global :system}}        ; reused as completions
  :branch {:coerce :string
@@ -1445,9 +1445,8 @@ Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:378).
 Not a positive number: 0
 ```
 
-A `:validate` can also be a set, whose members are the allowed values. The set
-then doubles as the [completion](#completing-option-values) candidates and is
-listed in `--help` and in the error:
+Use a set-valued `:validate` to restrict allowed values. The values are sorted in
+`--help`, [completion](#completing-option-values) and validation errors:
 
 ``` clojure
 (cli/parse-args ["--env" "qa"] {:spec {:env {:validate #{"dev" "staging" "prod"}}}})
@@ -1457,11 +1456,9 @@ Invalid value for option --env: qa. Expected one of: dev, prod, staging
 
 ## Enum
 
-`:enum` is an ordered list of allowed values. It is the declarative form of the
-set-valued `:validate` above: membership validation is derived from it, and the
-choices drive `--help`, [completion](#completing-option-values) and the error,
-all in the order you wrote them (a set has none, so it is sorted). Prefer `:enum`
-when the order carries meaning, like an environment progression:
+Use `:enum` to preserve the declared order of allowed values. It controls
+validation, `--help`, [completion](#completing-option-values) and validation
+errors:
 
 ``` clojure
 (def spec {:env {:desc "Target environment"
@@ -1476,10 +1473,11 @@ when the order carries meaning, like an environment progression:
 Invalid value for option --env: qa. Expected one of: dev, staging, prod
 ```
 
-Values may be of any type; keywords render as their bare name (`edn, json`), and
-like a keyword-valued `:validate` need `:coerce :keyword` to match user input.
-Supplying your own `:validate` alongside `:enum` keeps your predicate; `:enum`
-still drives the displayed choices.
+Use `:coerce :keyword` with keyword values. Keywords render without the leading
+colon.
+
+Use an explicit `:validate` to override `:enum` validation. `:enum` still
+controls the displayed choices.
 
 ## Error handling
 
