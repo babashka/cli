@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## 0.12.80
 
 - Add ordered `:enum` values for validation, help and completion
 - Show sorted set-valued `:validate` values in `--help`
