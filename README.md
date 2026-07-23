@@ -738,6 +738,16 @@ Options:
   -h, --help     Show this help
 ```
 
+`:doc` (and [`:epilog`](#help)) also accept a vector of strings, joined with
+newlines. Longer texts read better that way, especially in edn files, where
+`str/join` is not available:
+
+``` clojure
+:doc ["Copy a file"
+      ""
+      "More details here"]
+```
+
 Running `bb -m try-cmds copy the-file --dry-run` calls `copy`, which prints:
 
 ``` clojure
@@ -1041,7 +1051,7 @@ This also works for multi-word commands, e.g., `some-prog deps outdated --help` 
   `--help` is appended.
 - `--help`/`-h` are reserved when `:help true` is specified (a command may still define its
   own `:help`).
-- A command entry's `:epilog` (a string) is rendered verbatim after that command's
+- A command entry's `:epilog` (a string, or a vector of lines) is rendered verbatim after that command's
   options, for examples, notes or links. Specify it at the root of the commands tree format (or `:cmds []` entry for commands table format) for the top-level help.
 
 The `:help true` option works for a command-less CLI too.

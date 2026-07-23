@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- Support `:doc` and `:epilog` as a vector of lines, joined with newlines
+
 ## v0.12.79
 
 - Verify that `:cmd` is a string, keyword or symbol
