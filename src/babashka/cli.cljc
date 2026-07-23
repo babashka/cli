@@ -327,6 +327,13 @@
   (cond (:enum v) (:enum v)
         (set? (:validate v)) (sort-set-values (:validate v))))
 
+(defn- repeatable-opt?
+  "True when option `k` may appear more than once (collection-valued `:coerce`
+  or `:collect`)."
+  [opts k]
+  (or (coll? (get-in opts [:coerce k]))
+      (contains? (:collect opts) k)))
+
 (defn- decorate-label
   "Decorate a positional argument label `raw` (its `:ref` or key name). Wraps in
   `<...>` unless `raw` already starts with `<` or `[`. Appends `...` when
@@ -552,26 +559,34 @@
                       (:pred vf))
                      vf)]
            (when-let [[_ v] (find m k)]
-             (when-not (if (set? f) (contains? f v) (f v))
-               (let [arg (when (contains? positional k) (arg-label spec-map k))
-                     ;; the choices to list, in :enum's declared order when given,
-                     ;; else the validate set sorted
-                     choices (or (get enum k) (when (set? f) (sort-set-values f)))
-                     ex-msg-fn (or (:ex-msg vf)
-                                   (fn [{:keys [flag value arg]}]
-                                     (str "Invalid value for " (if arg (str "argument " arg) (str "option " flag)) ": " value
-                                          (when choices
-                                            (str ". Expected one of: " (render-choices choices))))))
-                     flag (get opt->flag k)]
-                 (error-fn (cond-> {:cause :validate
-                                    :msg (ex-msg-fn (cond-> {:option k :value v :flag (flag-for k)}
-                                                      arg (assoc :arg arg)))
-                                    :validate validate
-                                    :option k
-                                    :value v
-                                    :opts m}
-                             arg (assoc :arg arg)
-                             flag (assoc :flag flag)))))))))
+             (let [check (fn [x] (if (set? f) (contains? f x) (f x)))
+                   ;; a collected key (`:coerce [...]` / `:collect`) validates per
+                   ;; element; a scalar as a one-element list, so a nil that fails
+                   ;; still registers
+                   failed (if (repeatable-opt? opts k)
+                            (seq (remove check v))
+                            (when-not (check v) [v]))]
+               (when failed
+                 (let [bad (first failed)
+                       arg (when (contains? positional k) (arg-label spec-map k))
+                       ;; the choices to list, in :enum's declared order when given,
+                       ;; else the validate set sorted
+                       choices (or (get enum k) (when (set? f) (sort-set-values f)))
+                       ex-msg-fn (or (:ex-msg vf)
+                                     (fn [{:keys [flag value arg]}]
+                                       (str "Invalid value for " (if arg (str "argument " arg) (str "option " flag)) ": " value
+                                            (when choices
+                                              (str ". Expected one of: " (render-choices choices))))))
+                       flag (get opt->flag k)]
+                   (error-fn (cond-> {:cause :validate
+                                      :msg (ex-msg-fn (cond-> {:option k :value bad :flag (flag-for k)}
+                                                        arg (assoc :arg arg)))
+                                      :validate validate
+                                      :option k
+                                      :value bad
+                                      :opts m}
+                               arg (assoc :arg arg)
+                               flag (assoc :flag flag))))))))))
      m)))
 
 (defn apply-defaults
@@ -1507,13 +1522,6 @@
     (assoc (deep-merge (select-keys global-opts parse-keys)
                        (select-keys node parse-keys))
            :spec spec)))
-
-(defn- repeatable-opt?
-  "True when option `k` may appear more than once (collection-valued `:coerce`
-  or `:collect`)."
-  [opts k]
-  (or (coll? (get-in opts [:coerce k]))
-      (contains? (:collect opts) k)))
 
 (defn- safe-parse
   "Parse `args` for completion: `:exec-args` dropped so a `:default` does not

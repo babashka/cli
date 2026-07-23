@@ -896,6 +896,25 @@
          #"Expected one of: edn, json, table"
          (cli/parse-opts ["--as" "xml"]
                          {:spec {:as {:enum [:edn :json :table] :coerce :keyword}}}))))
+  (testing "a collected key (:coerce [...]) validates per element"
+    (is (submap? {:env ["dev" "prod"]}
+                 (cli/parse-opts ["--env" "dev" "--env" "prod"]
+                                 {:spec {:env {:coerce [:string] :enum ["dev" "staging" "prod"]}}})))
+    (testing "an offending element is named, not the whole collection"
+      (is (thrown-with-msg?
+           #?(:cljd Object :default Exception)
+           #"Invalid value for option --env: qa\. Expected one of: dev, staging, prod"
+           (cli/parse-opts ["--env" "dev" "--env" "qa"]
+                           {:spec {:env {:coerce [:string] :enum ["dev" "staging" "prod"]}}}))))
+    (testing "a function validator also applies per element"
+      (is (submap? {:n [1 2]}
+                   (cli/parse-opts ["--n" "1" "--n" "2"]
+                                   {:spec {:n {:coerce [:long] :validate pos?}}})))
+      (is (thrown-with-msg?
+           #?(:cljd Object :default Exception)
+           #"Invalid value for option --n: -5"
+           (cli/parse-opts ["--n" "1" "--n" "-5"]
+                           {:spec {:n {:coerce [:long] :validate pos?}}})))))
   (testing ":enum choices appear in --help in declared order"
     (let [help (cli/format-command-help
                 {:prog "bb" :cmds ["run"]

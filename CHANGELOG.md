@@ -9,6 +9,7 @@ For breaking changes, check [here](#breaking-changes).
 - Add `:enum`, an ordered list of allowed values: derives validation, lists the choices in `--help`, completion and the validation error, all in declared order
 - List a set-valued `:validate`'s members in `--help` too (sorted; `:enum` for a chosen order)
 - Render an `:args->opts` argument under `Arguments:` in `--help` instead of as a `--flag` under `Options:`
+- Validate a collected option (`:coerce [...]` / `:collect`) per element instead of testing the whole collection (fixes `:validate` sets/predicates and `:enum` on repeatable options)
 - Support `:doc` and `:epilog` as a vector of lines, joined with newlines
 
 ## v0.12.79
