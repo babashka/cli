@@ -6,6 +6,10 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
+- Add ordered `:enum` values for validation, help and completion
+- Show sorted set-valued `:validate` values in `--help`
+- Show `:args->opts` entries under `Arguments:` in `--help`
+- Validate repeatable option values individually
 - Support `:doc` and `:epilog` as a vector of lines, joined with newlines
 
 ## v0.12.79

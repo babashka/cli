@@ -1338,12 +1338,14 @@ To complete an option's value, give it one of:
 
 - `:complete` - a static collection of values (or `{:value .. :description ..}`
   maps)
-- A set-valued `:validate`, whose members double as completions
+- `:enum` - allowed values in declared order (see [Enum](#enum))
+- A set-valued `:validate`, whose members double as completions (sorted)
 - `:complete-fn` - a function for dynamic completion
 
 ``` clojure
 {:env   {:coerce :string
          :complete ["dev" "staging" "prod"]}         ; static list
+ :mode  {:enum ["fast" "safe"]}
  :level {:coerce :keyword
          :validate #{:local :global :system}}        ; reused as completions
  :branch {:coerce :string
@@ -1442,6 +1444,40 @@ To gain more control over the error message, use `:pred` and `:ex-msg`:
 Execution error (ExceptionInfo) at babashka.cli/parse-opts (cli.cljc:378).
 Not a positive number: 0
 ```
+
+Use a set-valued `:validate` to restrict allowed values. The values are sorted in
+`--help`, [completion](#completing-option-values) and validation errors:
+
+``` clojure
+(cli/parse-args ["--env" "qa"] {:spec {:env {:validate #{"dev" "staging" "prod"}}}})
+;;=>
+Invalid value for option --env: qa. Expected one of: dev, prod, staging
+```
+
+## Enum
+
+Use `:enum` to preserve the declared order of allowed values. It controls
+validation, `--help`, [completion](#completing-option-values) and validation
+errors:
+
+``` clojure
+(def spec {:env {:desc "Target environment"
+                 :enum ["dev" "staging" "prod"]
+                 :require true}})
+
+(cli/format-opts {:spec spec})
+;; --env  Target environment (one of: dev, staging, prod) (required)
+
+(cli/parse-args ["--env" "qa"] {:spec spec})
+;;=>
+Invalid value for option --env: qa. Expected one of: dev, staging, prod
+```
+
+Use `:coerce :keyword` with keyword values. Keywords render without the leading
+colon.
+
+Use an explicit `:validate` to override `:enum` validation. `:enum` still
+controls the displayed choices.
 
 ## Error handling
 

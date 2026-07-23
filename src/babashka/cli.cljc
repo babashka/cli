@@ -205,22 +205,24 @@
   ([spec] (spec->opts spec nil))
   ([spec {:keys [exec-args]}]
    (reduce
-    (fn [acc [k {:keys [coerce collect alias default require validate positional]}]]
-      (cond-> acc
-        coerce (update :coerce assoc k coerce)
-        collect (update :collect assoc k collect)
-        positional (update :positional (fnil #(conj % k) #{}))
-        alias (update :alias
-                      (fn [aliases]
-                        (when (contains? aliases alias)
-                          (throw (ex-info (str "Conflicting alias " alias " between " (get aliases alias) " and " k)
-                                          {:alias alias})))
-                        (assoc aliases alias k)))
-        require (update :require (fnil #(conj % k) #{}))
-        validate (update :validate assoc k validate)
-        (some? default) (update :exec-args
-                                (fn [new-exec-args]
-                                  (assoc new-exec-args k (get exec-args k default))))))
+    (fn [acc [k {:keys [coerce collect alias default require validate positional enum]}]]
+      (let [validate (or validate (when enum (set enum)))]
+        (cond-> acc
+          coerce (update :coerce assoc k coerce)
+          collect (update :collect assoc k collect)
+          positional (update :positional (fnil #(conj % k) #{}))
+          enum (update :enum assoc k enum)
+          alias (update :alias
+                        (fn [aliases]
+                          (when (contains? aliases alias)
+                            (throw (ex-info (str "Conflicting alias " alias " between " (get aliases alias) " and " k)
+                                            {:alias alias})))
+                          (assoc aliases alias k)))
+          require (update :require (fnil #(conj % k) #{}))
+          validate (update :validate assoc k validate)
+          (some? default) (update :exec-args
+                                  (fn [new-exec-args]
+                                    (assoc new-exec-args k (get exec-args k default)))))))
     {}
     spec)))
 
@@ -309,6 +311,23 @@
   (if (every? number? s)
     (sort s)
     (sort-by str s)))
+
+(defn- render-choices
+  "Returns comma-separated choices with keyword colons removed."
+  [choices]
+  (str/join ", " (map #(if (keyword? %) (kw->str %) (str %)) choices)))
+
+(defn- entry-choices
+  "Returns `:enum` values in declared order or sorted `:validate` values."
+  [v]
+  (cond (:enum v) (:enum v)
+        (set? (:validate v)) (sort-set-values (:validate v))))
+
+(defn- repeatable-opt?
+  "Returns true when option `k` may occur more than once."
+  [opts k]
+  (or (coll? (get-in opts [:coerce k]))
+      (contains? (:collect opts) k)))
 
 (defn- decorate-label
   "Decorate a positional argument label `raw` (its `:ref` or key name). Wraps in
@@ -462,6 +481,7 @@
                     (some-> restrict set))
          require (:require opts)
          validate (:validate opts)
+         enum (:enum opts)
          ;; options parsed at a parent `dispatch` level (shared options) are
          ;; passed down via ::dispatch-inherited and must not be flagged as
          ;; unknown at child levels. Internal, not a public option.
@@ -534,24 +554,29 @@
                       (:pred vf))
                      vf)]
            (when-let [[_ v] (find m k)]
-             (when-not (if (set? f) (contains? f v) (f v))
-               (let [arg (when (contains? positional k) (arg-label spec-map k))
-                     ex-msg-fn (or (:ex-msg vf)
-                                   (fn [{:keys [flag value arg]}]
-                                     (str "Invalid value for " (if arg (str "argument " arg) (str "option " flag)) ": " value
-                                          (when (set? f)
-                                            (str ". Expected one of: "
-                                                 (str/join ", " (map #(if (keyword? %) (kw->str %) (str %)) (sort-set-values f))))))))
-                     flag (get opt->flag k)]
-                 (error-fn (cond-> {:cause :validate
-                                    :msg (ex-msg-fn (cond-> {:option k :value v :flag (flag-for k)}
-                                                      arg (assoc :arg arg)))
-                                    :validate validate
-                                    :option k
-                                    :value v
-                                    :opts m}
-                             arg (assoc :arg arg)
-                             flag (assoc :flag flag)))))))))
+             (let [check (fn [x] (if (set? f) (contains? f x) (f x)))
+                   failed (if (repeatable-opt? opts k)
+                            (seq (remove check v))
+                            (when-not (check v) [v]))]
+               (when failed
+                 (let [bad (first failed)
+                       arg (when (contains? positional k) (arg-label spec-map k))
+                       choices (or (get enum k) (when (set? f) (sort-set-values f)))
+                       ex-msg-fn (or (:ex-msg vf)
+                                     (fn [{:keys [flag value arg]}]
+                                       (str "Invalid value for " (if arg (str "argument " arg) (str "option " flag)) ": " value
+                                            (when choices
+                                              (str ". Expected one of: " (render-choices choices))))))
+                       flag (get opt->flag k)]
+                   (error-fn (cond-> {:cause :validate
+                                      :msg (ex-msg-fn (cond-> {:option k :value bad :flag (flag-for k)}
+                                                        arg (assoc :arg arg)))
+                                      :validate validate
+                                      :option k
+                                      :value bad
+                                      :opts m}
+                               arg (assoc :arg arg)
+                               flag (assoc :flag flag))))))))))
      m)))
 
 (defn apply-defaults
@@ -1033,6 +1058,17 @@
                      (if desc desc ""))]))
           (spec-entries spec order))))
 
+(defn- choices-note
+  "Returns a choice note for spec entry `v`."
+  [v]
+  (when-let [cs (entry-choices v)]
+    (str "(one of: " (render-choices cs) ")")))
+
+(defn- join-desc
+  "Joins non-blank description parts."
+  [& parts]
+  (str/join " " (remove str/blank? parts)))
+
 (defn- opts->help-rows
   "Rows for [[format-opts]]: the conventional two-column layout `option | desc`.
   The alias, `--option` and `:ref` are one invocation column (`-f, --foo <ref>`,
@@ -1049,7 +1085,7 @@
         required (set required)
         short (fn [[_ {:keys [alias]}]] (if alias (str "-" (kw->str alias) ", ") ""))
         sw (transduce (map (comp count short)) max 0 entries)]
-    (mapv (fn [[long-opt {:keys [default default-desc ref desc negatable] req :require}] sh]
+    (mapv (fn [[long-opt {:keys [default default-desc ref desc negatable] req :require :as v}] sh]
             (let [dflt (or default-desc (when (some? default) (str default)))
                   ;; folded into the description, in the same slot: a required
                   ;; option has no default, so `(required)` / `(default: ...)`
@@ -1059,8 +1095,7 @@
                   inv (str sh (apply str (repeat (- sw (count sh)) \space))
                            "--" (when negatable "[no-]") (kw->str long-opt)
                            (when ref (str " " ref)))
-                  desc (str desc (when note
-                                   (str (when (seq desc) " ") note)))]
+                  desc (join-desc desc (choices-note v) note)]
               [inv desc]))
           entries (map short entries))))
 
@@ -1116,18 +1151,26 @@
              (= k prev) (conj (pop acc) (label prev true))
              :else (recur (next s) (conj acc (label k false)) k (inc n)))))))))
 
+(defn- arg-keys
+  "Returns spec keys rendered under `Arguments:`."
+  [spec-map args->opts]
+  (into (into #{} (keep (fn [[k v]] (when (:positional v) k))) spec-map)
+        (filter (fn [k] (contains? spec-map k)))
+        (take 64 args->opts)))
+
 (defn- positional-help-rows
-  "Rows `[label desc]` for the `Arguments:` help section: the `:positional` keys
-  of `spec-map`, ordered by `:args->opts` (matching the usage line), then `order`
+  "Rows `[label desc]` for the `Arguments:` help section: the `arg-keys` of
+  `spec-map`, ordered by `:args->opts` (matching the usage line), then `order`
   / spec order for any not consumed positionally. `:no-doc` keys are skipped.
   Bounded against an infinite `:args->opts`."
-  [spec-map order args->opts]
-  (let [pos? (fn [k] (:positional (get spec-map k)))
-        ordered (->> (concat (take 64 args->opts) (or order (keys spec-map)))
-                     (filter pos?)
+  [spec-map order args->opts arg?]
+  (let [ordered (->> (concat (take 64 args->opts) (or order (keys spec-map)))
+                     (filter arg?)
                      distinct
                      (remove (fn [k] (:no-doc (get spec-map k)))))]
-    (mapv (fn [k] [(arg-label spec-map k) (or (:desc (get spec-map k)) "")]) ordered)))
+    (mapv (fn [k] (let [v (get spec-map k)]
+                    [(arg-label spec-map k) (join-desc (:desc v) (choices-note v))]))
+          ordered)))
 
 (defn #?(:cljd ^:no-doc cmd-children :squint ^:no-doc cmd-children :default ^:private cmd-children)
   "Visible `[name child]` pairs of `node`'s commands, for display (help,
@@ -1179,12 +1222,10 @@
   (let [spec (:spec node)                       ; map or vec-of-pairs
         spec-map (->spec-map spec)
         order (:order node)                     ; display order (see node-with-help)
-        ;; positional (arg-only) keys are rendered under `Arguments:`, not in
-        ;; the `Options:` table
-        positional-keys (into #{} (keep (fn [[k v]] (when (:positional v) k))) spec-map)
-        opt-spec (remove (fn [[k]] (contains? positional-keys k))
+        arg-key-set (arg-keys spec-map (:args->opts node))
+        opt-spec (remove (fn [[k]] (contains? arg-key-set k))
                          (spec-entries spec order))
-        arg-rows (positional-help-rows spec-map order (:args->opts node))
+        arg-rows (positional-help-rows spec-map order (:args->opts node) arg-key-set)
         ;; drop inherited options this node redefines (child wins); mapify for the
         ;; key set, since a standalone format-command-help spec may be a vec
         inherited (apply dissoc inherited (keys spec-map))
@@ -1414,15 +1455,16 @@
   "Value candidates for spec `entry` (key `k`): `:complete-fn` (called with
   `{:to-complete :opts :option}`), `:complete`, or a set-valued `:validate`.
   Normalized to `{:value :description}` maps and prefix-filtered against
-  `to-complete` (powershell does not filter shell-side). A `:complete` coll
-  keeps its author-defined order; a set is unordered, so its candidates are
-  sorted (some shells display emission order as-is)."
+  `to-complete` (powershell does not filter shell-side). A `:complete` coll and
+  an `:enum` keep their declared order. A set-valued `:validate` is
+  unordered, so its candidates are sorted (some shells display emission order
+  as-is)."
   [entry k to-complete parsed]
   (let [candidates (cond
                      (:complete-fn entry) ((:complete-fn entry)
                                            {:to-complete to-complete :opts parsed :option k})
                      (:complete entry) (:complete entry)
-                     (set? (:validate entry)) (sort-set-values (:validate entry)))]
+                     :else (entry-choices entry))]
     (->> candidates
          (map normalize-value-candidate)
          (filter #(str/starts-with? (:value %) to-complete)))))
@@ -1433,7 +1475,7 @@
   [spec opts prev to-complete parsed]
   (let [k (option-key prev opts)
         entry (get spec k)]
-    (if (or (:complete entry) (:complete-fn entry) (set? (:validate entry)))
+    (if (or (:complete entry) (:complete-fn entry) (entry-choices entry))
       (candidates-for-entry entry k to-complete parsed)
       (when-not (false? (:complete entry))
         [{:file-completion true}]))))
@@ -1461,13 +1503,6 @@
     (assoc (deep-merge (select-keys global-opts parse-keys)
                        (select-keys node parse-keys))
            :spec spec)))
-
-(defn- repeatable-opt?
-  "True when option `k` may appear more than once (collection-valued `:coerce`
-  or `:collect`)."
-  [opts k]
-  (or (coll? (get-in opts [:coerce k]))
-      (contains? (:collect opts) k)))
 
 (defn- safe-parse
   "Parse `args` for completion: `:exec-args` dropped so a `:default` does not
@@ -1511,7 +1546,7 @@
     (let [k (nth a->o (count pos-args) nil)
           entry (when k (get spec k))]
       (when k
-        (if (or (:complete entry) (:complete-fn entry) (set? (:validate entry)))
+        (if (or (:complete entry) (:complete-fn entry) (entry-choices entry))
           (candidates-for-entry entry k to-complete parsed)
           (when-not (false? (:complete entry))
             [{:file-completion true}]))))))
