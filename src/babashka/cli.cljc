@@ -1291,6 +1291,16 @@
   (when (:cmds node)
     (throw (ex-info "A tree node contains :cmds (table entry syntax): nest children under :cmd, or pass a table (vector of entries)"
                     {:node node})))
+  ;; a command key must name a command. A tree built in an evaluated context
+  ;; (e.g. unquoted function metadata) can turn a symbol key into the function
+  ;; value, which would become a garbage command name and silently misroute
+  #?(:squint nil :cljd nil :default
+     (doseq [k (if (vector? (:cmd node)) (map first (:cmd node)) (keys (:cmd node)))]
+       (when-not (or (string? k) (symbol? k) (keyword? k))
+         (throw (ex-info (str "Command name " (pr-str k) " is not a string, symbol or keyword"
+                              " (tree built in an evaluated context, e.g. function metadata?"
+                              " quote it or use string keys)")
+                         {:node node :key k})))))
   (let [;; a vector `:cmd` (pairs `[[name child] ...]`) preserves child order without
         ;; relying on map iteration order; fold it into the lookup map + `::cmd-order`
         node (if (vector? (:cmd node))

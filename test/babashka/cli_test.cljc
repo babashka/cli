@@ -781,6 +781,13 @@
                      (take-while #(str/starts-with? % "  "))
                      (mapv #(str/trim %)))))))))
 
+#?(:squint nil :cljd nil :default
+   (deftest cmd-key-guard-test
+     (testing "a :cmd key that is not a name throws with an explanation"
+       (is (thrown-with-msg?
+            Exception #"is not a string, symbol or keyword"
+            (cli/dispatch {:cmd {identity {:fn identity}}} ["x"]))))))
+
 (deftest dispatch-exec-fn-test
   (testing ":exec-fn is called with just the parsed opts; :fn with the whole map"
     (is (= {:foo 1 :bar true}
