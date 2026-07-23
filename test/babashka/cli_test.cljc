@@ -866,6 +866,20 @@
          (cli/parse-opts ["--n" "5"]
                          {:spec {:n {:coerce :long :validate #{10 1 2}}}})))))
 
+(deftest restrict-args-dispatch-tree-test
+  (let [tree {:fn (fn [{:keys [opts]}] [:root opts])
+              :restrict-args true
+              :cmd {"sub" {:exec-fn (fn [opts] [:sub opts])
+                           :spec {:format {}}}}}]
+    (testing "a command word routes instead of tripping :restrict-args"
+      (is (= [:sub {:format "json"}] (cli/dispatch tree ["sub" "--format" "json"]))))
+    (testing "a stray positional still errors"
+      (is (thrown-with-msg?
+           #?(:cljd Object :default Exception) #"Unexpected argument: bogus"
+           (cli/dispatch tree ["bogus"]))))
+    (testing "bare invocation runs the root fn"
+      (is (= [:root {}] (cli/dispatch tree []))))))
+
 (defn- listed-command-names
   "Command names from the `Commands:` section of help/error output, in order."
   [s]
