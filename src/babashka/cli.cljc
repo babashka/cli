@@ -486,13 +486,18 @@
                         :arg arg
                         :flag flag
                         :opts m})))))
-     ;; `:restrict-args` rejects positional args not consumed by `:args->opts`
+     ;; `:restrict-args` rejects positional args not consumed by `:args->opts`.
+     ;; In a dispatch tree the parse stops at a child command word and the
+     ;; remainder routes to the child, so a leading command word exempts them.
      (when (:restrict-args opts)
-       (doseq [a (-> (meta m) :org.babashka/cli :args)]
-         (error-fn {:cause :restrict-args
-                    :msg (str "Unexpected argument: " a)
-                    :value a
-                    :opts m})))
+       (let [args (-> (meta m) :org.babashka/cli :args)
+             cmds (::dispatch-tree-ignored-args opts)]
+         (when-not (and cmds (contains? cmds (first args)))
+           (doseq [a args]
+             (error-fn {:cause :restrict-args
+                        :msg (str "Unexpected argument: " a)
+                        :value a
+                        :opts m})))))
      (when restrict
        (doseq [k (keys m)]
          (when (and (not (contains? restrict k))
@@ -1772,7 +1777,7 @@ $env.config.completions.external.completer = {|spans|
      :default (binding [*out* *err*] (println s))))
 
 (defn- has-parse-opts? [m]
-  (some #{:spec :coerce :require :restrict :validate :args->opts :exec-args} (keys m)))
+  (some #{:spec :coerce :require :restrict :restrict-args :validate :args->opts :exec-args} (keys m)))
 
 (defn- is-option? [s]
   (and s
