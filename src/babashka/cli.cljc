@@ -1077,13 +1077,19 @@
                  :wrap wrap
                  :max-width-fn max-width-fn}))
 
+(defn- doc-str
+  "A `:doc`/`:epilog` value as a string: a vector of lines joins with newlines."
+  [s]
+  (if (vector? s) (str/join "\n" s) s))
+
 (defn- help-first-line [s]
-  (when s (first (str/split-lines s))))
+  (when-let [s (doc-str s)]
+    (first (str/split-lines s))))
 
 (defn- help-description
   "Full doc string, each line left-trimmed, leading/trailing blank lines dropped."
   [s]
-  (when s
+  (when-let [s (doc-str s)]
     (let [ls (->> (str/split-lines s)
                   (map str/triml)
                   (drop-while str/blank?)
@@ -1212,7 +1218,7 @@
           ;; free-text the entry supplies (examples, notes), rendered verbatim
           ;; last, as a closing footer (argparse epilog / picocli footer convention)
           (:epilog node)
-          (conj (str/trim (:epilog node))))]
+          (conj (str/trim (doc-str (:epilog node)))))]
     (str/join "\n\n" sections)))
 
 (defn- split [a b]
@@ -1845,7 +1851,8 @@ $env.config.completions.external.completer = {|spans|
 
   An entry's `:epilog` (a string) is rendered verbatim after the options - use it
   for examples, notes or links. Put it on the root entry (`:cmds []`) for the
-  top-level help.
+  top-level help. `:doc` and `:epilog` also accept a vector of strings, joined
+  with newlines - convenient in edn, which has no `str/join`.
 
   Takes a single map:
   * `:table`   - a `dispatch` table, or a tree (hand-written or from

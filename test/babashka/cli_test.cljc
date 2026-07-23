@@ -1114,6 +1114,20 @@
                     "Options:\n  --limit  Max\n\n"
                     "Examples:\n\n  p search foo")
                (cli/format-command-help {:table t :cmds ["search"] :prog "p"})))))
+    (testing ":doc and :epilog as vectors of lines join with newlines"
+      (let [t [{:cmds [] :doc ["Tool." "" "Second paragraph."]}
+               {:cmds ["go"] :fn identity
+                :doc ["Runs it." "" "Details."]
+                :epilog ["Examples:" "  p go"]}]]
+        (is (= (str "Usage: p <command>\n\n"
+                    "Tool.\n\nSecond paragraph.\n\n"
+                    "Commands:\n  go Runs it.\n\n"
+                    "Run \"p <command> --help\" for more information on a command.")
+               (cli/format-command-help {:table t :prog "p"})))
+        (is (= (str "Usage: p go\n\n"
+                    "Runs it.\n\nDetails.\n\n"
+                    "Examples:\n  p go")
+               (cli/format-command-help {:table t :cmds ["go"] :prog "p"})))))
     (testing "an entry :order sets the Options order; a vec-of-pairs spec keeps its order"
       (let [t [{:cmds [] :spec {:a {:desc "A"} :b {:desc "B"} :c {:desc "C"}} :order [:c :a :b]}]]
         (is (= (str "Usage: p [options]\n\n"
