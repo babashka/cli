@@ -4,9 +4,9 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## 0.12.81
 
-- A required `:inherit` option may be supplied after its command, not only before it
+- Fix: a required `:inherit` option is no longer reported missing when supplied after its command
 
 ## 0.12.80
 
