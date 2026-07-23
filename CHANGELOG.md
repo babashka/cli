@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## v0.12.78
+
+- Fix `:restrict-args` with valid subcommands
+
 ## v0.12.77
 
 - [#206](https://github.com/babashka/cli/pull/206): shell completion: limit option candidates to dash-prefixed words and option-only commands, sort set-valued `:validate` candidates, fix zsh column layout, and prefer nushell candidates over file completion
