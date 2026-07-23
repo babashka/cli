@@ -1638,6 +1638,22 @@
       (is (thrown-with-msg?
            #?(:cljd Object :default Exception) #"Unknown option: --registry"
            (cli/dispatch table ["deps" "outdated" "--registry" "X"] {:restrict true})))))
+  (testing "a non-:inherit parent option's spec does not reach the child after the command"
+    (let [table [{:cmds ["deps"]            :spec {:registry {:coerce :keyword
+                                                             :validate #{:a :b}}}}
+                 {:cmds ["deps" "outdated"] :fn identity}]]
+      (testing "parent :coerce is not applied (value stays a raw string)"
+        (is (= {:registry "X"}
+               (:opts (cli/dispatch table ["deps" "outdated" "--registry" "X"])))))
+      (testing "parent :validate is not applied (an invalid value is not rejected)"
+        (is (= {:registry "zzz"}
+               (:opts (cli/dispatch table ["deps" "outdated" "--registry" "zzz"])))))
+      (testing "the same option before the command IS parsed by the parent spec"
+        (is (= {:registry :a}
+               (:opts (cli/dispatch table ["deps" "--registry" "a" "outdated"]))))
+        (is (thrown-with-msg?
+             #?(:cljd Object :default Exception) #"Invalid value for option --registry"
+             (cli/dispatch table ["deps" "--registry" "zzz" "outdated"]))))))
   (testing "a required :inherit option may be supplied on either side of the command"
     (let [table [{:cmds ["deps"]            :spec {:registry {:require true :inherit true}}}
                  {:cmds ["deps" "outdated"] :fn identity}]]
