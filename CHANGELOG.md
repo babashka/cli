@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- Populate `:msg` in the `:error-fn` data for `dispatch` command errors (`:no-match`, `:input-exhausted`), like option errors already carry it
+
 ## 0.12.81
 
 - Fix: a required `:inherit` option is no longer reported missing when supplied after its command

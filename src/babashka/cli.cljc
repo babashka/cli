@@ -1956,6 +1956,15 @@ $env.config.completions.external.completer = {|spans|
   [{:keys [tree dispatch prog inherit]}]
   (println (format-command-help {:table tree :cmds (or dispatch []) :prog prog :inherit inherit})))
 
+(defn- dispatch-error-msg
+  "The terse one-line `:msg` for a command-level dispatch error, or nil for an
+  option error (whose `:msg` comes from the parser)."
+  [cause wrong-input]
+  (case cause
+    :no-match (str "Unknown command: " wrong-input)
+    :input-exhausted "No command given."
+    nil))
+
 (defn format-command-error
   "Render a terse, helpful message (a string) for a dispatch error.
   It is given the data `dispatch` passes to its `:error-fn`:
@@ -1994,11 +2003,8 @@ $env.config.completions.external.completer = {|spans|
                                 [(str "Commands:\n" (format-table {:rows cmds :indent 2})) ""])
                               [hint]))))]
     (cond
-      (= :no-match cause)
-      (command-error (str "Unknown command: " wrong-input))
-
-      (= :input-exhausted cause)
-      (command-error "No command given.")
+      (or (= :no-match cause) (= :input-exhausted cause))
+      (command-error (or msg (dispatch-error-msg cause wrong-input)))
 
       ;; genuine option error (restrict / require / validate / coerce): terse.
       ;; The lib message already names the option the user typed.
@@ -2143,6 +2149,7 @@ $env.config.completions.external.completer = {|spans|
          (error-fn (thread-dispatch-context
                     (merge {:type :org.babashka/cli
                             :cause error
+                            :msg (dispatch-error-msg error (:wrong-input res))
                             :all-commands available-commands
                             :tree tree}
                            (select-keys res [:wrong-input :opts :dispatch]))
