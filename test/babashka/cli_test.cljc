@@ -598,11 +598,11 @@
                (-> (cli/dispatch
                     table
                     ["foo" "bar" "--version" "2000" "some-arg"])))))
-      (testing "dispatch errors return :dispatch key"
+      (testing "dispatch errors return :dispatch key, and a :msg like option errors do"
         ;; submap?: dispatch also enriches error data with :tree (and :prog/:inherit when set)
-        (is (submap? {:type :org.babashka/cli, :dispatch ["foo" "bar"], :all-commands '("baz"), :cause :input-exhausted, :opts {}}
+        (is (submap? {:type :org.babashka/cli, :dispatch ["foo" "bar"], :all-commands '("baz"), :cause :input-exhausted, :msg "No command given.", :opts {}}
                      (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar"] {:error-fn identity})))
-        (is (submap? {:type :org.babashka/cli, :dispatch ["foo" "bar"], :wrong-input "wrong", :all-commands '("baz"), :cause :no-match, :opts {}}
+        (is (submap? {:type :org.babashka/cli, :dispatch ["foo" "bar"], :wrong-input "wrong", :all-commands '("baz"), :cause :no-match, :msg "Unknown command: wrong", :opts {}}
                      (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar" "wrong"] {:error-fn identity})))))))
 
 (deftest table->tree-test
