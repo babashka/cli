@@ -32,5 +32,8 @@ _babashka_cli_complete_myprogram() {
     [[ -n $do_files ]] && { _files; ret=0; }
     return $ret
 }
+# zsh hides options until a dash is typed. After a command there is usually
+# nothing else to complete, so opt out for these programs only
+zstyle ':completion:*:*:myprogram:*:options' prefix-needed false
 # register the bare name(s); zsh's _normal completes ./name and /abs/name via the basename
 compdef _babashka_cli_complete_myprogram myprogram

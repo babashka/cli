@@ -167,7 +167,15 @@
       (is (not (str/includes? zsh "elif [[ $v == -* ]]"))))
     (testing "an option without a description is added under the options tag"
       (is (str/includes? zsh "bareopt+=(\"$v\")"))
-      (is (str/includes? zsh "_describe -t options option bareopt")))))
+      (is (str/includes? zsh "_describe -t options option bareopt")))
+    (testing "options are offered without typing a dash first"
+      (is (str/includes? zsh "zstyle ':completion:*:*:myprogram:*:options' prefix-needed false")))))
+
+(deftest zsh-snippet-prefix-needed-per-name-test
+  (testing "every registered name opts out of prefix-needed"
+    (let [zsh (snippet-via-cmd cmd-table {:prog "x"} "zsh" "--prog" "sq" "--prog" "squint")]
+      (is (str/includes? zsh "zstyle ':completion:*:*:sq:*:options' prefix-needed false"))
+      (is (str/includes? zsh "zstyle ':completion:*:*:squint:*:options' prefix-needed false")))))
 
 (defn- complete-out
   "Run the completion handler for `cmdline` and return its emitted
