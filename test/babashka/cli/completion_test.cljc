@@ -160,6 +160,15 @@
              (snippet-via-cmd cmd-table {:prog "myprogram"} shell))
           shell))))
 
+(deftest zsh-snippet-option-classification-test
+  (let [zsh (snippet-via-cmd cmd-table {:prog "myprogram"} "zsh")]
+    (testing "a dash-prefixed candidate is classified as an option before its description is considered"
+      (is (str/includes? zsh "if [[ $v == -* ]]"))
+      (is (not (str/includes? zsh "elif [[ $v == -* ]]"))))
+    (testing "an option without a description is added under the options tag"
+      (is (str/includes? zsh "bareopt+=(\"$v\")"))
+      (is (str/includes? zsh "_describe -t options option bareopt")))))
+
 (defn- complete-out
   "Run the completion handler for `cmdline` and return its emitted
   `value\\tdescription` lines as a set of strings."

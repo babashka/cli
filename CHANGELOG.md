@@ -7,6 +7,7 @@ For breaking changes, check [here](#breaking-changes).
 ## Unreleased
 
 - Populate `:msg` in the `:error-fn` data for `dispatch` command errors (`:no-match`, `:input-exhausted`), like option errors already carry it
+- zsh completion: classify an option without a `:desc` as an option. It was added as a value, which offered it where zsh hides described options
 
 ## 0.12.81
 
