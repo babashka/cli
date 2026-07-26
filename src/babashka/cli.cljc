@@ -1659,6 +1659,9 @@
         fn (str "_babashka_cli_complete_" (str/replace program-name #"[^a-zA-Z0-9_]+" "_"))
         names-sp (str/join " " names)
         names-csv (str/join "," names)
+        names-zstyle (str/join "\n"
+                               (map #(str "zstyle ':completion:*:*:" % ":*:options' prefix-needed false")
+                                    names))
         names-nu (str "[" (str/join " " (map #(str "\"" % "\"") names)) "]")]
    (case shell
     :bash (str fn "()
@@ -1743,6 +1746,9 @@ complete -F " fn " " names-sp "
     [[ -n $do_files ]] && { _files; ret=0; }
     return $ret
 }
+# zsh hides options until a dash is typed. After a command there is usually
+# nothing else to complete, so opt out for these programs only
+" names-zstyle "
 # register the bare name(s); zsh's _normal completes ./name and /abs/name via the basename
 compdef " fn " " names-sp "
 ")
