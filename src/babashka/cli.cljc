@@ -1244,7 +1244,7 @@
           (conj desc)
 
           (seq cmds)
-          (conj (str "Commands:\n" (format-table {:rows cmds :indent 2})))
+          (conj (str "Commands:\n" (format-table {:rows cmds :indent 2 :divider "  "})))
 
           (seq arg-rows)
           (conj (str "Arguments:\n" (format-table {:rows arg-rows :indent 2 :divider "  "})))
@@ -2010,7 +2010,7 @@ $env.config.completions.external.completer = {|spans|
             (str/join "\n"
                       (concat [message ""]
                               (when (seq cmds)
-                                [(str "Commands:\n" (format-table {:rows cmds :indent 2})) ""])
+                                [(str "Commands:\n" (format-table {:rows cmds :indent 2 :divider "  "})) ""])
                               [hint]))))]
     (cond
       (or (= :no-match cause) (= :input-exhausted cause))

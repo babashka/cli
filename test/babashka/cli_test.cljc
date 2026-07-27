@@ -1129,7 +1129,7 @@
                 :spec {:recursive {:alias :r :desc "Delete recursively"}}}]]
     (testing "top level: usage, commands, options, pointer"
       (is (= (str "Usage: example [options] <command>\n\n"
-                  "Commands:\n  copy   Copy a file\n  delete Delete a file\n\n"
+                  "Commands:\n  copy    Copy a file\n  delete  Delete a file\n\n"
                   "Options:\n  -v, --verbose  Verbose output\n\n"
                   "Run \"example <command> --help\" for more information on a command.")
              (cli/format-command-help {:table table :prog "example"}))))
@@ -1176,7 +1176,7 @@
                 :epilog ["Examples:" "  p go"]}]]
         (is (= (str "Usage: p <command>\n\n"
                     "Tool.\n\nSecond paragraph.\n\n"
-                    "Commands:\n  go Runs it.\n\n"
+                    "Commands:\n  go  Runs it.\n\n"
                     "Run \"p <command> --help\" for more information on a command.")
                (cli/format-command-help {:table t :prog "p"})))
         (is (= (str "Usage: p go\n\n"
@@ -1214,7 +1214,7 @@
                                          :dispatch [] :prog "tool"
                                          :tree (cli/table->tree table)})]
         (is (= (str "Unknown command: nope\n\n"
-                    "Commands:\n  dev  Start dev.\n  deps Dep tools\n\n"
+                    "Commands:\n  dev   Start dev.\n  deps  Dep tools\n\n"
                     "Run \"tool --help\" for more information.")
                s))))
     (testing ":input-exhausted (incomplete multi-word command) renders the group's commands"
