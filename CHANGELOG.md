@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- Help: separate command names and docs with two spaces, like the `Options:` and `Arguments:` sections
+
 ## 0.12.84
 
 - zsh completion: offer a command's options without typing a dash first, by opting the registered program names out of zsh's `prefix-needed` style
