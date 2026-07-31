@@ -1523,11 +1523,13 @@
 
 (defn- option-candidates
   "Option candidates completing `to-complete`, minus the single-value options
-  already in `parsed`."
+  already in `parsed` and the `:positional` keys, which are rejected when
+  typed as a flag."
   [spec opts aliases known parsed to-complete]
   (let [used (set (remove #(repeatable-opt? opts %) (keys parsed)))]
     (keep (fn [[token k]]
             (when (and (not (:no-doc (get spec k)))
+                       (not (:positional (get spec k)))
                        (not (used k))
                        (true-prefix? to-complete token))
               {:value token :description (help-first-line (:desc (get spec k)))}))

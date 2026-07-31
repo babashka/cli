@@ -376,6 +376,19 @@
     (testing "no positional candidates past the :args->opts mapping"
       (is (= #{} (set (complete t ["deploy" "dev" "us" "x"])))))))
 
+(deftest positional-only-not-offered-as-option-test
+  ;; a `:positional` key is rejected when typed as a flag, so it is not an
+  ;; option candidate either, matching help, which lists it under `Arguments:`
+  (let [t [{:cmds ["deploy"] :args->opts [:env]
+            :spec {:env {:positional true :desc "Env"}
+                   :force {:coerce :boolean :desc "Force"}}}]]
+    (testing "a :positional key is not offered among the options"
+      (is (= #{"--force"} (set (complete t ["deploy" "--"])))))
+    (testing "a key bound by :args->opts without :positional stays an option"
+      (let [v [{:cmds ["deploy"] :args->opts [:env]
+                :spec {:env {:desc "Env"} :force {:coerce :boolean}}}]]
+        (is (contains? (set (complete v ["deploy" "--"])) "--env"))))))
+
 (deftest positional-file-completion-test
   ;; a declared positional with no value completion -> file-completion marker line,
   ;; which the stub turns into the shell's own file completer

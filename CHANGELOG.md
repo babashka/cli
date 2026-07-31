@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- Completion: do not offer `:positional` keys as options, they are rejected when typed as a flag
+
 ## 0.12.85
 
 - Help: separate command names and docs with two spaces, like the `Options:` and `Arguments:` sections
