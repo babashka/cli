@@ -1081,11 +1081,11 @@ section, before `Options:`:
           :dest {:positional true :desc "Destination"}
           :verbose {:coerce :boolean :desc "Verbose"}}}
   ["--help"]
-  {:prog "myctl" :help true})
+  {:prog "mycli" :help true})
 ```
 Outputs:
 ```
-Usage: myctl [options] <src> [<dest>]
+Usage: mycli [options] <src> [<dest>]
 
 Arguments:
   <src>   Source
