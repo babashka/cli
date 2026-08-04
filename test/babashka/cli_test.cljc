@@ -682,6 +682,19 @@
                     (when-not (::exit (ex-data e)) (throw e))))))]
     {:out out :exit @exit}))
 
+(deftest dispatch-inherited-test
+  (let [tree {:spec {:bar {:coerce :long}} :restrict true :fn identity}]
+    (testing "an :inherited option parses even though the node does not declare it"
+      (is (submap? {:opts {:foo 1}}
+                   (cli/dispatch tree ["--foo" "1"] {:inherited {:foo {:coerce :long}}}))))
+    (testing "the node's own options still parse"
+      (is (submap? {:opts {:bar 2}}
+                   (cli/dispatch tree ["--bar" "2"] {:inherited {:foo {:coerce :long}}}))))
+    (testing ":restrict still rejects an option neither declares"
+      (is (thrown-with-msg?
+           #?(:clj Exception :cljs js/Error) #"Unknown option: --nope"
+           (cli/dispatch tree ["--nope" "1"] {:inherited {:foo {:coerce :long}}}))))))
+
 (deftest dispatch-tree-input-test
   ;; dispatch accepts a tree (the table->tree shape) directly
   (let [tree {:doc "tool"
@@ -1148,6 +1161,19 @@
         (is (= (str "Usage: p sub [options]\n\n"
                     "Options:\n  --x  local x")
                (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))
+    (testing ":inherited lists options declared elsewhere, with no ancestor to carry them"
+      (is (= (str "Usage: p [options]\n\n"
+                  "Options:\n  --bar  own\n\n"
+                  "Inherited options:\n  --foo  from elsewhere")
+             (cli/format-command-help {:table {:spec {:bar {:desc "own"}}}
+                                       :prog "p"
+                                       :inherited {:foo {:desc "from elsewhere"}}})))
+      (testing "the command's own spec wins over it"
+        (is (= (str "Usage: p [options]\n\n"
+                    "Options:\n  --bar  own")
+               (cli/format-command-help {:table {:spec {:bar {:desc "own"}}}
+                                         :prog "p"
+                                         :inherited {:bar {:desc "from elsewhere"}}})))))
     (testing ":args->opts renders labeled positionals in the usage line"
       (let [t [{:cmds ["copy"] :fn identity :doc "Copy" :args->opts [:src :dest]
                 :spec {:force {:desc "Force"}}}]]
