@@ -682,6 +682,18 @@
                     (when-not (::exit (ex-data e)) (throw e))))))]
     {:out out :exit @exit}))
 
+(deftest dispatch-global-spec-test
+  (let [tree {:spec {:bar {:coerce :long}} :restrict true :fn identity}
+        global {:spec {:foo {:coerce :long :desc "global foo"}}}]
+    (testing "a dispatch-level :spec option parses though the node does not declare it"
+      (is (submap? {:opts {:foo 1}} (cli/dispatch tree ["--foo" "1"] global))))
+    (testing "the node's own options still parse"
+      (is (submap? {:opts {:bar 2}} (cli/dispatch tree ["--bar" "2"] global))))
+    (testing ":restrict still rejects an option neither declares"
+      (is (thrown-with-msg?
+           #?(:cljd Object :default Exception) #"Unknown option: --nope"
+           (cli/dispatch tree ["--nope" "1"] global))))))
+
 (deftest dispatch-tree-input-test
   ;; dispatch accepts a tree (the table->tree shape) directly
   (let [tree {:doc "tool"
@@ -1148,6 +1160,19 @@
         (is (= (str "Usage: p sub [options]\n\n"
                     "Options:\n  --x  local x")
                (cli/format-command-help {:table t :cmds ["sub"] :prog "p"})))))
+    (testing "the dispatch-level :spec is listed, having no ancestor to carry it"
+      (is (= (str "Usage: p [options]\n\n"
+                  "Options:\n  --bar  own\n\n"
+                  "Inherited options:\n  --foo  global foo")
+             (cli/format-command-help {:table {:spec {:bar {:desc "own"}}}
+                                       :prog "p"
+                                       :spec {:foo {:desc "global foo"}}})))
+      (testing "the command's own spec wins over it"
+        (is (= (str "Usage: p [options]\n\n"
+                    "Options:\n  --bar  own")
+               (cli/format-command-help {:table {:spec {:bar {:desc "own"}}}
+                                         :prog "p"
+                                         :spec {:bar {:desc "global bar"}}})))))
     (testing ":args->opts renders labeled positionals in the usage line"
       (let [t [{:cmds ["copy"] :fn identity :doc "Copy" :args->opts [:src :dest]
                 :spec {:force {:desc "Force"}}}]]

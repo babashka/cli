@@ -1857,9 +1857,13 @@ $env.config.completions.external.completer = {|spans|
   ancestors) and the `:parents` pointers (ancestors with non-inherited options
   that must precede the command).
 
+  `global-spec` is the dispatch-level `:spec`: options accepted at every level,
+  which have no ancestor node to be listed under. Ancestors win over it, and the
+  node's own spec wins over both.
+
   Specs are mapified here for set reasoning (a standalone `format-command-help`
   spec may be a vec-of-pairs); display order is handled by `render-help`."
-  [tree cmds prog inherit]
+  [tree cmds prog inherit global-spec]
   (let [node-at (fn [path] (get-in tree (interleave (repeat :cmd) path)))
         prog-at (fn [path] (str/join " " (cons prog path)))
         ;; options available at the target level itself (e.g. an injected --help,
@@ -1872,7 +1876,7 @@ $env.config.completions.external.completer = {|spans|
                               spec (->spec-map (:spec (node-at pre)))
                               inh  (inherited-entries spec inherit)]]
                     {:pre pre :inh inh :own (apply dissoc spec (keys inh))})
-        inherited (reduce merge {} (map :inh ancestors))
+        inherited (reduce merge (->spec-map global-spec) (map :inh ancestors))
         ;; ancestors with non-inherited options that aren't also available here
         ;; (those must be given before the command)
         parents (for [{:keys [pre own]} ancestors
@@ -1916,6 +1920,9 @@ $env.config.completions.external.completer = {|spans|
   * `:inherit` - only needed when you pass a dispatch-level `:inherit` to
                  `dispatch`; pass the same value so `Inherited options:` matches.
                  Per-option `:inherit true` is detected automatically.
+  * `:spec`    - the dispatch-level spec, when you pass one to `dispatch`:
+                 options accepted at every level, listed under
+                 `Inherited options:` since no ancestor node declares them.
 
   Options are listed in the entry's `:order` when it has one, else in spec order
   (a vec-of-pairs `:spec` keeps its order; a map follows key order, unreliable
@@ -1924,9 +1931,9 @@ $env.config.completions.external.completer = {|spans|
   This is the renderer the `:help` option uses; call it from a custom `:help-fn`
   to render the standard help and then add your own output. An entry may carry
   `:no-doc true` to be omitted from `Commands:`."
-  [{:keys [table cmds prog inherit] :or {cmds []}}]
+  [{:keys [table cmds prog inherit spec] :or {cmds []}}]
   (let [tree (table->tree table)
-        ctx (command-help-context tree (vec cmds) prog inherit)]
+        ctx (command-help-context tree (vec cmds) prog inherit spec)]
     (render-help (:node ctx) ctx)))
 
 (defn ^:dynamic *exit-fn*
@@ -1965,8 +1972,9 @@ $env.config.completions.external.completer = {|spans|
   caller does not exit (it returns like a normal `:fn`, so the process ends with
   status 0). Reads the command tree, `:prog` and `:inherit` from the data
   dispatch threads in; renders via [[format-command-help]]."
-  [{:keys [tree dispatch prog inherit]}]
-  (println (format-command-help {:table tree :cmds (or dispatch []) :prog prog :inherit inherit})))
+  [{:keys [tree dispatch prog inherit] :as data}]
+  (println (format-command-help {:table tree :cmds (or dispatch []) :prog prog
+                                 :inherit inherit :spec (::global-spec data)})))
 
 (defn- dispatch-error-msg
   "The terse one-line `:msg` for a command-level dispatch error, or nil for an
@@ -1994,10 +2002,10 @@ $env.config.completions.external.completer = {|spans|
   this, then calls [[*exit-fn*]]). Call it from a custom `:error-fn` to keep the
   standard message and add your own output. `--help`/`-h` is not an error - it
   goes to the `:help-fn`, rendered by [[format-command-help]]."
-  [{:keys [cause dispatch wrong-input msg prog inherit tree]}]
+  [{:keys [cause dispatch wrong-input msg prog inherit tree] :as data}]
   (let [tree   (table->tree tree)
         path   (or dispatch [])
-        ctx-at (fn [p] (command-help-context tree (vec p) prog inherit))
+        ctx-at (fn [p] (command-help-context tree (vec p) prog inherit (::global-spec data)))
         hint  (str "Run \"" (str/join " " (cons prog path))
                    " --help\" for more information.")
         usage (fn [p]
@@ -2032,12 +2040,15 @@ $env.config.completions.external.completer = {|spans|
   (eprintln (format-command-error data)))
 
 (defn- thread-dispatch-context
-  "Add the dispatch-level `:prog` and `:inherit` (when set) to error/help `data`,
-  so an `:error-fn` / `:help-fn` can render without being handed them."
-  [data {:keys [prog inherit]}]
+  "Add the dispatch-level `:prog`, `:inherit` and `:spec` (when set) to
+  error/help `data`, so an `:error-fn` / `:help-fn` can render without being
+  handed them. The spec goes under a namespaced key: option-error data already
+  carries the parser's own `:spec`."
+  [data {:keys [prog inherit spec]}]
   (cond-> data
     prog    (assoc :prog prog)
-    inherit (assoc :inherit inherit)))
+    inherit (assoc :inherit inherit)
+    spec    (assoc ::global-spec spec)))
 
 ;; command names to suggest in errors: skip `:no-doc`, same as help and
 ;; completion hide them
