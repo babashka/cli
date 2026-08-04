@@ -6,6 +6,8 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
+- Help: show the dispatch-level `:spec` options under `Inherited options:`. The parser always accepted these options, but help did not show them
+- Help: `format-command-help` accepts `:spec`, the dispatch-level spec, so a standalone call shows the same options as `dispatch`
 - Completion: do not offer `:positional` keys as options, they are rejected when typed as a flag
 
 ## 0.12.85
