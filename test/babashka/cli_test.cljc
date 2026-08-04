@@ -692,7 +692,7 @@
                    (cli/dispatch tree ["--bar" "2"] {:inherited {:foo {:coerce :long}}}))))
     (testing ":restrict still rejects an option neither declares"
       (is (thrown-with-msg?
-           #?(:clj Exception :cljs js/Error) #"Unknown option: --nope"
+           #?(:cljd Object :default Exception) #"Unknown option: --nope"
            (cli/dispatch tree ["--nope" "1"] {:inherited {:foo {:coerce :long}}}))))))
 
 (deftest dispatch-tree-input-test
