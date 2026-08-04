@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## 0.12.86
 
 - Help: show the dispatch-level `:spec` options under `Inherited options:`. The parser always accepted these options, but help did not show them
 - Help: `format-command-help` accepts `:spec`, the dispatch-level spec, so a standalone call shows the same options as `dispatch`
