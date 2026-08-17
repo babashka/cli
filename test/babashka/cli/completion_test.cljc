@@ -225,6 +225,15 @@
       (is (= (mapv #(str "cmd" %) (range 10))
              (complete table [""]))))))
 
+(deftest cmd-alias-completion-test
+  (let [table [{:cmds ["new"] :fn identity :cmd-alias "n"}
+               {:cmds ["dep" "add"] :fn identity :cmd-alias "a"}
+               {:cmds ["dep" "add" "git"] :fn identity}]]
+    (testing "aliases are not offered as candidates"
+      (is (= ["new" "dep"] (complete table [""]))))
+    (testing "completion descends through an alias"
+      (is (= ["git"] (complete table ["dep" "a" ""]))))))
+
 (deftest value-completion-test
   (testing ":complete as a static coll of strings"
     (let [o {:spec {:env {:coerce :string :complete ["dev" "prod"]}}}]

@@ -1015,6 +1015,16 @@ of printed output, but are still callable on the command line.
        "cache" {...}}}
 ```
 
+Use `:cmd-alias` to give a command one or more alternative names, a single name
+or a collection:
+
+``` clojure
+[{:cmds ["new"] :fn new :cmd-alias "n"}]
+```
+
+`prog n` now dispatches like `prog new`. Aliases do not show up in help or
+completions and `:dispatch` carries the canonical name.
+
 ### Help
 
 > For a guided walkthrough of automatic help and shell completions, see this

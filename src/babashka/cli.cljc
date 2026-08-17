@@ -1333,6 +1333,20 @@
       (:cmd-order node) (update :cmd-order #(mapv cmd-name %)))
     node))
 
+(defn- cmd-aliases
+  "Alias -> canonical child name map for `node`'s children, from each child's
+  `:cmd-alias` (a single name or a collection). Alias names are stringified
+  like command names."
+  [node]
+  (reduce-kv (fn [acc child-name child]
+               (let [a (:cmd-alias child)]
+                 (reduce (fn [acc alias]
+                           (assoc acc (cmd-name alias) child-name))
+                         acc
+                         (if (coll? a) a (when a [a])))))
+             {}
+             (:cmd node)))
+
 (defn- normalize-node
   "Normalize tree `node`, recursively. Rejects table-entry `:cmds` on a node,
   dedupes an explicit `:cmd-order` and
@@ -1577,9 +1591,9 @@
           (nil? head) [ropts node level eoo?]
           ;; literal `--`: everything after is positional
           (= "--" head) (recur node ropts inherited (next toks) (conj level head) true)
-          (and (not eoo?) (get-in node [:cmd head]))
+          (and (not eoo?) (get-in node [:cmd (get (cmd-aliases node) head head)]))
           (let [inherited (merge inherited (inherited-entries (:spec node) inherit-opt))
-                child (get-in node [:cmd head])]
+                child (get-in node [:cmd (get (cmd-aliases node) head head)])]
             (recur child (resolve-node inherited child) inherited (next toks) [] false))
           (and (not eoo?) (gnu-option? head))
           ;; flags consume one token, other options also their value
@@ -2109,10 +2123,14 @@ $env.config.completions.external.completer = {|spans|
                                                          ;; shared options parsed at parent levels: seeded as
                                                          ;; values and exempt from this level's :restrict
                                                          ::dispatch-inherited all-opts
-                                                         ::dispatch-tree-ignored-args (set (keys (:cmd cmd-info)))))
+                                                         ::dispatch-tree-ignored-args (into (set (keys (:cmd cmd-info)))
+                                                                                            (keys (cmd-aliases cmd-info)))))
                                  {:args args
                                   :opts {}})
            [arg & rest] args
+           ;; a `:cmd-alias` resolves to its canonical command name, so
+           ;; `:dispatch` and help always carry the canonical path
+           arg (get (cmd-aliases cmd-info) arg arg)
            all-opts (-> (merge all-opts opts)
                         (update ::opts-by-cmds (fnil conj []) {:cmds cmds
                                                                :opts opts}))]
@@ -2311,6 +2329,12 @@ $env.config.completions.external.completer = {|spans|
   child command names) on the map to control which children are shown and in
    what order (like `:order` does for options). A table keeps its entry order
   automatically.
+
+  A `:cmd-alias` on an entry (or node) declares one or more alternative names
+  for its last command, e.g. `{:cmds [\"new\"] :fn new :cmd-alias \"n\"}` (a
+  single name or a collection; strings, symbols or keywords). Aliases dispatch
+  like the command itself but stay out of help and completions, and `:dispatch`
+  always carries the canonical name.
 
   When a match is found, `:fn` called with the return value of
   [[parse-args]] applied to `args` enhanced with:
