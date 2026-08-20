@@ -601,7 +601,11 @@
          ;; override spec/`:exec-args` defaults but are overridden by `m`
          inherited (::dispatch-inherited opts)]
      (if (or exec-args inherited)
-       (with-meta (merge exec-args inherited m) (meta m))
+       (cond-> (with-meta (merge exec-args inherited m) (meta m))
+         (::dispatch-tree opts)
+         (vary-meta assoc ::defaulted
+                    (into #{} (remove #(or (contains? m %) (contains? inherited %)))
+                          (keys exec-args))))
        m))))
 
 ;;
@@ -850,6 +854,9 @@
          ;; Step 4: Validate
          validated (validate-opts coerced opts)]
      (vary-meta validated dissoc ::implicit-values ::keys-order ::opt->flag))))
+
+(defn- user-supplied [opts]
+  (apply dissoc opts (::defaulted (meta opts))))
 
 (defn parse-args
   "Same as [[parse-opts]] with return data reshaped.
@@ -2059,7 +2066,7 @@ $env.config.completions.external.completer = {|spans|
   ([tree args]
    (dispatch-tree' tree args nil))
   ([tree args opts]
-   (loop [cmds [] all-opts {} args args cmd-info tree inherited {}]
+   (loop [cmds [] all-opts {} user-opts {} args args cmd-info tree inherited {}]
      (let [kwm cmd-info
            ;; capture before the parse-args destructure below shadows `opts`
            inherit-opt (:inherit opts)
@@ -2108,11 +2115,13 @@ $env.config.completions.external.completer = {|spans|
                                                          ::dispatch-tree true
                                                          ;; shared options parsed at parent levels: seeded as
                                                          ;; values and exempt from this level's :restrict
-                                                         ::dispatch-inherited all-opts
+                                                         ::dispatch-inherited user-opts
                                                          ::dispatch-tree-ignored-args (set (keys (:cmd cmd-info)))))
                                  {:args args
                                   :opts {}})
            [arg & rest] args
+           user-opts (merge user-opts (user-supplied opts))
+           opts (vary-meta opts dissoc ::defaulted)
            all-opts (-> (merge all-opts opts)
                         (update ::opts-by-cmds (fnil conj []) {:cmds cmds
                                                                :opts opts}))]
@@ -2122,7 +2131,7 @@ $env.config.completions.external.completer = {|spans|
           :dispatch cmds
           :opts (dissoc all-opts ::opts-by-cmds)}
          (if-let [subcmd-info (get (:cmd cmd-info) arg)]
-           (recur (conj cmds arg) all-opts rest subcmd-info
+           (recur (conj cmds arg) all-opts user-opts rest subcmd-info
                   (merge inherited (inherited-entries (:spec kwm) inherit-opt)))
            (if (or (:fn cmd-info) (:exec-fn cmd-info))
              {:cmd-info cmd-info

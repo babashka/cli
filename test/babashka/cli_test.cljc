@@ -1546,6 +1546,22 @@
   (is (= {:foo [:bar]} (cli/parse-opts ["--foo" ":bar"] {:coerce {:foo []}
                                                          :exec-args {:foo [:baz]}}))))
 
+(deftest exec-args-nested-dispatch-test
+  (let [tree {:exec-args {:lvl "root"}
+              :cmd {"grp" {:exec-args {:lvl "branch" :kept "y"}
+                           :cmd {"deep" {:fn (fn [m] (:opts m)) :exec-args {:lvl "leaf"}}
+                                 "plain" {:fn (fn [m] (:opts m))}}}}}]
+    (testing "the command named wins over the defaults of its ancestors"
+      (is (= {:lvl "leaf" :kept "y"} (cli/dispatch tree ["grp" "deep"]))))
+    (testing "an ancestor default still fills what the command does not default"
+      (is (= {:lvl "branch" :kept "y"} (cli/dispatch tree ["grp" "plain"]))))
+    (testing "a value the user typed at an ancestor level beats both"
+      (is (= {:lvl "typed" :kept "y"}
+             (cli/dispatch tree ["--lvl" "typed" "grp" "deep"]))))
+    (testing "internal bookkeeping does not reach the handler"
+      (is (= {} (dissoc (meta (cli/dispatch tree ["grp" "deep"]))
+                        :org.babashka/cli))))))
+
 (deftest issue-82-alias-preference
   (is (= {:opts {:verbose2 true}}
          (cli/parse-args ["-vv"] {:spec {:verbose1 {:alias :v}
