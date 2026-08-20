@@ -602,10 +602,6 @@
          inherited (::dispatch-inherited opts)]
      (if (or exec-args inherited)
        (cond-> (with-meta (merge exec-args inherited m) (meta m))
-         ;; under `dispatch-tree`, record which keys this level filled from
-         ;; `:exec-args`, so only what the user supplied is passed down to a
-         ;; subcommand: a parent's default must not outrank the default of the
-         ;; command actually named. Internal, never returned to a caller
          (::dispatch-tree opts)
          (vary-meta assoc ::defaulted
                     (into #{} (remove #(or (contains? m %) (contains? inherited %)))
@@ -859,10 +855,7 @@
          validated (validate-opts coerced opts)]
      (vary-meta validated dissoc ::implicit-values ::keys-order ::opt->flag))))
 
-(defn- user-supplied
-  "`opts` as returned by [[parse-opts]], minus the keys that came from
-  `:exec-args` at this level rather than from the user."
-  [opts]
+(defn- user-supplied [opts]
   (apply dissoc opts (::defaulted (meta opts))))
 
 (defn parse-args
@@ -2122,16 +2115,12 @@ $env.config.completions.external.completer = {|spans|
                                                          ::dispatch-tree true
                                                          ;; shared options parsed at parent levels: seeded as
                                                          ;; values and exempt from this level's :restrict
-                                                         ;; only what the user typed at parent
-                                                         ;; levels: a parent's :exec-args default
-                                                         ;; must not beat this level's own
                                                          ::dispatch-inherited user-opts
                                                          ::dispatch-tree-ignored-args (set (keys (:cmd cmd-info)))))
                                  {:args args
                                   :opts {}})
            [arg & rest] args
            user-opts (merge user-opts (user-supplied opts))
-           ;; internal bookkeeping never reaches a handler
            opts (vary-meta opts dissoc ::defaulted)
            all-opts (-> (merge all-opts opts)
                         (update ::opts-by-cmds (fnil conj []) {:cmds cmds
