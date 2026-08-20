@@ -9,6 +9,7 @@ For breaking changes, check [here](#breaking-changes).
 - Help: show the dispatch-level `:spec` options under `Inherited options:`. The parser always accepted these options, but help did not show them
 - Help: `format-command-help` accepts `:spec`, the dispatch-level spec, so a standalone call shows the same options as `dispatch`
 - Completion: do not offer `:positional` keys as options, they are rejected when typed as a flag
+- `dispatch`: the command named on the command line wins over the `:exec-args` of its ancestors. A value the user typed at an ancestor level still wins over both
 
 ## 0.12.85
 
