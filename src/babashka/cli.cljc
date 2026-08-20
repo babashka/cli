@@ -1775,7 +1775,7 @@ compdef " fn " " names-sp "
         end
     end
 end
-" (str/join "\n" (map #(str "complete --command " % " --no-files --arguments \"(" fn ")\"") names)) "
+" (str/join "\n" (map #(str "complete --command " % " --no-files --keep-order --arguments \"(" fn ")\"") names)) "
 ")
     :powershell (str "Register-ArgumentCompleter -Native -CommandName " names-csv " -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
