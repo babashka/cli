@@ -1549,8 +1549,8 @@
 (deftest exec-args-nested-dispatch-test
   (let [tree {:exec-args {:lvl "root"}
               :cmd {"grp" {:exec-args {:lvl "branch" :kept "y"}
-                           :cmd {"deep" {:fn :opts :exec-args {:lvl "leaf"}}
-                                 "plain" {:fn :opts}}}}}]
+                           :cmd {"deep" {:fn (fn [m] (:opts m)) :exec-args {:lvl "leaf"}}
+                                 "plain" {:fn (fn [m] (:opts m))}}}}}]
     (testing "the command named wins over the defaults of its ancestors"
       (is (= {:lvl "leaf" :kept "y"} (cli/dispatch tree ["grp" "deep"]))))
     (testing "an ancestor default still fills what the command does not default"
