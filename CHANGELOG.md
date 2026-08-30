@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## 0.12.87
 
 - `dispatch`: the command named on the command line wins over the `:exec-args` of its ancestors. A value the user typed at an ancestor level still wins over both
 - Completion: the fish snippet registers with `--keep-order`, so fish offers options in the order they are emitted, long option before its short alias, rather than sorting short options first
