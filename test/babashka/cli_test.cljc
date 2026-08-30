@@ -308,7 +308,7 @@
   (testing "flag letters before the valued one stay flags"
     (is (= {:b true :a "x"} (cli/parse-opts ["-ba" "x"] {:coerce {:a :string :b :boolean}}))))
   (testing "a valued letter with nothing attached and nothing following is an error"
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error :squint js/Error)
+    (is (thrown-with-msg? #?(:cljd Object :default Exception)
                           #"Missing value"
                           (cli/parse-opts ["-ba"] {:coerce {:a :string :b :boolean}}))))
   (testing "an alias binds under its long name"
@@ -321,7 +321,7 @@
 
 (deftest interior-hyphen-cluster-test
   (testing "an interior hyphen in a cluster is an error, not a silent stop"
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error :squint js/Error)
+    (is (thrown-with-msg? #?(:cljd Object :default Exception)
                           #"Interior hyphen in option cluster -a-b"
                           (cli/parse-args ["-a-b" "--foo" "1"]))))
   (testing "with an :error-fn the letters still parse, like getopt"
