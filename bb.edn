@@ -68,8 +68,10 @@
                :task (do (run 'npm-build)
                          (shell "npm publish"))}
 
-  publish {:doc "Publish to clojars and npm. Pass --bump to run bump-release first"
+  publish {:doc "Publish to clojars and npm, then push. Pass --bump to run bump-release first"
            :task (do (when (:bump cmd-line-opts)
                        (run 'bump-release))
                      (clojure "-T:build deploy")
-                     (run 'npm-publish))}}}
+                     (run 'npm-publish)
+                     ;; bump-release pushes the tag, the commit it points at needs this
+                     (shell "git push"))}}}
