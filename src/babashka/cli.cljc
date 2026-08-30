@@ -681,8 +681,7 @@
         (if (and (::dispatch-tree parse-opts) (seq leading-pos-args))
           [(vary-meta {} assoc-in [:org.babashka/cli :args] (into (vec leading-pos-args) args)) nil nil #{} []]
           (loop [acc acc0
-                 #_{:clj-kondo/ignore [:unused-binding]}
-                 recur-action nil                     ;; for debugging only
+                 recur-action nil                     ;; how the previous iteration recurred
                  open-opt last-bound                  ;; the cli option keyword we are working on
                  valued-opt last-bound                ;; the cli option keyword that has been given value(s) (but not necessarily all values)
                  mode (when no-keyword-opts :hyphens) ;; :hyphens --foo/-f else :keywords :foo
@@ -700,7 +699,10 @@
                     boolean-opt? (expects-bool-val? open-opt)
                     {:keys [hyphen-opt composite-opt kwd-opt mode fst-colon]}
                     (analyze-arg arg mode open-opt boolean-opt? valued-opt known-keys alias-keys)]
-                    (if (or hyphen-opt kwd-opt)
+                    (if (and (or hyphen-opt kwd-opt)
+                             ;; a value bound by --foo=val or -fval is a value,
+                             ;; also when it starts with a hyphen: --foo=-bar
+                             (not= :injected-bound-val recur-action))
                       ;; arg is -f/-foo or :foo
                       (let [long-opt? (str/starts-with? arg "--")
                             eo-all-opts? (and long-opt? (= "--" arg))]
@@ -714,14 +716,49 @@
                                            (subs arg 2)
                                            (str/replace arg #"^(:|-|)" ""))
                                 ;; split on the first = only: --header=k=v binds "k=v"
-                                [opt-name opt-val] (if long-opt?
-                                                     (str/split opt-name #"=" 2)
-                                                     [opt-name])
+                                valued-letter? (fn [c]
+                                                 (let [k (keyword (str c))
+                                                       ck (or (get aliases k) k)
+                                                       cf (coerce-coerce-fn (get coerce ck))]
+                                                   (and (some? cf) (not (#{:boolean :bool} cf)))))
+                                ;; -ab where :a takes a value binds "b", as getopt
+                                ;; does for "a:". One leading = is stripped, like
+                                ;; --foo=bar: -a=b binds "b". Flag letters before
+                                ;; the valued one stay flags: -ba x
+                                attached (when (and (not long-opt?)
+                                                    (str/starts-with? arg "-")
+                                                    (> (count opt-name) 1))
+                                           (loop [i 0]
+                                             (when (< i (count opt-name))
+                                               (let [c (nth opt-name i)]
+                                                 (cond (= \- c) nil
+                                                       (valued-letter? c)
+                                                       {:flags (subs opt-name 0 i)
+                                                        :letter (str c)
+                                                        :rest (let [r (subs opt-name (inc i))]
+                                                                (if (str/starts-with? r "=") (subs r 1) r))}
+                                                       :else (recur (inc i)))))))
+                                [opt-name opt-val] (cond long-opt?
+                                                         (str/split opt-name #"=" 2)
+                                                         (and attached (= "" (:flags attached)) (seq (:rest attached)))
+                                                         [(:letter attached) (:rest attached)]
+                                                         :else [opt-name])
                                 opt-kw (keyword opt-name)
                                 opt-kw-for-alias (when-not long-opt? (get aliases opt-kw))
                                 parsed-opt (or opt-kw-for-alias opt-kw)
                                 ;; the literal option the user typed (sans any =value)
                                 literal-opt (if long-opt? (str "--" opt-name) arg)]
+                            (if (and attached (seq (:flags attached)))
+                              ;; continue loop: -ba x becomes -b true -a x
+                              (recur acc
+                                     :injected-attached-flags
+                                     nil nil
+                                     mode
+                                     (concat (mapcat (fn [c] [(str "-" c) true]) (:flags attached))
+                                             [(str "-" (:letter attached)
+                                                   (when (seq (:rest attached)) (:rest attached)))]
+                                             (next args))
+                                     a->o implicit-values opt-parse-order)
                             (if opt-val
                               ;; continue loop: inject val for --foo=val into args
                               (recur (stamp (maybe-close-open-opt acc open-opt valued-opt opt-val-collector) parsed-opt literal-opt)
@@ -770,7 +807,7 @@
                                          parsed-opt nil
                                          mode next-args a->o
                                          (track-ivs implicit-values open-opt valued-opt)
-                                         (track-kpo opt-parse-order parsed-opt))))))))
+                                         (track-kpo opt-parse-order parsed-opt)))))))))
                       ;; arg (is not option)
                       (let [done-parsing-options? (or
                                                    ;; boolean with next arg that is not true/false ends

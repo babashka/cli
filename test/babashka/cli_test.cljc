@@ -296,6 +296,29 @@
       (is (nil? (:foo (cli/parse-opts [] {:spec {:foo {:default 1}}
                                           :exec-args {:foo nil}})))))))
 
+(deftest attached-short-value-test
+  (testing "a declared valued short option takes the rest of the token, like getopt a:"
+    (is (= {:a "b"} (cli/parse-opts ["-ab"] {:coerce {:a :string}})))
+    (is (= {:J "-Dfoo=bar" :main "app"}
+           (cli/parse-opts ["-J-Dfoo=bar" "--main" "app"] {:coerce {:J :string}})))
+    (is (= {:J ["-Da" "-Db"]} (cli/parse-opts ["-J-Da" "-J-Db"] {:coerce {:J [:string]}}))))
+  (testing "one leading = is stripped, like --foo=bar"
+    (is (= {:a "b"} (cli/parse-opts ["-a=b"] {:coerce {:a :string}})))
+    (is (= {:a "b=c"} (cli/parse-opts ["-a=b=c"] {:coerce {:a :string}}))))
+  (testing "flag letters before the valued one stay flags"
+    (is (= {:b true :a "x"} (cli/parse-opts ["-ba" "x"] {:coerce {:a :string :b :boolean}}))))
+  (testing "a valued letter with nothing attached and nothing following is an error"
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error :squint js/Error)
+                          #"Missing value"
+                          (cli/parse-opts ["-ba"] {:coerce {:a :string :b :boolean}}))))
+  (testing "an alias binds under its long name"
+    (is (= {:jvm-opts ["-Xmx4g"]}
+           (cli/parse-opts ["-J-Xmx4g"] {:spec {:jvm-opts {:alias :J :coerce [:string]}}}))))
+  (testing "without a value declaration a cluster stays a cluster"
+    (is (= {:a true :b true} (cli/parse-opts ["-ab"]))))
+  (testing "a bound value may start with a hyphen, also in the long form"
+    (is (= {:foo "-bar"} (cli/parse-opts ["--foo=-bar"])))))
+
 (deftest interior-hyphen-cluster-test
   (testing "an interior hyphen in a cluster is an error, not a silent stop"
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error :squint js/Error)
