@@ -261,11 +261,7 @@
                    :keywords))
         composite-opt? (when hyphen-opt?
                          (and snd-char (not= \- snd-char)
-                              (> (count arg) 2)
-                              ;; an interior hyphen means one option such as
-                              ;; -a-b or -J-Dfoo, not a cluster: expanding it
-                              ;; would emit a bare "-" and end option parsing
-                              (not (str/includes? (subs arg 1) "-"))))]
+                              (> (count arg) 2)))]
     {:mode mode                    ;; :hyphen, :keywords, nil when undetermined
      :hyphen-opt hyphen-opt?       ;; --foo/-f
      :composite-opt composite-opt? ;; -abc
@@ -637,6 +633,7 @@
   ;;  bar remains an "arg"
   ;; parsed "arg"s can only be leading or trailing.
   (let [parse-opts (resolve-opts opts) ;; disambiguate from cli opts (without making fn sig odd-looking)
+        error-fn (->error-fn (:spec parse-opts) (:error-fn parse-opts))
         {:keys [coerce collect no-keyword-opts repeated-opts]} parse-opts
         aliases (or (:alias parse-opts) (:aliases parse-opts))
         spec-map (::spec-map parse-opts)
@@ -743,8 +740,15 @@
                                         negated-opt?)               ;; --no-foo
                                   ;; implicit true or false
                                   (if (and (not opt-kw-for-alias) composite-opt)
-                                    ;; continue loop: expand -abc to: -a true, -b true, -c true onto args
-                                    (let [expanded (mapcat (fn [c] [(str "-" c) true]) (name parsed-opt))]
+                                    ;; continue loop: expand -abc to: -a true, -b true, -c true onto args.
+                                    ;; An interior hyphen is an error, as in getopt and tools.cli, and
+                                    ;; the remaining letters still parse
+                                    (let [cluster (name parsed-opt)
+                                          _ (when (str/includes? cluster "-")
+                                              (error-fn {:cause :cluster
+                                                         :msg (str "Interior hyphen in option cluster -" cluster)
+                                                         :option parsed-opt}))
+                                          expanded (mapcat (fn [c] [(str "-" c) true]) (remove #{\-} cluster))]
                                       (recur acc
                                              :injected-expanded-composite
                                              nil nil ;; start afresh for open-opt and valued-opt

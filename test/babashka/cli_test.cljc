@@ -297,9 +297,13 @@
                                           :exec-args {:foo nil}})))))))
 
 (deftest interior-hyphen-cluster-test
-  (testing "an interior hyphen is one option, not a cluster that ends parsing"
-    (is (= {:a-b true :foo 1} (:opts (cli/parse-args ["-a-b" "--foo" "1"]))))
-    (is (= {:J-D true} (cli/parse-opts ["-J-D"]))))
+  (testing "an interior hyphen in a cluster is an error, not a silent stop"
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error :squint js/Error)
+                          #"Interior hyphen in option cluster -a-b"
+                          (cli/parse-args ["-a-b" "--foo" "1"]))))
+  (testing "with an :error-fn the letters still parse, like getopt"
+    (is (= {:a true :b true :foo 1}
+           (:opts (cli/parse-args ["-a-b" "--foo" "1"] {:error-fn identity})))))
   (testing "a plain cluster still expands"
     (is (= {:a true :b true :foo 1} (:opts (cli/parse-args ["-ab" "--foo" "1"]))))))
 
