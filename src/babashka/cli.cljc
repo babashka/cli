@@ -261,7 +261,11 @@
                    :keywords))
         composite-opt? (when hyphen-opt?
                          (and snd-char (not= \- snd-char)
-                              (> (count arg) 2)))]
+                              (> (count arg) 2)
+                              ;; an interior hyphen means one option such as
+                              ;; -a-b or -J-Dfoo, not a cluster: expanding it
+                              ;; would emit a bare "-" and end option parsing
+                              (not (str/includes? (subs arg 1) "-"))))]
     {:mode mode                    ;; :hyphen, :keywords, nil when undetermined
      :hyphen-opt hyphen-opt?       ;; --foo/-f
      :composite-opt composite-opt? ;; -abc

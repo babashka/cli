@@ -296,6 +296,13 @@
       (is (nil? (:foo (cli/parse-opts [] {:spec {:foo {:default 1}}
                                           :exec-args {:foo nil}})))))))
 
+(deftest interior-hyphen-cluster-test
+  (testing "an interior hyphen is one option, not a cluster that ends parsing"
+    (is (= {:a-b true :foo 1} (:opts (cli/parse-args ["-a-b" "--foo" "1"]))))
+    (is (= {:J-D true} (cli/parse-opts ["-J-D"]))))
+  (testing "a plain cluster still expands"
+    (is (= {:a true :b true :foo 1} (:opts (cli/parse-args ["-ab" "--foo" "1"]))))))
+
 (deftest args-test
   (is (submap? {:foo true} (cli/parse-opts ["--foo" "--"])))
   (let [res (cli/parse-opts ["--foo" "--" "a"])]
