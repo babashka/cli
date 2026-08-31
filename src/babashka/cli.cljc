@@ -1390,12 +1390,22 @@
 (defn- cmd-aliases
   "Alias -> canonical child name map for `node`'s children, from each child's
   `:cmd-alias` (a single name or a collection). Alias names are stringified
-  like command names."
+  like command names. An alias that collides with a command name, or with an
+  alias of a sibling, is an error: both would resolve silently otherwise."
   [node]
   (reduce-kv (fn [acc child-name child]
                (let [a (:cmd-alias child)]
                  (reduce (fn [acc alias]
-                           (assoc acc (cmd-name alias) child-name))
+                           (let [alias (cmd-name alias)]
+                             (when (contains? (:cmd node) alias)
+                               (throw (ex-info (str "Alias " alias " of command " child-name
+                                                    " collides with command " alias)
+                                               {:alias alias :command child-name})))
+                             (when-let [other (get acc alias)]
+                               (throw (ex-info (str "Alias " alias " is claimed by commands "
+                                                    other " and " child-name)
+                                               {:alias alias :commands [other child-name]})))
+                             (assoc acc alias child-name)))
                          acc
                          (if (coll? a) a (when a [a])))))
              {}

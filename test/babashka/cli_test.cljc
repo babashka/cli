@@ -653,6 +653,18 @@
     (testing "options parse across an alias"
       (is (submap? {:dispatch ["new"] :opts {:force true}}
                    (cli/dispatch table ["n" "--force"] {:coerce {:force :boolean}}))))
+    (testing "an alias colliding with a command name is an error"
+      (is (thrown-with-msg? #?(:cljd Object :default Exception)
+                            #"collides with command"
+                            (cli/dispatch [{:cmds ["new"] :fn identity :cmd-alias "n"}
+                                           {:cmds ["n"] :fn identity}]
+                                          ["n"]))))
+    (testing "two commands claiming one alias is an error"
+      (is (thrown-with-msg? #?(:cljd Object :default Exception)
+                            #"is claimed by commands"
+                            (cli/dispatch [{:cmds ["new"] :fn identity :cmd-alias "x"}
+                                           {:cmds ["nuke"] :fn identity :cmd-alias "x"}]
+                                          ["x"]))))
     (testing "aliases stay out of help"
       (is (= (str "Usage: p <command>\n\n"
                   "Commands:\n  new  Create a project\n  dep\n\n"
