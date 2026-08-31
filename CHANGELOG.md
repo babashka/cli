@@ -6,9 +6,9 @@ For breaking changes, check [here](#breaking-changes).
 
 ## 0.12.88
 
-- [#219](https://github.com/babashka/cli/issues/219): `:cmd-aliases` on a table entry or tree node gives a command one or more alternative names. An alias dispatches like the command. The `:dispatch` value contains the canonical name. The command index and completion output contain canonical names. The command's `--help` output lists its aliases, as in npm and gh.
+- [#219](https://github.com/babashka/cli/issues/219): `:cmd-aliases` on a table entry or tree node gives a command one or more alternative names.
 - A short option that declares a non-boolean `:coerce` takes the rest of its token as its value, like getopt: `-J-Dfoo=bar` binds `"-Dfoo=bar"`, `-p80` binds `80`. One leading `=` is stripped, like `--foo=bar`. Flag letters may precede the valued option in a cluster: with `:b` a flag and `:a` valued, `-ba x` parses as `-b -a x`
-- [#216](https://github.com/babashka/cli/issues/216): in a cluster of flags, where no letter takes a value, an interior hyphen is an error instead of silently ending option parsing. With an `:error-fn` the remaining letters still parse
+- [#216](https://github.com/babashka/cli/issues/216): in a cluster of flags, where no letter takes a value, an interior hyphen is an error instead of silently ending option parsing.
 - Fix: a value bound with `--foo=val` may start with a hyphen: `--foo=-bar` binds `"-bar"` instead of reporting a missing value
 
 ## 0.12.87
