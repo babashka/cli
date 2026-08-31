@@ -2415,11 +2415,13 @@ $env.config.completions.external.completer = {|spans|
    what order (like `:order` does for options). A table keeps its entry order
   automatically.
 
-  A `:cmd-aliases` on an entry (or node) declares one or more alternative names
-  for its last command, e.g. `{:cmds [\"new\"] :fn new :cmd-aliases \"n\"}` (a
-  single name or a collection; strings, symbols or keywords). Aliases dispatch
-  like the command itself but stay out of help and completions, and `:dispatch`
-  always carries the canonical name.
+  `:cmd-aliases` declares alternative names for a command: a collection of
+  strings, symbols or keywords. On a table entry it aliases the entry's last
+  command, e.g. `{:cmds [\"dep\" \"add\"] :fn add :cmd-aliases [\"a\"]}` makes
+  `prog dep a` dispatch like `prog dep add`. In the tree format it sits on the
+  command's node. `:dispatch` always carries the canonical name, the command
+  index and completion offer only canonical names, and the command's own help
+  page lists its aliases.
 
   When a match is found, `:fn` called with the return value of
   [[parse-args]] applied to `args` enhanced with:
