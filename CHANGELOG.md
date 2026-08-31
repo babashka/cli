@@ -7,7 +7,7 @@ For breaking changes, check [here](#breaking-changes).
 ## Unreleased
 
 - [#216](https://github.com/babashka/cli/issues/216): an interior hyphen in a short option cluster is an error instead of silently ending option parsing. With an `:error-fn` the remaining letters still parse
-- A short option that declares a non-boolean `:coerce` takes the rest of its token as its value, like getopt: `-J-Dfoo=bar` binds `"-Dfoo=bar"`, `-p80` binds `80`. One leading `=` is stripped, like `--foo=bar`. Flag letters before the valued one stay flags
+- A short option that declares a non-boolean `:coerce` takes the rest of its token as its value, like getopt: `-J-Dfoo=bar` binds `"-Dfoo=bar"`, `-p80` binds `80`. One leading `=` is stripped, like `--foo=bar`. Flag letters may precede the valued option in a cluster: with `:b` a flag and `:a` valued, `-ba x` parses as `-b -a x`
 - A value bound with `--foo=val` may start with a hyphen: `--foo=-bar` binds `"-bar"` instead of reporting a missing value
 
 ## 0.12.87
