@@ -61,7 +61,7 @@ Terminates the process after `dispatch`'s `:help` option prints an *error*
   Must exit or throw.
 
   Default: `System/exit` (JVM), `js/process.exit` (Node), `throw` (browser).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1930-L1958">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L2035-L2063">Source</a></sub></p>
 
 ## <a name="babashka.cli/apply-defaults">`apply-defaults`</a>
 ``` clojure
@@ -76,7 +76,7 @@ Fills missing keys in `m` from defaults. Existing keys in `m` win.
   Supported options:
   * `:exec-args` - map of defaults. Not subject to `:restrict`.
   * `:spec` - spec; `:default` entries become defaults via `spec->opts`.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L589-L605">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L589-L609">Source</a></sub></p>
 
 ## <a name="babashka.cli/auto-coerce">`auto-coerce`</a>
 ``` clojure
@@ -136,7 +136,7 @@ The default `:max-width-fn` for [`format-table`](#babashka.cli/format-table)/[`f
   width or nil: node `process.stdout.columns`, else `$COLUMNS`, else a JLine
   provider probe (clj, when JLine is on the classpath, e.g. babashka), else nil
   (the caller then falls back to 80).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L913-L931">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L967-L985">Source</a></sub></p>
 
 ## <a name="babashka.cli/dispatch">`dispatch`</a>
 ``` clojure
@@ -175,6 +175,14 @@ Command dispatcher.
   child command names) on the map to control which children are shown and in
    what order (like `:order` does for options). A table keeps its entry order
   automatically.
+
+  `:cmd-aliases` declares alternative names for a command: a collection of
+  strings, symbols or keywords. On a table entry it aliases the entry's last
+  command, e.g. `{:cmds ["dep" "add"] :fn add :cmd-aliases ["a"]}` makes
+  `prog dep a` dispatch like `prog dep add`. In the tree format it sits on the
+  command's node. `:dispatch` always carries the canonical name, the command
+  index and completion offer only canonical names, and the command's own help
+  page lists its aliases.
 
   When a match is found, `:fn` called with the return value of
   [`parse-args`](#babashka.cli/parse-args) applied to `args` enhanced with:
@@ -218,11 +226,11 @@ Command dispatcher.
   Each entry in the table may have additional [`parse-args`](#babashka.cli/parse-args) options.
 
   For more information and examples, see [README.md](README.md#commands).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L2270-L2367">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L2386-L2491">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-command-error">`format-command-error`</a>
 ``` clojure
-(format-command-error {:keys [cause dispatch wrong-input msg prog inherit tree]})
+(format-command-error {:keys [cause dispatch wrong-input msg prog inherit tree], :as data})
 ```
 Function.
 
@@ -242,11 +250,11 @@ Render a terse, helpful message (a string) for a dispatch error.
   this, then calls [`*exit-fn*`](#babashka.cli/*exit-fn*)). Call it from a custom `:error-fn` to keep the
   standard message and add your own output. `--help`/`-h` is not an error - it
   goes to the `:help-fn`, rendered by [`format-command-help`](#babashka.cli/format-command-help).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1978-L2022">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L2084-L2128">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-command-help">`format-command-help`</a>
 ``` clojure
-(format-command-help {:keys [table cmds prog inherit], :or {cmds []}})
+(format-command-help {:keys [table cmds prog inherit spec], :or {cmds []}})
 ```
 Function.
 
@@ -280,6 +288,9 @@ Render conventional `--help` text (a string) for the command at path `cmds`
   * `:inherit` - only needed when you pass a dispatch-level `:inherit` to
                  `dispatch`; pass the same value so `Inherited options:` matches.
                  Per-option `:inherit true` is detected automatically.
+  * `:spec`    - the dispatch-level spec, when you pass one to `dispatch`:
+                 options accepted at every level, listed under
+                 `Inherited options:` since no ancestor node declares them.
 
   Options are listed in the entry's `:order` when it has one, else in spec order
   (a vec-of-pairs `:spec` keeps its order; a map follows key order, unreliable
@@ -288,7 +299,7 @@ Render conventional `--help` text (a string) for the command at path `cmds`
   This is the renderer the `:help` option uses; call it from a custom `:help-fn`
   to render the standard help and then add your own output. An entry may carry
   `:no-doc true` to be omitted from `Commands:`.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1886-L1928">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1988-L2033">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-opts">`format-opts`</a>
 ``` clojure
@@ -299,7 +310,7 @@ Function.
 Formats options into an options usage help string.
 
   See [Printing options](/README.md#printing-options).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1109-L1120">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1163-L1174">Source</a></sub></p>
 
 ## <a name="babashka.cli/format-table">`format-table`</a>
 ``` clojure
@@ -312,7 +323,7 @@ Function.
 
 Formats `rows` into a table (string).
   See [Printing options](/README.md#printing-options).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L984-L1006">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1038-L1060">Source</a></sub></p>
 
 ## <a name="babashka.cli/merge-opts">`merge-opts`</a>
 ``` clojure
@@ -331,7 +342,7 @@ Function.
 
 Converts options to a table of rows.
   See [Printing options](/README.md#printing-options).
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1046-L1066">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1100-L1120">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-args">`parse-args`</a>
 ``` clojure
@@ -345,7 +356,7 @@ Same as [`parse-opts`](#babashka.cli/parse-opts) with return data reshaped.
   Returns a map with:
   * `:opts` parsed opts
   * `:args` remaining unparsed `args`
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L854-L864">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L908-L918">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-cmds">`parse-cmds`</a>
 ``` clojure
@@ -406,7 +417,7 @@ Returns a map of options parsed from command line arguments `args`, a seq of str
   ;; => throws 'Unknown option --qux' exception b/c there is no :qux key in the spec
   ```
   See also: [`parse-args`](#babashka.cli/parse-args)
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L808-L852">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L859-L903">Source</a></sub></p>
 
 ## <a name="babashka.cli/parse-opts*">`parse-opts*`</a>
 ``` clojure
@@ -428,7 +439,7 @@ Parses CLI `args` into a raw opts map. Returns string values unchanged
   `:collect`, `:no-keyword-opts`, `:repeated-opts`, `:args->opts`, `:spec`.
   A `:spec`'s `:coerce`/`:collect`/`:alias` entries steer parsing (e.g. boolean
   disambiguation) like they do in `parse-opts` - values still come back raw.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L610-L806">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L614-L857">Source</a></sub></p>
 
 ## <a name="babashka.cli/spec->opts">`spec->opts`</a>
 ``` clojure
@@ -458,7 +469,7 @@ Converts a `dispatch` table into a tree. Each `:cmds` becomes a path of
   ```
 
   A tree passed in is normalized and returned, so the function is idempotent.
-<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1376-L1398">Source</a></sub></p>
+<p><sub><a href="https://github.com/babashka/cli/blob/main/src/babashka/cli.cljc#L1470-L1492">Source</a></sub></p>
 
 ## <a name="babashka.cli/validate-opts">`validate-opts`</a>
 ``` clojure
