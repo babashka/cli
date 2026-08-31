@@ -12,4 +12,4 @@ function _babashka_cli_complete_myprogram
         end
     end
 end
-complete --command myprogram --no-files --arguments "(_babashka_cli_complete_myprogram)"
+complete --command myprogram --no-files --keep-order --arguments "(_babashka_cli_complete_myprogram)"

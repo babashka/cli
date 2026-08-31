@@ -6,6 +6,17 @@ For breaking changes, check [here](#breaking-changes).
 
 ## 0.12.86
 
+- A short option that declares a non-boolean `:coerce` takes the rest of its token as its value, like getopt: `-J-Dfoo=bar` binds `"-Dfoo=bar"`, `-p80` binds `80`. One leading `=` is stripped, like `--foo=bar`. Flag letters may precede the valued option in a cluster: with `:b` a flag and `:a` valued, `-ba x` parses as `-b -a x`
+- [#216](https://github.com/babashka/cli/issues/216): in a cluster of flags, where no letter takes a value, an interior hyphen is an error instead of silently ending option parsing. With an `:error-fn` the remaining letters still parse
+- Fix: a value bound with `--foo=val` may start with a hyphen: `--foo=-bar` binds `"-bar"` instead of reporting a missing value
+
+## 0.12.87
+
+- `dispatch`: the command named on the command line wins over the `:exec-args` of its ancestors. A value the user typed at an ancestor level still wins over both
+- Completion: the fish snippet registers with `--keep-order`, so fish offers options in the order they are emitted, long option before its short alias, rather than sorting short options first
+
+## 0.12.86
+
 - Help: show the dispatch-level `:spec` options under `Inherited options:`. The parser always accepted these options, but help did not show them
 - Help: `format-command-help` accepts `:spec`, the dispatch-level spec, so a standalone call shows the same options as `dispatch`
 - Completion: do not offer `:positional` keys as options, they are rejected when typed as a flag

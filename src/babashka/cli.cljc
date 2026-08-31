@@ -601,7 +601,11 @@
          ;; override spec/`:exec-args` defaults but are overridden by `m`
          inherited (::dispatch-inherited opts)]
      (if (or exec-args inherited)
-       (with-meta (merge exec-args inherited m) (meta m))
+       (cond-> (with-meta (merge exec-args inherited m) (meta m))
+         (::dispatch-tree opts)
+         (vary-meta assoc ::defaulted
+                    (into #{} (remove #(or (contains? m %) (contains? inherited %)))
+                          (keys exec-args))))
        m))))
 
 ;;
@@ -629,12 +633,18 @@
   ;;  bar remains an "arg"
   ;; parsed "arg"s can only be leading or trailing.
   (let [parse-opts (resolve-opts opts) ;; disambiguate from cli opts (without making fn sig odd-looking)
+        error-fn (->error-fn (:spec parse-opts) (:error-fn parse-opts))
         {:keys [coerce collect no-keyword-opts repeated-opts]} parse-opts
         aliases (or (:alias parse-opts) (:aliases parse-opts))
         spec-map (::spec-map parse-opts)
         alias-keys (set (concat (keys aliases) (keep :alias (vals spec-map))))
         known-keys (set (concat (keys spec-map) (vals aliases) (keys coerce)))
         expects-bool-val? (fn [opt-key] (#{:boolean :bool} (coerce-coerce-fn (get coerce opt-key))))
+        ;; a letter that takes an attached value: declared with a non-boolean :coerce
+        valued-letter? (fn [c]
+                         (let [k (keyword (str c))
+                               ck (or (get aliases k) k)]
+                           (and (contains? coerce ck) (not (expects-bool-val? ck)))))
         track-ivs (fn [implicit-values current-opt added]
                     ;; we handle implicit trues here only, :add-opt-and-val below covers implicit false
                     (if (not= current-opt added)
@@ -676,8 +686,7 @@
         (if (and (::dispatch-tree parse-opts) (seq leading-pos-args))
           [(vary-meta {} assoc-in [:org.babashka/cli :args] (into (vec leading-pos-args) args)) nil nil #{} []]
           (loop [acc acc0
-                 #_{:clj-kondo/ignore [:unused-binding]}
-                 recur-action nil                     ;; for debugging only
+                 recur-action nil                     ;; how the previous iteration recurred
                  open-opt last-bound                  ;; the cli option keyword we are working on
                  valued-opt last-bound                ;; the cli option keyword that has been given value(s) (but not necessarily all values)
                  mode (when no-keyword-opts :hyphens) ;; :hyphens --foo/-f else :keywords :foo
@@ -695,7 +704,10 @@
                     boolean-opt? (expects-bool-val? open-opt)
                     {:keys [hyphen-opt composite-opt kwd-opt mode fst-colon]}
                     (analyze-arg arg mode open-opt boolean-opt? valued-opt known-keys alias-keys)]
-                    (if (or hyphen-opt kwd-opt)
+                    (if (and (or hyphen-opt kwd-opt)
+                             ;; a value bound by --foo=val or -fval is a value,
+                             ;; also when it starts with a hyphen: --foo=-bar
+                             (not= :injected-bound-val recur-action))
                       ;; arg is -f/-foo or :foo
                       (let [long-opt? (str/starts-with? arg "--")
                             eo-all-opts? (and long-opt? (= "--" arg))]
@@ -709,14 +721,46 @@
                                            (subs arg 2)
                                            (str/replace arg #"^(:|-|)" ""))
                                 ;; split on the first = only: --header=k=v binds "k=v"
-                                [opt-name opt-val] (if long-opt?
-                                                     (str/split opt-name #"=" 2)
-                                                     [opt-name])
+                                ;; -ab where :a takes a value binds "b". getopt
+                                ;; has the same rule: declaring "a:" (the colon
+                                ;; means a takes an argument) makes -ab bind "b".
+                                ;; One leading = is stripped, like
+                                ;; --foo=bar: -a=b binds "b". Flag letters before
+                                ;; the valued one stay flags: -ba x
+                                opt-name-count (count opt-name)
+                                attached (when (and (not long-opt?)
+                                                    (str/starts-with? arg "-")
+                                                    (> opt-name-count 1))
+                                           (loop [i 0]
+                                             (when (< i opt-name-count)
+                                               (let [c (nth opt-name i)]
+                                                 (cond (= \- c) nil
+                                                       (valued-letter? c)
+                                                       {:flags (subs opt-name 0 i)
+                                                        :letter (str c)
+                                                        :rest (let [r (subs opt-name (inc i))]
+                                                                (if (str/starts-with? r "=") (subs r 1) r))}
+                                                       :else (recur (inc i)))))))
+                                [opt-name opt-val] (cond long-opt?
+                                                         (str/split opt-name #"=" 2)
+                                                         (and attached (= "" (:flags attached)) (seq (:rest attached)))
+                                                         [(:letter attached) (:rest attached)]
+                                                         :else [opt-name])
                                 opt-kw (keyword opt-name)
                                 opt-kw-for-alias (when-not long-opt? (get aliases opt-kw))
                                 parsed-opt (or opt-kw-for-alias opt-kw)
                                 ;; the literal option the user typed (sans any =value)
                                 literal-opt (if long-opt? (str "--" opt-name) arg)]
+                            (if (and attached (seq (:flags attached)))
+                              ;; continue loop: -ba x becomes -b true -a x
+                              (recur acc
+                                     :injected-attached-flags
+                                     nil nil
+                                     mode
+                                     (concat (mapcat (fn [c] [(str "-" c) true]) (:flags attached))
+                                             [(str "-" (:letter attached) (:rest attached))]
+                                             (next args))
+                                     a->o implicit-values opt-parse-order)
                             (if opt-val
                               ;; continue loop: inject val for --foo=val into args
                               (recur (stamp (maybe-close-open-opt acc open-opt valued-opt opt-val-collector) parsed-opt literal-opt)
@@ -735,8 +779,15 @@
                                         negated-opt?)               ;; --no-foo
                                   ;; implicit true or false
                                   (if (and (not opt-kw-for-alias) composite-opt)
-                                    ;; continue loop: expand -abc to: -a true, -b true, -c true onto args
-                                    (let [expanded (mapcat (fn [c] [(str "-" c) true]) (name parsed-opt))]
+                                    ;; continue loop: expand -abc to: -a true, -b true, -c true onto args.
+                                    ;; An interior hyphen is an error, as in getopt and tools.cli, and
+                                    ;; the remaining letters still parse
+                                    (let [cluster (name parsed-opt)
+                                          _ (when (str/includes? cluster "-")
+                                              (error-fn {:cause :cluster
+                                                         :msg (str "Interior hyphen in option cluster -" cluster)
+                                                         :option parsed-opt}))
+                                          expanded (mapcat (fn [c] [(str "-" c) true]) (remove #{\-} cluster))]
                                       (recur acc
                                              :injected-expanded-composite
                                              nil nil ;; start afresh for open-opt and valued-opt
@@ -758,7 +809,7 @@
                                          parsed-opt nil
                                          mode next-args a->o
                                          (track-ivs implicit-values open-opt valued-opt)
-                                         (track-kpo opt-parse-order parsed-opt))))))))
+                                         (track-kpo opt-parse-order parsed-opt)))))))))
                       ;; arg (is not option)
                       (let [done-parsing-options? (or
                                                    ;; boolean with next arg that is not true/false ends
@@ -850,6 +901,9 @@
          ;; Step 4: Validate
          validated (validate-opts coerced opts)]
      (vary-meta validated dissoc ::implicit-values ::keys-order ::opt->flag))))
+
+(defn- user-supplied [opts]
+  (apply dissoc opts (::defaulted (meta opts))))
 
 (defn parse-args
   "Same as [[parse-opts]] with return data reshaped.
@@ -1782,7 +1836,7 @@ compdef " fn " " names-sp "
         end
     end
 end
-" (str/join "\n" (map #(str "complete --command " % " --no-files --arguments \"(" fn ")\"") names)) "
+" (str/join "\n" (map #(str "complete --command " % " --no-files --keep-order --arguments \"(" fn ")\"") names)) "
 ")
     :powershell (str "Register-ArgumentCompleter -Native -CommandName " names-csv " -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
@@ -2073,7 +2127,7 @@ $env.config.completions.external.completer = {|spans|
   ([tree args]
    (dispatch-tree' tree args nil))
   ([tree args opts]
-   (loop [cmds [] all-opts {} args args cmd-info tree inherited {}]
+   (loop [cmds [] all-opts {} user-opts {} args args cmd-info tree inherited {}]
      (let [kwm cmd-info
            ;; capture before the parse-args destructure below shadows `opts`
            inherit-opt (:inherit opts)
@@ -2122,7 +2176,7 @@ $env.config.completions.external.completer = {|spans|
                                                          ::dispatch-tree true
                                                          ;; shared options parsed at parent levels: seeded as
                                                          ;; values and exempt from this level's :restrict
-                                                         ::dispatch-inherited all-opts
+                                                         ::dispatch-inherited user-opts
                                                          ::dispatch-tree-ignored-args (into (set (keys (:cmd cmd-info)))
                                                                                             (keys (cmd-aliases cmd-info)))))
                                  {:args args
@@ -2131,6 +2185,8 @@ $env.config.completions.external.completer = {|spans|
            ;; a `:cmd-alias` resolves to its canonical command name, so
            ;; `:dispatch` and help always carry the canonical path
            arg (get (cmd-aliases cmd-info) arg arg)
+           user-opts (merge user-opts (user-supplied opts))
+           opts (vary-meta opts dissoc ::defaulted)
            all-opts (-> (merge all-opts opts)
                         (update ::opts-by-cmds (fnil conj []) {:cmds cmds
                                                                :opts opts}))]
@@ -2140,7 +2196,7 @@ $env.config.completions.external.completer = {|spans|
           :dispatch cmds
           :opts (dissoc all-opts ::opts-by-cmds)}
          (if-let [subcmd-info (get (:cmd cmd-info) arg)]
-           (recur (conj cmds arg) all-opts rest subcmd-info
+           (recur (conj cmds arg) all-opts user-opts rest subcmd-info
                   (merge inherited (inherited-entries (:spec kwm) inherit-opt)))
            (if (or (:fn cmd-info) (:exec-fn cmd-info))
              {:cmd-info cmd-info

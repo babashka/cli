@@ -61,8 +61,17 @@
                           (shell "git tag" (str "v" new-version))
                           (shell "git push --tags")))}
 
-  publish {:doc "Publish to clojars and npm. Pass --bump to run bump-release first"
+  npm-build {:doc "Compile src to js with squint. The npm prepack script does the same, but a global ignore-scripts skips it, which ships a stale build"
+             :task (shell "npm run build")}
+
+  npm-publish {:doc "Build and publish to npm"
+               :task (do (run 'npm-build)
+                         (shell "npm publish"))}
+
+  publish {:doc "Publish to clojars and npm, then push. Pass --bump to run bump-release first"
            :task (do (when (:bump cmd-line-opts)
                        (run 'bump-release))
                      (clojure "-T:build deploy")
-                     (shell "npm publish"))}}}
+                     (run 'npm-publish)
+                     ;; bump-release pushes the tag, the commit it points at needs this
+                     (shell "git push"))}}}
