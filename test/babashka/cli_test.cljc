@@ -641,8 +641,8 @@
 
 (deftest dispatch-cmd-alias-test
   (d/deflet
-    (def table [{:cmds ["new"] :fn identity :doc "Create a project" :cmd-alias :n}
-                {:cmds ["dep" "add"] :fn identity :cmd-alias ["a" "ad"]}])
+    (def table [{:cmds ["new"] :fn identity :doc "Create a project" :cmd-aliases :n}
+                {:cmds ["dep" "add"] :fn identity :cmd-aliases ["a" "ad"]}])
     (testing "an alias dispatches like the command, :dispatch carries the canonical name"
       (is (submap? {:dispatch ["new"] :args ["proj"]}
                    (cli/dispatch table ["n" "proj"])))
@@ -656,20 +656,22 @@
     (testing "an alias colliding with a command name is an error"
       (is (thrown-with-msg? #?(:cljd Object :default Exception)
                             #"collides with command"
-                            (cli/dispatch [{:cmds ["new"] :fn identity :cmd-alias "n"}
+                            (cli/dispatch [{:cmds ["new"] :fn identity :cmd-aliases "n"}
                                            {:cmds ["n"] :fn identity}]
                                           ["n"]))))
     (testing "two commands claiming one alias is an error"
       (is (thrown-with-msg? #?(:cljd Object :default Exception)
                             #"is claimed by commands"
-                            (cli/dispatch [{:cmds ["new"] :fn identity :cmd-alias "x"}
-                                           {:cmds ["nuke"] :fn identity :cmd-alias "x"}]
+                            (cli/dispatch [{:cmds ["new"] :fn identity :cmd-aliases "x"}
+                                           {:cmds ["nuke"] :fn identity :cmd-aliases "x"}]
                                           ["x"]))))
-    (testing "aliases show beside their own command, like option aliases"
-      (is (str/includes? (cli/format-command-help {:table table :prog "p" :cmds ["dep"]})
-                         "add, a, ad"))
+    (testing "the index stays canonical, the command's own page names its aliases"
+      (is (str/includes? (cli/format-command-help {:table table :prog "p" :cmds ["new"]})
+                         "Aliases: n"))
+      (is (str/includes? (cli/format-command-help {:table table :prog "p" :cmds ["dep" "add"]})
+                         "Aliases: a, ad"))
       (is (= (str "Usage: p <command>\n\n"
-                  "Commands:\n  new, n  Create a project\n  dep\n\n"
+                  "Commands:\n  new  Create a project\n  dep\n\n"
                   "Run \"p <command> --help\" for more information on a command.")
              (cli/format-command-help {:table table :prog "p"}))))))
 

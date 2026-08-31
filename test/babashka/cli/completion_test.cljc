@@ -226,8 +226,8 @@
              (complete table [""]))))))
 
 (deftest cmd-alias-completion-test
-  (let [table [{:cmds ["new"] :fn identity :cmd-alias "n"}
-               {:cmds ["dep" "add"] :fn identity :cmd-alias "a"}
+  (let [table [{:cmds ["new"] :fn identity :cmd-aliases "n"}
+               {:cmds ["dep" "add"] :fn identity :cmd-aliases "a"}
                {:cmds ["dep" "add" "git"] :fn identity}]]
     (testing "aliases are not offered as candidates"
       (is (= ["new" "dep"] (complete table [""]))))

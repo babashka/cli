@@ -1267,12 +1267,10 @@
 (declare cmd-name)
 
 (defn- help-commands-table [node]
+  ;; canonical names only: aliases show on the command's own help page,
+  ;; as npm and gh do, so a long alias list cannot crowd the index
   (mapv (fn [[cmd subnode]]
-          ;; aliases render beside the command, like -f, --foo does for options
-          [(str/join ", " (cons (str cmd)
-                                (let [a (:cmd-alias subnode)]
-                                  (map cmd-name (if (coll? a) a (when a [a]))))))
-           (or (help-first-line (:doc subnode)) "")])
+          [(str cmd) (or (help-first-line (:doc subnode)) "")])
         (cmd-children node)))
 
 (defn- visible-spec?
@@ -1298,10 +1296,15 @@
         inherited (apply dissoc inherited (keys spec-map))
         desc (help-description (:doc node))
         cmds (help-commands-table node)
+        aliases (let [a (:cmd-aliases node)]
+                  (map cmd-name (if (coll? a) a (when a [a]))))
         sections
         (cond-> [(help-usage-line prog node (or (visible-spec? opt-spec) (visible-spec? inherited)))]
           desc
           (conj desc)
+
+          (seq aliases)
+          (conj (str "Aliases: " (str/join ", " aliases)))
 
           (seq cmds)
           (conj (str "Commands:\n" (format-table {:rows cmds :indent 2 :divider "  "})))
@@ -1395,12 +1398,12 @@
 
 (defn- cmd-aliases
   "Alias -> canonical child name map for `node`'s children, from each child's
-  `:cmd-alias` (a single name or a collection). Alias names are stringified
+  `:cmd-aliases` (a single name or a collection). Alias names are stringified
   like command names. An alias that collides with a command name, or with an
   alias of a sibling, is an error: both would resolve silently otherwise."
   [node]
   (reduce-kv (fn [acc child-name child]
-               (let [a (:cmd-alias child)]
+               (let [a (:cmd-aliases child)]
                  (reduce (fn [acc alias]
                            (let [alias (cmd-name alias)]
                              (when (contains? (:cmd node) alias)
@@ -2198,7 +2201,7 @@ $env.config.completions.external.completer = {|spans|
                                  {:args args
                                   :opts {}})
            [arg & rest] args
-           ;; a `:cmd-alias` resolves to its canonical command name, so
+           ;; a `:cmd-aliases` resolves to its canonical command name, so
            ;; `:dispatch` and help always carry the canonical path
            arg (get (cmd-aliases cmd-info) arg arg)
            user-opts (merge user-opts (user-supplied opts))
@@ -2402,8 +2405,8 @@ $env.config.completions.external.completer = {|spans|
    what order (like `:order` does for options). A table keeps its entry order
   automatically.
 
-  A `:cmd-alias` on an entry (or node) declares one or more alternative names
-  for its last command, e.g. `{:cmds [\"new\"] :fn new :cmd-alias \"n\"}` (a
+  A `:cmd-aliases` on an entry (or node) declares one or more alternative names
+  for its last command, e.g. `{:cmds [\"new\"] :fn new :cmd-aliases \"n\"}` (a
   single name or a collection; strings, symbols or keywords). Aliases dispatch
   like the command itself but stay out of help and completions, and `:dispatch`
   always carries the canonical name.
