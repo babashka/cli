@@ -1395,33 +1395,37 @@
       (:cmd-order node) (update :cmd-order #(mapv cmd-name %)))
     node))
 
+(defn- aliases-of
+  "The `:cmd-aliases` names of child command `child-name`, stringified like
+  command names. Anything but a collection is an error."
+  [child-name child]
+  (let [a (:cmd-aliases child)]
+    (cond (nil? a) nil
+          (coll? a) (map cmd-name a)
+          :else (throw (ex-info (str ":cmd-aliases of command " child-name
+                                     " takes a collection of names, got " (pr-str a))
+                                {:cmd-aliases a :command child-name})))))
+
 (defn- cmd-aliases
-  "Alias -> canonical child name map for `node`'s children, from each child's
-  `:cmd-aliases` (a collection of names). Alias names are stringified like
-  command names. An alias that collides with a command name, or with an
-  alias of a sibling, is an error: both would resolve silently otherwise."
+  "Alias -> canonical child name map for `node`'s children. An alias that
+  collides with a command name, or with an alias of a sibling, is an error:
+  both would resolve silently otherwise."
   [node]
-  (reduce-kv (fn [acc child-name child]
-               (let [a (:cmd-aliases child)]
-                 (when (and a (not (coll? a)))
-                   (throw (ex-info (str ":cmd-aliases of command " child-name
-                                        " takes a collection of names, got " (pr-str a))
-                                   {:cmd-aliases a :command child-name})))
-                 (reduce (fn [acc alias]
-                           (let [alias (cmd-name alias)]
-                             (when (contains? (:cmd node) alias)
-                               (throw (ex-info (str "Alias " alias " of command " child-name
-                                                    " collides with command " alias)
-                                               {:alias alias :command child-name})))
-                             (when-let [other (get acc alias)]
-                               (throw (ex-info (str "Alias " alias " is claimed by commands "
-                                                    other " and " child-name)
-                                               {:alias alias :commands [other child-name]})))
-                             (assoc acc alias child-name)))
-                         acc
-                         a)))
-             {}
-             (:cmd node)))
+  (reduce (fn [acc [alias child-name]]
+            (cond
+              (contains? (:cmd node) alias)
+              (throw (ex-info (str "Alias " alias " of command " child-name
+                                   " collides with command " alias)
+                              {:alias alias :command child-name}))
+              (contains? acc alias)
+              (throw (ex-info (str "Alias " alias " is claimed by commands "
+                                   (get acc alias) " and " child-name)
+                              {:alias alias :commands [(get acc alias) child-name]}))
+              :else (assoc acc alias child-name)))
+          {}
+          (for [[child-name child] (:cmd node)
+                alias (aliases-of child-name child)]
+            [alias child-name])))
 
 (defn- normalize-node
   "Normalize tree `node`, recursively. Rejects table-entry `:cmds` on a node,
