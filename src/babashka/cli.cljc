@@ -727,11 +727,12 @@
                                 ;; One leading = is stripped, like
                                 ;; --foo=bar: -a=b binds "b". Flag letters before
                                 ;; the valued one stay flags: -ba x
+                                opt-name-count (count opt-name)
                                 attached (when (and (not long-opt?)
                                                     (str/starts-with? arg "-")
-                                                    (> (count opt-name) 1))
+                                                    (> opt-name-count 1))
                                            (loop [i 0]
-                                             (when (< i (count opt-name))
+                                             (when (< i opt-name-count)
                                                (let [c (nth opt-name i)]
                                                  (cond (= \- c) nil
                                                        (valued-letter? c)
