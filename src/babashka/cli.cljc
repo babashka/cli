@@ -1399,12 +1399,12 @@
   "The `:cmd-aliases` names of child command `child-name`, stringified like
   command names. Anything but a collection is an error."
   [child-name child]
-  (let [a (:cmd-aliases child)]
-    (cond (nil? a) nil
-          (coll? a) (map cmd-name a)
-          :else (throw (ex-info (str ":cmd-aliases of command " child-name
-                                     " takes a collection of names, got " (pr-str a))
-                                {:cmd-aliases a :command child-name})))))
+  (when-let [a (:cmd-aliases child)]
+    (if (coll? a)
+      (map cmd-name a)
+      (throw (ex-info (str ":cmd-aliases of command " child-name
+                           " takes a collection of names, got " (pr-str a))
+                      {:cmd-aliases a :command child-name})))))
 
 (defn- cmd-aliases
   "Alias -> canonical child name map for `node`'s children. An alias that
@@ -1666,14 +1666,16 @@
     (loop [node tree, ropts (resolve-node {} tree), inherited {},
            toks (seq tokens), level [], eoo? false]
       (let [head (first toks)
-            [opts _ known] ropts]
+            [opts _ known] ropts
+            ;; head resolved through this level's aliases, computed once
+            child (when-not eoo?
+                    (get-in node [:cmd (get (cmd-aliases node) head head)]))]
         (cond
           (nil? head) [ropts node level eoo?]
           ;; literal `--`: everything after is positional
           (= "--" head) (recur node ropts inherited (next toks) (conj level head) true)
-          (and (not eoo?) (get-in node [:cmd (get (cmd-aliases node) head head)]))
-          (let [inherited (merge inherited (inherited-entries (:spec node) inherit-opt))
-                child (get-in node [:cmd (get (cmd-aliases node) head head)])]
+          child
+          (let [inherited (merge inherited (inherited-entries (:spec node) inherit-opt))]
             (recur child (resolve-node inherited child) inherited (next toks) [] false))
           (and (not eoo?) (gnu-option? head))
           ;; flags consume one token, other options also their value
@@ -2197,6 +2199,7 @@ $env.config.completions.external.completer = {|spans|
                                  (if error-stash
                                    (swap! error-stash conj fire)
                                    (fire)))))
+           aliases (cmd-aliases cmd-info)
            {:keys [args opts]} (if should-parse-args?
                                  (parse-args args (assoc parse-opts
                                                          ::dispatch-tree true
@@ -2204,13 +2207,13 @@ $env.config.completions.external.completer = {|spans|
                                                          ;; values and exempt from this level's :restrict
                                                          ::dispatch-inherited user-opts
                                                          ::dispatch-tree-ignored-args (into (set (keys (:cmd cmd-info)))
-                                                                                            (keys (cmd-aliases cmd-info)))))
+                                                                                            (keys aliases))))
                                  {:args args
                                   :opts {}})
            [arg & rest] args
-           ;; a `:cmd-aliases` resolves to its canonical command name, so
+           ;; an alias resolves to its canonical command name, so
            ;; `:dispatch` and help always carry the canonical path
-           arg (get (cmd-aliases cmd-info) arg arg)
+           arg (get aliases arg arg)
            user-opts (merge user-opts (user-supplied opts))
            opts (vary-meta opts dissoc ::defaulted)
            all-opts (-> (merge all-opts opts)
