@@ -69,5 +69,4 @@
                          (shell "npm publish"))}
 
   publish {:doc "Publish to clojars and npm, then push"
-           :requires ([tasks])
            :exec-fn tasks/publish}}}
