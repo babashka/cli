@@ -640,6 +640,11 @@
         alias-keys (set (concat (keys aliases) (keep :alias (vals spec-map))))
         known-keys (set (concat (keys spec-map) (vals aliases) (keys coerce)))
         expects-bool-val? (fn [opt-key] (#{:boolean :bool} (coerce-coerce-fn (get coerce opt-key))))
+        ;; a letter that takes an attached value: declared with a non-boolean :coerce
+        valued-letter? (fn [c]
+                         (let [k (keyword (str c))
+                               ck (or (get aliases k) k)]
+                           (and (contains? coerce ck) (not (expects-bool-val? ck)))))
         track-ivs (fn [implicit-values current-opt added]
                     ;; we handle implicit trues here only, :add-opt-and-val below covers implicit false
                     (if (not= current-opt added)
@@ -716,11 +721,6 @@
                                            (subs arg 2)
                                            (str/replace arg #"^(:|-|)" ""))
                                 ;; split on the first = only: --header=k=v binds "k=v"
-                                valued-letter? (fn [c]
-                                                 (let [k (keyword (str c))
-                                                       ck (or (get aliases k) k)
-                                                       cf (coerce-coerce-fn (get coerce ck))]
-                                                   (and (some? cf) (not (#{:boolean :bool} cf)))))
                                 ;; -ab where :a takes a value binds "b", as getopt
                                 ;; does for "a:". One leading = is stripped, like
                                 ;; --foo=bar: -a=b binds "b". Flag letters before
@@ -755,8 +755,7 @@
                                      nil nil
                                      mode
                                      (concat (mapcat (fn [c] [(str "-" c) true]) (:flags attached))
-                                             [(str "-" (:letter attached)
-                                                   (when (seq (:rest attached)) (:rest attached)))]
+                                             [(str "-" (:letter attached) (:rest attached))]
                                              (next args))
                                      a->o implicit-values opt-parse-order)
                             (if opt-val
