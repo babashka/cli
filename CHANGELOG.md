@@ -4,8 +4,9 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## 0.12.86
+## Unreleased
 
+- [#219](https://github.com/babashka/cli/issues/219): `:cmd-alias` on a table entry or tree node declares alternative names for a command, a single name or a collection. An alias dispatches like the command, `:dispatch` carries the canonical name, and aliases stay out of help and completions
 - A short option that declares a non-boolean `:coerce` takes the rest of its token as its value, like getopt: `-J-Dfoo=bar` binds `"-Dfoo=bar"`, `-p80` binds `80`. One leading `=` is stripped, like `--foo=bar`. Flag letters may precede the valued option in a cluster: with `:b` a flag and `:a` valued, `-ba x` parses as `-b -a x`
 - [#216](https://github.com/babashka/cli/issues/216): in a cluster of flags, where no letter takes a value, an interior hyphen is an error instead of silently ending option parsing. With an `:error-fn` the remaining letters still parse
 - Fix: a value bound with `--foo=val` may start with a hyphen: `--foo=-bar` binds `"-bar"` instead of reporting a missing value
