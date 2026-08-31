@@ -1015,15 +1015,18 @@ of printed output, but are still callable on the command line.
        "cache" {...}}}
 ```
 
-Use `:cmd-alias` to give a command one or more alternative names, a single name
-or a collection:
+Use `:cmd-aliases` to give a command one or more alternative names, a single
+name or a collection:
 
 ``` clojure
-[{:cmds ["new"] :fn new :cmd-alias "n"}]
+[{:cmds ["new"] :fn new :cmd-aliases "n"}]
 ```
 
-`prog n` now dispatches like `prog new`. Aliases do not show up in help or
-completions and `:dispatch` carries the canonical name.
+`prog n` now dispatches like `prog new` and `:dispatch` carries the canonical
+name. The command index and completion candidates stay canonical; the
+command's own help page names its aliases (`Aliases: n`), as npm and gh
+render theirs. An alias that collides with a command name, or with an alias
+of a sibling command, is an error.
 
 ### Help
 

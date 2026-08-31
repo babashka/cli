@@ -225,7 +225,7 @@
       (is (= (mapv #(str "cmd" %) (range 10))
              (complete table [""]))))))
 
-(deftest cmd-alias-completion-test
+(deftest cmd-aliases-completion-test
   (let [table [{:cmds ["new"] :fn identity :cmd-aliases "n"}
                {:cmds ["dep" "add"] :fn identity :cmd-aliases "a"}
                {:cmds ["dep" "add" "git"] :fn identity}]]

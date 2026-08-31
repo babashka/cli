@@ -639,7 +639,7 @@
         (is (submap? {:type :org.babashka/cli, :dispatch ["foo" "bar"], :wrong-input "wrong", :all-commands '("baz"), :cause :no-match, :msg "Unknown command: wrong", :opts {}}
                      (cli/dispatch [{:cmds ["foo" "bar" "baz"] :fn identity}] ["foo" "bar" "wrong"] {:error-fn identity})))))))
 
-(deftest dispatch-cmd-alias-test
+(deftest dispatch-cmd-aliases-test
   (d/deflet
     (def table [{:cmds ["new"] :fn identity :doc "Create a project" :cmd-aliases :n}
                 {:cmds ["dep" "add"] :fn identity :cmd-aliases ["a" "ad"]}])
