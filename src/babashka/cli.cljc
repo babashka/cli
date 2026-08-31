@@ -1296,8 +1296,7 @@
         inherited (apply dissoc inherited (keys spec-map))
         desc (help-description (:doc node))
         cmds (help-commands-table node)
-        aliases (let [a (:cmd-aliases node)]
-                  (map cmd-name (if (coll? a) a (when a [a]))))
+        aliases (map cmd-name (:cmd-aliases node))
         sections
         (cond-> [(help-usage-line prog node (or (visible-spec? opt-spec) (visible-spec? inherited)))]
           desc
@@ -1398,12 +1397,16 @@
 
 (defn- cmd-aliases
   "Alias -> canonical child name map for `node`'s children, from each child's
-  `:cmd-aliases` (a single name or a collection). Alias names are stringified
-  like command names. An alias that collides with a command name, or with an
+  `:cmd-aliases` (a collection of names). Alias names are stringified like
+  command names. An alias that collides with a command name, or with an
   alias of a sibling, is an error: both would resolve silently otherwise."
   [node]
   (reduce-kv (fn [acc child-name child]
                (let [a (:cmd-aliases child)]
+                 (when (and a (not (coll? a)))
+                   (throw (ex-info (str ":cmd-aliases of command " child-name
+                                        " takes a collection of names, got " (pr-str a))
+                                   {:cmd-aliases a :command child-name})))
                  (reduce (fn [acc alias]
                            (let [alias (cmd-name alias)]
                              (when (contains? (:cmd node) alias)
@@ -1416,7 +1419,7 @@
                                                {:alias alias :commands [other child-name]})))
                              (assoc acc alias child-name)))
                          acc
-                         (if (coll? a) a (when a [a])))))
+                         a)))
              {}
              (:cmd node)))
 

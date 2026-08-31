@@ -641,7 +641,7 @@
 
 (deftest dispatch-cmd-aliases-test
   (d/deflet
-    (def table [{:cmds ["new"] :fn identity :doc "Create a project" :cmd-aliases :n}
+    (def table [{:cmds ["new"] :fn identity :doc "Create a project" :cmd-aliases [:n]}
                 {:cmds ["dep" "add"] :fn identity :cmd-aliases ["a" "ad"]}])
     (testing "an alias dispatches like the command, :dispatch carries the canonical name"
       (is (submap? {:dispatch ["new"] :args ["proj"]}
@@ -653,17 +653,22 @@
     (testing "options parse across an alias"
       (is (submap? {:dispatch ["new"] :opts {:force true}}
                    (cli/dispatch table ["n" "--force"] {:coerce {:force :boolean}}))))
+    (testing "a scalar :cmd-aliases is an error, the key takes a collection"
+      (is (thrown-with-msg? #?(:cljd Object :default Exception)
+                            #"takes a collection of names"
+                            (cli/dispatch [{:cmds ["new"] :fn identity :cmd-aliases "n"}]
+                                          ["new"]))))
     (testing "an alias colliding with a command name is an error"
       (is (thrown-with-msg? #?(:cljd Object :default Exception)
                             #"collides with command"
-                            (cli/dispatch [{:cmds ["new"] :fn identity :cmd-aliases "n"}
+                            (cli/dispatch [{:cmds ["new"] :fn identity :cmd-aliases ["n"]}
                                            {:cmds ["n"] :fn identity}]
                                           ["n"]))))
     (testing "two commands claiming one alias is an error"
       (is (thrown-with-msg? #?(:cljd Object :default Exception)
                             #"is claimed by commands"
-                            (cli/dispatch [{:cmds ["new"] :fn identity :cmd-aliases "x"}
-                                           {:cmds ["nuke"] :fn identity :cmd-aliases "x"}]
+                            (cli/dispatch [{:cmds ["new"] :fn identity :cmd-aliases ["x"]}
+                                           {:cmds ["nuke"] :fn identity :cmd-aliases ["x"]}]
                                           ["x"]))))
     (testing "the index stays canonical, the command's own page names its aliases"
       (is (str/includes? (cli/format-command-help {:table table :prog "p" :cmds ["new"]})
