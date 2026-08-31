@@ -721,8 +721,10 @@
                                            (subs arg 2)
                                            (str/replace arg #"^(:|-|)" ""))
                                 ;; split on the first = only: --header=k=v binds "k=v"
-                                ;; -ab where :a takes a value binds "b", as getopt
-                                ;; does for "a:". One leading = is stripped, like
+                                ;; -ab where :a takes a value binds "b". getopt
+                                ;; has the same rule: declaring "a:" (the colon
+                                ;; means a takes an argument) makes -ab bind "b".
+                                ;; One leading = is stripped, like
                                 ;; --foo=bar: -a=b binds "b". Flag letters before
                                 ;; the valued one stay flags: -ba x
                                 attached (when (and (not long-opt?)
