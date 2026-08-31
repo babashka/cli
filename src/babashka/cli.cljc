@@ -1396,8 +1396,8 @@
     node))
 
 (defn- aliases-of
-  "The `:cmd-aliases` names of child command `child-name`, stringified like
-  command names. Anything but a collection is an error."
+  "Returns the `:cmd-aliases` names of child command `child-name` as strings.
+  If `:cmd-aliases` is not a collection, the function throws an error."
   [child-name child]
   (when-let [a (:cmd-aliases child)]
     (if (coll? a)
@@ -1407,9 +1407,8 @@
                       {:cmd-aliases a :command child-name})))))
 
 (defn- cmd-aliases
-  "Alias -> canonical child name map for `node`'s children. An alias that
-  collides with a command name, or with an alias of a sibling, is an error:
-  both would resolve silently otherwise."
+  "Returns a map from each alias to its canonical child name.
+  Throws an error when an alias matches a command name or another child alias."
   [node]
   (reduce (fn [acc [alias child-name]]
             (cond
