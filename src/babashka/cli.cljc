@@ -1264,7 +1264,11 @@
                                       (str " " (str/join " " labels))))
              :else             "")))
 
+(declare cmd-name)
+
 (defn- help-commands-table [node]
+  ;; canonical names only: aliases show on the command's own help page,
+  ;; as npm and gh do, so a long alias list cannot crowd the index
   (mapv (fn [[cmd subnode]]
           [(str cmd) (or (help-first-line (:doc subnode)) "")])
         (cmd-children node)))
@@ -1292,10 +1296,14 @@
         inherited (apply dissoc inherited (keys spec-map))
         desc (help-description (:doc node))
         cmds (help-commands-table node)
+        aliases (map cmd-name (:cmd-aliases node))
         sections
         (cond-> [(help-usage-line prog node (or (visible-spec? opt-spec) (visible-spec? inherited)))]
           desc
           (conj desc)
+
+          (seq aliases)
+          (conj (str "Aliases: " (str/join ", " aliases)))
 
           (seq cmds)
           (conj (str "Commands:\n" (format-table {:rows cmds :indent 2 :divider "  "})))
@@ -1386,6 +1394,37 @@
       (::cmd-order node) (update ::cmd-order #(mapv cmd-name %))
       (:cmd-order node) (update :cmd-order #(mapv cmd-name %)))
     node))
+
+(defn- aliases-of
+  "Returns the `:cmd-aliases` names of child command `child-name` as strings.
+  If `:cmd-aliases` is not a collection, the function throws an error."
+  [child-name child]
+  (when-let [a (:cmd-aliases child)]
+    (if (coll? a)
+      (map cmd-name a)
+      (throw (ex-info (str ":cmd-aliases of command " child-name
+                           " takes a collection of names, got " (pr-str a))
+                      {:cmd-aliases a :command child-name})))))
+
+(defn- cmd-aliases
+  "Returns a map from each alias to its canonical child name.
+  Throws an error when an alias matches a command name or another child alias."
+  [node]
+  (reduce (fn [acc [alias child-name]]
+            (cond
+              (contains? (:cmd node) alias)
+              (throw (ex-info (str "Alias " alias " of command " child-name
+                                   " collides with command " alias)
+                              {:alias alias :command child-name}))
+              (contains? acc alias)
+              (throw (ex-info (str "Alias " alias " is claimed by commands "
+                                   (get acc alias) " and " child-name)
+                              {:alias alias :commands [(get acc alias) child-name]}))
+              :else (assoc acc alias child-name)))
+          {}
+          (for [[child-name child] (:cmd node)
+                alias (aliases-of child-name child)]
+            [alias child-name])))
 
 (defn- normalize-node
   "Normalize tree `node`, recursively. Rejects table-entry `:cmds` on a node,
@@ -1626,14 +1665,16 @@
     (loop [node tree, ropts (resolve-node {} tree), inherited {},
            toks (seq tokens), level [], eoo? false]
       (let [head (first toks)
-            [opts _ known] ropts]
+            [opts _ known] ropts
+            ;; head resolved through this level's aliases, computed once
+            child (when-not eoo?
+                    (get-in node [:cmd (get (cmd-aliases node) head head)]))]
         (cond
           (nil? head) [ropts node level eoo?]
           ;; literal `--`: everything after is positional
           (= "--" head) (recur node ropts inherited (next toks) (conj level head) true)
-          (and (not eoo?) (get-in node [:cmd head]))
-          (let [inherited (merge inherited (inherited-entries (:spec node) inherit-opt))
-                child (get-in node [:cmd head])]
+          child
+          (let [inherited (merge inherited (inherited-entries (:spec node) inherit-opt))]
             (recur child (resolve-node inherited child) inherited (next toks) [] false))
           (and (not eoo?) (gnu-option? head))
           ;; flags consume one token, other options also their value
@@ -2157,16 +2198,21 @@ $env.config.completions.external.completer = {|spans|
                                  (if error-stash
                                    (swap! error-stash conj fire)
                                    (fire)))))
+           aliases (cmd-aliases cmd-info)
            {:keys [args opts]} (if should-parse-args?
                                  (parse-args args (assoc parse-opts
                                                          ::dispatch-tree true
                                                          ;; shared options parsed at parent levels: seeded as
                                                          ;; values and exempt from this level's :restrict
                                                          ::dispatch-inherited user-opts
-                                                         ::dispatch-tree-ignored-args (set (keys (:cmd cmd-info)))))
+                                                         ::dispatch-tree-ignored-args (into (set (keys (:cmd cmd-info)))
+                                                                                            (keys aliases))))
                                  {:args args
                                   :opts {}})
            [arg & rest] args
+           ;; an alias resolves to its canonical command name, so
+           ;; `:dispatch` and help always carry the canonical path
+           arg (get aliases arg arg)
            user-opts (merge user-opts (user-supplied opts))
            opts (vary-meta opts dissoc ::defaulted)
            all-opts (-> (merge all-opts opts)
@@ -2367,6 +2413,14 @@ $env.config.completions.external.completer = {|spans|
   child command names) on the map to control which children are shown and in
    what order (like `:order` does for options). A table keeps its entry order
   automatically.
+
+  `:cmd-aliases` declares alternative names for a command: a collection of
+  strings, symbols or keywords. On a table entry it aliases the entry's last
+  command, e.g. `{:cmds [\"dep\" \"add\"] :fn add :cmd-aliases [\"a\"]}` makes
+  `prog dep a` dispatch like `prog dep add`. In the tree format it sits on the
+  command's node. `:dispatch` always carries the canonical name, the command
+  index and completion offer only canonical names, and the command's own help
+  page lists its aliases.
 
   When a match is found, `:fn` called with the return value of
   [[parse-args]] applied to `args` enhanced with:
