@@ -1264,9 +1264,15 @@
                                       (str " " (str/join " " labels))))
              :else             "")))
 
+(declare cmd-name)
+
 (defn- help-commands-table [node]
   (mapv (fn [[cmd subnode]]
-          [(str cmd) (or (help-first-line (:doc subnode)) "")])
+          ;; aliases render beside the command, like -f, --foo does for options
+          [(str/join ", " (cons (str cmd)
+                                (let [a (:cmd-alias subnode)]
+                                  (map cmd-name (if (coll? a) a (when a [a]))))))
+           (or (help-first-line (:doc subnode)) "")])
         (cmd-children node)))
 
 (defn- visible-spec?
