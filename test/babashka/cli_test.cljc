@@ -934,6 +934,23 @@
       (is (str/includes? help "Custom"))
       (is (not (str/includes? help "Does a thing")))))))
 
+(deftest dispatch-meta-fn-test
+  ;; In babashka babashka.cli is compiled, so `var?` asks for a
+  ;; `clojure.lang.Var` while a script hands over a `sci.lang.Var` and the
+  ;; folding silently does nothing. A plain fn carrying the same metadata stands
+  ;; in for one here, on every platform, so `var?` creeping back fails the build.
+  (let [f (with-meta (fn [opts] (assoc opts :ran :a-command))
+            {:doc "Does a thing"
+             :org.babashka/cli {:spec {:force {:coerce :boolean :desc "Force it"}}}})
+        tree {:cmd {"do" {:exec-fn f}}}]
+    (testing "spec and docstring reach the node without a var"
+      (is (= {:force true :ran :a-command} (cli/dispatch tree ["do" "--force"])))
+      (let [help (with-out-str (cli/dispatch tree ["do" "--help"] {:prog "t" :help true}))]
+        (is (str/includes? help "Does a thing"))
+        (is (str/includes? help "Force it"))))
+    (testing "a fn without metadata is left alone"
+      (is (= {} (cli/dispatch {:cmd {"do" {:exec-fn identity}}} ["do"]))))))
+
 (deftest set-validate-test
   (testing "a set :validate of strings validates, and lists the values on error"
     (is (submap? {:env "staging"}

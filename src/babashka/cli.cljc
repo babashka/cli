@@ -1353,18 +1353,19 @@
         extra (update ::cmd-order (fnil into []) (keys extra))))))
 
 (defn- enrich-from-var
-  "When a node's `:fn` / `:exec-fn` is a var, fold in what the var already
-  declares: its `:org.babashka/cli` metadata (`:spec`, `:args->opts`, ...) and,
-  when the node has no `:doc`, its docstring. Explicit node keys win. A plain fn
-  value or symbol is left as is."
+  "Fold what a node's `:fn` / `:exec-fn` already declares into the node: the
+  `:org.babashka/cli` metadata (`:spec`, `:args->opts`, ...) and, when the node
+  has no `:doc`, the docstring. Explicit node keys win.
+
+  Vars are what this is for, but the test is the metadata itself rather than
+  `var?`: in babashka this namespace is compiled, so `var?` asks for a
+  `clojure.lang.Var` while a script hands us a `sci.lang.Var`. A plain fn value
+  or symbol has nothing to contribute and folds to nothing."
   [node]
-  (let [fv (or (:fn node) (:exec-fn node))]
-    (if #?(:cljd false :default (var? fv))
-      (let [m (meta fv)
-            node (merge (:org.babashka/cli m) node)]
-        (if (and (:doc m) (not (:doc node)))
-          (assoc node :doc (:doc m))
-          node))
+  (let [{cli :org.babashka/cli doc :doc} (meta (or (:fn node) (:exec-fn node)))
+        node (if cli (merge cli node) node)]
+    (if (and doc (not (:doc node)))
+      (assoc node :doc doc)
       node)))
 
 (defn- cmd-name

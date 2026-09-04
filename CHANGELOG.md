@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- Fix: a var `:fn` / `:exec-fn` contributes its spec and docstring in babashka too. There `babashka.cli` is compiled, so `var?` asked for a `clojure.lang.Var` and did not recognize a script's `sci.lang.Var`: `(dispatch {:exec-fn #'f} args)` silently gave empty options and empty help. The metadata is now the test, which also gives ClojureDart the feature.
+
 ## 0.12.88
 
 - [#219](https://github.com/babashka/cli/issues/219): `:cmd-aliases` on a table entry or tree node gives a command one or more alternative names.
