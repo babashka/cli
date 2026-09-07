@@ -1412,7 +1412,7 @@ Babashka CLI lets you get up and running quickly.
 As you move toward production quality, it's helpful to let users know when their inputs are invalid.
 Strict validation can be introduced with [:restrict](#restrict), [:require](#require), and [:validate](#validate).
 
-As you add polish, you'll likely make use of a [:spec](#spec) and maybe a custom [:error_fn](#error-handling). Even if your program does not use [commands](#commands), consider using `dispatch` with the `:help true` option (as shown in [Simple Example](#simple-example)) for printed terse error messages (instead of exceptions), and automatic `--help` generation.
+As you add polish, you'll likely make use of a [:spec](#spec) and maybe a custom [:error-fn](#error-handling). Even if your program does not use [commands](#commands), consider using `dispatch` with the `:help true` option (as shown in [Simple Example](#simple-example)) for printed terse error messages (instead of exceptions), and automatic `--help` generation.
 
 ## Restrict
 
