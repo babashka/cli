@@ -4,10 +4,6 @@
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]))
 
-;; Stands in for the `sci.lang.Var` a babashka script hands over. It carries
-;; metadata and is callable, but it is not a `clojure.lang.Var`, so a `var?`
-;; test skips the folding. In babashka `babashka.cli` is compiled, which is why
-;; the vars in `dispatch-var-fn-test` cannot catch this.
 (deftype FakeVar [m f]
   clojure.lang.IObj
   (meta [_] m)
@@ -16,16 +12,16 @@
   (invoke [_ opts] (f opts)))
 
 (def ^:private a-command
-  (->FakeVar {:doc "Does a thing"
-              :org.babashka/cli {:spec {:n {:coerce :string :desc "Left as a string"}}}}
+  (->FakeVar {:doc "Run command"
+              :org.babashka/cli {:spec {:n {:coerce :string :desc "String value"}}}}
              (fn [opts] (assoc opts :ran :a-command))))
 
 (deftest fake-var-fn-test
   (is (not (var? a-command)))
   (let [tree {:cmd {"do" {:exec-fn a-command}}}]
-    (testing "its spec drives parsing"
+    (testing "metadata spec controls coercion"
       (is (= {:n "5" :ran :a-command} (cli/dispatch tree ["do" "--n" "5"]))))
-    (testing "its docstring and options reach the help"
+    (testing "help includes metadata docstring and options"
       (let [help (with-out-str (cli/dispatch tree ["do" "--help"] {:prog "t" :help true}))]
-        (is (str/includes? help "Does a thing"))
-        (is (str/includes? help "Left as a string"))))))
+        (is (str/includes? help "Run command"))
+        (is (str/includes? help "String value"))))))
