@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## 0.12.89
 
 - [#244](https://github.com/babashka/cli/issues/244): use metadata and docstrings from `:fn` and `:exec-fn` vars in babashka and ClojureDart
 
