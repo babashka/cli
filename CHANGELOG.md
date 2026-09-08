@@ -6,7 +6,7 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
-- Fix: a var `:fn` / `:exec-fn` contributes its spec and docstring in babashka too. There `babashka.cli` is compiled, so `var?` asked for a `clojure.lang.Var` and did not recognize a script's `sci.lang.Var`: `(dispatch {:exec-fn #'f} args)` silently gave empty options and empty help. The metadata is now the test, which also gives ClojureDart the feature.
+- Fix: use metadata and docstrings from `:fn` and `:exec-fn` vars in babashka and ClojureDart
 
 ## 0.12.88
 
