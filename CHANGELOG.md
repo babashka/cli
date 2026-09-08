@@ -6,7 +6,7 @@ For breaking changes, check [here](#breaking-changes).
 
 ## Unreleased
 
-- Fix: use metadata and docstrings from `:fn` and `:exec-fn` vars in babashka and ClojureDart
+- [#244](https://github.com/babashka/cli/issues/244): use metadata and docstrings from `:fn` and `:exec-fn` vars in babashka and ClojureDart
 
 ## 0.12.88
 
