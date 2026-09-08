@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- Fix: use metadata and docstrings from `:fn` and `:exec-fn` vars in babashka and ClojureDart
+
 ## 0.12.88
 
 - [#219](https://github.com/babashka/cli/issues/219): `:cmd-aliases` on a table entry or tree node gives a command one or more alternative names.
