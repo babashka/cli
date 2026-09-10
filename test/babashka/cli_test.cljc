@@ -901,8 +901,19 @@
     (let [opts (cli/dispatch {:cmd {"add" {:exec-fn identity
                                            :args->opts [:y]}}}
                              ["add" "5" "extra"])]
-      (is (= {:dispatch ["add"] :args ["extra"]}
-             (:org.babashka/cli (meta opts)))))))
+      (is (= {:dispatch ["add"] :args ["extra"] :supplied #{:y}}
+             (:org.babashka/cli (meta opts))))))
+  (testing "the opts meta names the options given on the command line in :supplied"
+    (let [opts (cli/dispatch {:spec {:v {:coerce :boolean}}
+                              :exec-args {:e 1}
+                              :cmd {"add" {:exec-fn identity
+                                           :spec {:x {:coerce :long :default 0}
+                                                  :z {:default 3}}
+                                           :exec-args {:w 2}}}}
+                             ["--v" "add" "--x" "0"])]
+      (is (= {:v true :e 1 :x 0 :z 3 :w 2} opts))
+      (testing "a value equal to its default still counts as given"
+        (is (= #{:v :x} (:supplied (:org.babashka/cli (meta opts)))))))))
 
 ;; vars: squint has none, cljd has no var? predicate, so the #'a-command
 ;; literal below is clj/cljs only
