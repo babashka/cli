@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## 0.12.90
 
 - `dispatch`: add `:supplied` to the opts map's `:org.babashka/cli` metadata with the set of option keys given on the command line
 
