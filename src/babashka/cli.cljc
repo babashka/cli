@@ -2225,7 +2225,8 @@ $env.config.completions.external.completer = {|spans|
              {:cmd-info cmd-info
               :dispatch cmds
               :opts (vary-meta (dissoc all-opts ::opts-by-cmds)
-                               update :org.babashka/cli merge {:dispatch cmds :args args})
+                               update :org.babashka/cli merge {:dispatch cmds :args args
+                                                               :supplied (set (keys user-opts))})
               :args args}
              (if arg
                {:error :no-match
@@ -2427,6 +2428,10 @@ $env.config.completions.external.completer = {|spans|
   A node may use `:exec-fn` instead of `:fn` as a convenience: it is called with
   just the parsed `:opts` map rather than the whole dispatch result. `:exec-fn`
   wins if a node has both.
+
+  Use `(:org.babashka/cli (meta opts))` to read `:dispatch`, `:args` and `:supplied`.
+  `:supplied` contains the set of option keys given on the command line at any level.
+  It excludes keys supplied only by `:exec-args` or a spec's `:default`.
 
   When `:fn` / `:exec-fn` is a var, its `:org.babashka/cli` metadata (`:spec`,
   `:args->opts`, ...) and its docstring (as `:doc`) are folded into the node.
