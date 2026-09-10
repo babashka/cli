@@ -60,7 +60,7 @@
 
 (defn deploy [opts]
   (jar opts)
-  (try ((requiring-resolve 'deps-deploy.deps-deploy/deploy)
+  (try ((requiring-resolve 'babashka.deps-deploy/deploy)
         (merge {:installer :remote
                 :artifact jar-file
                 :pom-file (b/pom-path {:lib lib :class-dir class-dir})}
