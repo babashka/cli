@@ -1754,6 +1754,9 @@
         names-zstyle (str/join "\n"
                                (map #(str "zstyle ':completion:*:*:" % ":*:options' prefix-needed false")
                                     names))
+        names-zsort (str/join "\n"
+                              (map #(str "zstyle ':completion:*:*:" % ":*' sort false")
+                                   names))
         names-nu (str "[" (str/join " " (map #(str "\"" % "\"") names)) "]")]
    (case shell
     :bash (str fn "()
@@ -1841,6 +1844,8 @@ complete -F " fn " " names-sp "
 # zsh hides options until a dash is typed. After a command there is usually
 # nothing else to complete, so opt out for these programs only
 " names-zstyle "
+# show candidates in the order the program emits them
+" names-zsort "
 # register the bare name(s); zsh's _normal completes ./name and /abs/name via the basename
 compdef " fn " " names-sp "
 ")

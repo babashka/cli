@@ -177,6 +177,12 @@
       (is (str/includes? zsh "zstyle ':completion:*:*:sq:*:options' prefix-needed false"))
       (is (str/includes? zsh "zstyle ':completion:*:*:squint:*:options' prefix-needed false")))))
 
+(deftest zsh-snippet-keeps-order-test
+  (testing "every registered name turns off zsh sorting"
+    (let [zsh (snippet-via-cmd cmd-table {:prog "x"} "zsh" "--prog" "sq" "--prog" "squint")]
+      (is (str/includes? zsh "zstyle ':completion:*:*:sq:*' sort false"))
+      (is (str/includes? zsh "zstyle ':completion:*:*:squint:*' sort false")))))
+
 (defn- complete-out
   "Run the completion handler for `cmdline` and return its emitted
   `value\\tdescription` lines as a set of strings."
