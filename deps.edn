@@ -13,13 +13,6 @@
    :main-opts ["-m" "babashka.cli.exec"]
    :exec-fn babashka.test-runner/test #_cognitect.test-runner.api/test}
 
-  :build ;; added by neil
-  {:deps {io.github.clojure/tools.build {:mvn/version "0.10.14"}
-          io.github.babashka/deps-deploy {:mvn/version "0.0.1"}}
-   :extra-paths ["." ".build"]
-   :ns-default build
-   :main-opts ["-m" "babashka.cli.exec"]}
-
   :clj-1.10 {:extra-deps {org.clojure/clojure {:mvn/version "1.10.3"}}}
   :clj-1.11 {:extra-deps {org.clojure/clojure {:mvn/version "1.11.4"}}}
   :clj-1.12 {:extra-deps {org.clojure/clojure {:mvn/version "1.12.5"}}}

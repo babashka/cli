@@ -1,5 +1,5 @@
 (ns tasks
-  (:require [babashka.tasks :refer [clojure run shell]]))
+  (:require [babashka.tasks :refer [run shell]]))
 
 (defn publish
   "Publish to clojars and npm, then push."
@@ -8,7 +8,8 @@
   [{:keys [bump]}]
   (when bump
     (run 'bump-release))
-  (clojure "-T:build deploy")
+  ;; loaded after bump-release, so build reads the new version
+  ((requiring-resolve 'build/deploy) {})
   (run 'npm-publish)
   ;; bump-release pushes the tag, the commit it points at needs this
   (shell "git push"))

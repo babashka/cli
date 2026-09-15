@@ -69,11 +69,6 @@
                          (shell "npm publish"))}
 
   publish {:doc "Publish to clojars and npm, then push"
-           :exec-fn tasks/publish}
-
-  deploy {:doc "Build the jar and deploy it to Clojars, all in bb"
-          :extra-paths ["."]
-          :extra-deps {io.github.clojure/tools.build {:mvn/version "0.10.14"}
-                       io.github.babashka/deps-deploy {:mvn/version "0.0.1"}}
-          :requires ([build])
-          :task (build/deploy {})}}}
+           :extra-paths ["."]
+           :extra-deps {io.github.babashka/deps-deploy {:mvn/version "0.0.1"}}
+           :exec-fn tasks/publish}}}
