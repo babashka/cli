@@ -8,7 +8,8 @@
   [{:keys [bump]}]
   (when bump
     (run 'bump-release))
-  (run 'deploy)
+  ;; loaded after bump-release, so build reads the new version
+  ((requiring-resolve 'build/deploy) {})
   (run 'npm-publish)
   ;; bump-release pushes the tag, the commit it points at needs this
   (shell "git push"))
