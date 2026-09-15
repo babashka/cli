@@ -2,7 +2,7 @@
         #_{:local/root "/Users/borkdude/dev/quickdoc"}
         {:git/tag "v0.2.6" :git/sha "ce8678000afa5f835639dd7267dc191fd90495a2"}
         io.github.babashka/deps-deploy {:mvn/version "0.0.1"}}
- :paths ["src" ".build"]
+ :paths ["src" "bb"]
 
  :tasks
  {:requires ([clojure.edn :as edn]
