@@ -1,6 +1,7 @@
 {:deps {io.github.borkdude/quickdoc
         #_{:local/root "/Users/borkdude/dev/quickdoc"}
-        {:git/tag "v0.2.6" :git/sha "ce8678000afa5f835639dd7267dc191fd90495a2"}}
+        {:git/tag "v0.2.6" :git/sha "ce8678000afa5f835639dd7267dc191fd90495a2"}
+        io.github.babashka/deps-deploy {:mvn/version "0.0.1"}}
  :paths ["src" ".build"]
 
  :tasks
@@ -70,5 +71,4 @@
 
   publish {:doc "Publish to clojars and npm, then push"
            :extra-paths ["."]
-           :extra-deps {io.github.babashka/deps-deploy {:mvn/version "0.0.1"}}
            :exec-fn tasks/publish}}}
