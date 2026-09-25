@@ -1616,15 +1616,19 @@
                     {:error-fn (fn [error] (swap! errors conj error))
                      :restrict true
                      :spec spec})
-    (is (= [{:spec spec, :type :org.babashka/cli, :cause :coerce,
+    (is (= [{:spec spec, :type :org.babashka/cli, :cause :validate,
+             :msg "Invalid value for option --b: 0", :validate {:b pos?}, :option :b, :flag "--b", :value 0,
+             :opts {:b 0, :extra "bad!"}}
+            {:spec spec, :type :org.babashka/cli, :cause :coerce,
              :msg "Invalid value for option --c: cannot transform input \"nope!\" to long", :option :c, :flag "--c",
              :value "nope!", :opts {:b 0}}
-            {:spec spec, :type :org.babashka/cli, :cause :restrict, :msg "Unknown option: --extra", :restrict #{:c :b :a}, :option :extra, :flag "--extra", :opts {:b 0, :extra "bad!"}}
             ;; :require has no :flag in data (never typed); the message uses the canonical --a
-            {:spec spec, :type :org.babashka/cli, :cause :require, :msg "Required option: --a", :require #{:a}, :option :a, :opts {:b 0, :extra "bad!"}}
-            {:spec spec, :type :org.babashka/cli, :cause :validate, :msg "Invalid value for option --b: 0", :validate {:b pos?}, :option :b, :flag "--b", :value 0,
-             :opts {:b 0, :extra "bad!"}}]
-           @errors))))
+            {:spec spec, :type :org.babashka/cli, :cause :require,
+             :msg "Required option: --a", :require #{:a}, :option :a, :opts {:b 0, :extra "bad!"}}
+            {:spec spec, :type :org.babashka/cli, :cause :restrict,
+             :msg "Unknown option: --extra", :restrict #{:c :b :a}, :option :extra, :flag "--extra", :opts {:b 0, :extra "bad!"}}]
+           ;; processing order, and therefore collected errors order, is indeterminate
+           (sort-by :msg @errors)))))
 
 (deftest exec-args-replaced-test
   (is (= {:foo [:bar] :dude [:baz]} (cli/parse-opts ["--foo" ":bar"] {:coerce {:foo [] :dude []}
