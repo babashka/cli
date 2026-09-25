@@ -1248,7 +1248,8 @@
     (remove (comp :no-doc second) pairs)))
 
 (defn- help-usage-line [prog node any-options?]
-  (str "Usage: " prog
+  (str "Usage:"
+       (when prog (str " " prog))
        (when any-options? " [options]")
        ;; `<command>` reflects the runtime contract (the node accepts/requires
        ;; a command), so it keys on the dispatchable children, not the
@@ -1318,12 +1319,12 @@
           (conj (str "Inherited options:\n" (format-opts {:spec inherited})))
 
           (seq cmds)
-          (conj (str "Run \"" prog " <command> --help\" for more information on a command."))
+          (conj (str "Run \"" (when prog (str prog " ")) "<command> --help\" for more information on a command."))
 
           (seq parents)
           (conj (str/join "\n"
                           (for [{p :prog n :name} parents]
-                            (str "Run \"" p " --help\" for " n " options."))))
+                            (str "Run \"" (when p (str p " ")) "--help\" for " n " options."))))
 
           ;; free-text the entry supplies (examples, notes), rendered verbatim
           ;; last, as a closing footer (argparse epilog / picocli footer convention)
@@ -1944,6 +1945,10 @@ $env.config.completions.external.completer = {|spans|
        (or (str/starts-with? s "-")
            (str/starts-with? s ":"))))
 
+(defn- prog-cmd [prog path]
+  (let [cmd-path (if (seq prog) (cons prog path) path)]
+    (when (seq cmd-path)
+      (str/join " " cmd-path))))
 
 (defn- command-help-context
   "Given a dispatch `tree`, command path `cmds`, `prog` name and dispatch-level
@@ -1960,7 +1965,7 @@ $env.config.completions.external.completer = {|spans|
   spec may be a vec-of-pairs); display order is handled by `render-help`."
   [tree cmds prog inherit global-spec]
   (let [node-at (fn [path] (get-in tree (interleave (repeat :cmd) path)))
-        prog-at (fn [path] (str/join " " (cons prog path)))
+        prog-at (fn [path] (prog-cmd prog path))
         ;; options available at the target level itself (e.g. an injected --help,
         ;; or a redefined option) - those never need a "must precede" pointer
         here (set (keys (->spec-map (:spec (node-at cmds)))))
@@ -2011,7 +2016,7 @@ $env.config.completions.external.completer = {|spans|
   * `:table`   - a `dispatch` table, or a tree (hand-written or from
                  [[table->tree]]) - see [[dispatch]] (required)
   * `:cmds`    - the command path, e.g. `[\"deps\" \"outdated\"]` (default `[]`)
-  * `:prog`    - program name shown in the usage line (required)
+  * `:prog`    - program name shown in the usage line
   * `:inherit` - only needed when you pass a dispatch-level `:inherit` to
                  `dispatch`; pass the same value so `Inherited options:` matches.
                  Per-option `:inherit true` is detected automatically.
@@ -2101,8 +2106,9 @@ $env.config.completions.external.completer = {|spans|
   (let [tree   (table->tree tree)
         path   (or dispatch [])
         ctx-at (fn [p] (command-help-context tree (vec p) prog inherit (::global-spec data)))
-        hint  (str "Run \"" (str/join " " (cons prog path))
-                   " --help\" for more information.")
+        prog-cmd-path (prog-cmd prog path)
+        hint  (str "Run \"" (when prog-cmd-path (str prog-cmd-path " "))
+                   "--help\" for more information.")
         usage (fn [p]
                 (let [{:keys [node prog inherited]} (ctx-at p)]
                   (help-usage-line prog node (or (seq (:spec node))

@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- [#233](https://github.com/babashka/cli/issues/233): Generated help no longer prints extra spaces when `:prog` is not specified
+
 ## 0.12.91
 
 - zsh completion: disable sorting for registered program names to preserve candidate order
