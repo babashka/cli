@@ -1231,6 +1231,12 @@
                   "Options:\n  -v, --verbose  Verbose output\n\n"
                   "Run \"example <command> --help\" for more information on a command.")
              (cli/format-command-help {:table table :prog "example"}))))
+    (testing "no :prog"
+      (is (= (str "Usage: [options] <command>\n\n"
+                  "Commands:\n  copy    Copy a file\n  delete  Delete a file\n\n"
+                  "Options:\n  -v, --verbose  Verbose output\n\n"
+                  "Run \"<command> --help\" for more information on a command.")
+             (cli/format-command-help {:table table}))))
     (testing "leaf: own options + option inherited from an ancestor"
       (is (= (str "Usage: example copy [options]\n\n"
                   "Copy a file\n\n"
@@ -1312,7 +1318,30 @@
                                                     (println (cli/format-command-help
                                                               {:table tree :cmds dispatch :prog prog :inherit inherit})))})]
         (is (str/includes? out "BANNER"))
-        (is (str/includes? out "Usage: p"))))))
+        (is (str/includes? out "Usage: p"))))
+    (testing "multi-word commands with inheritance"
+      (is (= (str "Usage: myprog foo bar [options]\n\n"
+                  "Options:\n"
+                  "  --some-foo-bar-opt\n\n"
+                  "Run \"myprog --help\" for global options.\n"
+                  "Run \"myprog foo --help\" for foo options.")
+             (cli/format-command-help
+               {:table [{:cmds []            :spec {:some-default-opt {}}}
+                        {:cmds ["foo"]       :spec {:some-foo-opt {}}}
+                        {:cmds ["foo" "bar"] :spec {:some-foo-bar-opt {}}}]
+                :cmds ["foo" "bar"]
+                :prog "myprog"})))
+      (testing "no :prog"
+        (is (= (str "Usage: foo bar [options]\n\n"
+                  "Options:\n"
+                  "  --some-foo-bar-opt\n\n"
+                  "Run \"--help\" for global options.\n"
+                  "Run \"foo --help\" for foo options.")
+             (cli/format-command-help
+               {:table [{:cmds []            :spec {:some-default-opt {}}}
+                        {:cmds ["foo"]       :spec {:some-foo-opt {}}}
+                        {:cmds ["foo" "bar"] :spec {:some-foo-bar-opt {}}}]
+                :cmds ["foo" "bar"]})))))))
 
 (deftest format-command-error-test
   (let [table [{:cmds [] :doc "tool"}
@@ -1327,6 +1356,14 @@
         (is (= (str "Unknown command: nope\n\n"
                     "Commands:\n  dev   Start dev.\n  deps  Dep tools\n\n"
                     "Run \"tool --help\" for more information.")
+               s))))
+    (testing "no :prog"
+      (let [s (cli/format-command-error {:cause :no-match :wrong-input "nope"
+                                         :dispatch []
+                                         :tree (cli/table->tree table)})]
+        (is (= (str "Unknown command: nope\n\n"
+                    "Commands:\n  dev   Start dev.\n  deps  Dep tools\n\n"
+                    "Run \"--help\" for more information.")
                s))))
     (testing ":input-exhausted (incomplete multi-word command) renders the group's commands"
       (let [s (cli/format-command-error {:cause :input-exhausted
@@ -1396,6 +1433,7 @@
     (testing ":help true works (no :prog; usage line omits it)"
       (let [{:keys [out exit]} (run-dispatch [{:cmds [] :doc "t"} {:cmds ["go"] :fn identity :doc "Go"}]
                                              ["--help"] {:help true})]
+        (is (str/includes? out "Usage: [options] <command>"))
         (is (str/includes? out "Commands:"))
         (is (nil? exit))))
     (testing "*exit-fn* codes can be remapped by :cause (e.g. group -> 0)"
