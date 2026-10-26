@@ -2268,7 +2268,7 @@ $env.config.completions.external.completer = {|spans|
        ;; Help wins over any stashed option error.
        (= :help error)
        ((::help-fn opts) (thread-dispatch-context
-                          (assoc (select-keys res [:dispatch]) :tree tree)
+                          (assoc (select-keys res [:dispatch :opts]) :tree tree)
                           opts))
        ;; an option error was stashed during the walk and help did not win: fire the
        ;; first one (terse message via :error-fn, which exits non-zero)
@@ -2468,7 +2468,7 @@ $env.config.completions.external.completer = {|spans|
     exits non-zero (via [[*exit-fn*]]). This goes through the `:error-fn`.
 
   Both default handlers can be overridden: pass your own `:help-fn` (called with
-  `{:tree :dispatch :prog :inherit}`) and/or `:error-fn`. `dispatch` threads
+  `{:tree :dispatch :opts :prog :inherit}`) and/or `:error-fn`. `dispatch` threads
   `:prog`, `:inherit` and the command tree into the data either receives, so
   they can render without being handed them separately.
 

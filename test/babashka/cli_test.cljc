@@ -1319,6 +1319,13 @@
                                                               {:table tree :cmds dispatch :prog prog :inherit inherit})))})]
         (is (str/includes? out "BANNER"))
         (is (str/includes? out "Usage: p"))))
+    (testing "a custom :help-fn receives the parsed options"
+      (let [t [{:cmds [] :doc "t"}
+               {:cmds ["sub"] :fn identity :spec {:a {:desc "A"}}}]
+            {:keys [out]} (run-dispatch t ["sub" "--a" "x" "--help"]
+                                        {:prog "p" :help true
+                                         :help-fn (fn [{:keys [opts]}] (prn opts))})]
+        (is (= {:a "x" :help true} (edn/read-string out)))))
     (testing "multi-word commands with inheritance"
       (is (= (str "Usage: myprog foo bar [options]\n\n"
                   "Options:\n"
