@@ -4,7 +4,7 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
-## Unreleased
+## 0.12.92
 
 - [#233](https://github.com/babashka/cli/issues/233): Generated help no longer prints extra spaces when `:prog` is not specified
 - `dispatch`: pass the parsed options to the `:help-fn` as `:opts`
