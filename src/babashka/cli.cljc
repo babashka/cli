@@ -1282,9 +1282,10 @@
 
 (defn- render-help
   "Render help text for one tree `node` (built by [[command-help-context]]):
-  given a computed `:prog` (full command path), `:inherited` spec and `:parents`
-  pointers. Renders Options in the node's `:order` (see [[node-with-help]])."
-  [node {:keys [prog inherited parents]}]
+  given a computed `:prog` (full command path), `:inherited` spec with its
+  `:inherited-origins`, and `:parents` pointers. Renders Options in the node's
+  `:order` (see [[node-with-help]])."
+  [node {:keys [prog inherited inherited-origins parents]}]
   (let [spec (:spec node)                       ; map or vec-of-pairs
         spec-map (->spec-map spec)
         order (:order node)                     ; display order (see node-with-help)
@@ -1295,6 +1296,12 @@
         ;; drop inherited options this node redefines (child wins); mapify for the
         ;; key set, since a standalone format-command-help spec may be a vec
         inherited (apply dissoc inherited (keys spec-map))
+        inherited-heading (if (some (fn [[k v]]
+                                     (and (not (:no-doc v))
+                                          (seq (get inherited-origins k))))
+                                   inherited)
+                            "Inherited options:"
+                            "Global options:")
         desc (help-description (:doc node))
         cmds (help-commands-table node)
         aliases (map cmd-name (:cmd-aliases node))
@@ -1316,7 +1323,7 @@
           (conj (str "Options:\n" (format-opts {:spec opt-spec :required (:require node)})))
 
           (visible-spec? inherited)
-          (conj (str "Inherited options:\n" (format-opts {:spec inherited})))
+          (conj (str inherited-heading "\n" (format-opts {:spec inherited})))
 
           (seq cmds)
           (conj (str "Run \"" (when prog (str prog " ")) "<command> --help\" for more information on a command."))
@@ -1954,12 +1961,13 @@ $env.config.completions.external.completer = {|spans|
   "Given a dispatch `tree`, command path `cmds`, `prog` name and dispatch-level
   `inherit` value, compute everything [[render-help]] needs: the target `:node`,
   its full `:prog` path, the `:inherited` options usable here (aggregated from
-  ancestors) and the `:parents` pointers (ancestors with non-inherited options
-  that must precede the command).
+  ancestors), their `:inherited-origins` paths, and the `:parents` pointers
+  (ancestors with non-inherited options that must precede the command).
 
   `global-spec` is the dispatch-level `:spec`: options accepted at every level,
   which have no ancestor node to be listed under. Ancestors win over it, and the
-  node's own spec wins over both.
+  node's own spec wins over both. Origin paths follow the same precedence;
+  the root and dispatch-level spec both have an empty path.
 
   Specs are mapified here for set reasoning (a standalone `format-command-help`
   spec may be a vec-of-pairs); display order is handled by `render-help`."
@@ -1977,6 +1985,10 @@ $env.config.completions.external.completer = {|spans|
                               inh  (inherited-entries spec inherit)]]
                     {:pre pre :inh inh :own (apply dissoc spec (keys inh))})
         inherited (reduce merge (->spec-map global-spec) (map :inh ancestors))
+        inherited-origins (reduce (fn [origins {:keys [pre inh]}]
+                                    (merge origins (zipmap (keys inh) (repeat pre))))
+                                  (zipmap (keys (->spec-map global-spec)) (repeat []))
+                                  ancestors)
         ;; ancestors with non-inherited options that aren't also available here
         ;; (those must be given before the command)
         parents (for [{:keys [pre own]} ancestors
@@ -1987,6 +1999,7 @@ $env.config.completions.external.completer = {|spans|
     {:node (node-at cmds)
      :prog (prog-at cmds)
      :inherited inherited
+     :inherited-origins inherited-origins
      :parents (vec parents)}))
 
 (defn format-command-help
@@ -2002,10 +2015,14 @@ $env.config.completions.external.completer = {|spans|
     ...
   Options:                 ; the command's own :spec
     ...
-  Inherited options:       ; ancestor options usable here (:inherit), deduped
+  Global options:          ; inherited options originating only at the root/global spec
     ...
   <epilog>                 ; the entry's :epilog free-text, rendered verbatim
   ```
+
+  The section is named `Inherited options:` instead if any visible inherited
+  option originates at an intermediate command. Child overrides and `:no-doc`
+  options are excluded when choosing the heading.
 
   An entry's `:epilog` (a string) is rendered verbatim after the options - use it
   for examples, notes or links. Put it on the root entry (`:cmds []`) for the
@@ -2018,11 +2035,12 @@ $env.config.completions.external.completer = {|spans|
   * `:cmds`    - the command path, e.g. `[\"deps\" \"outdated\"]` (default `[]`)
   * `:prog`    - program name shown in the usage line
   * `:inherit` - only needed when you pass a dispatch-level `:inherit` to
-                 `dispatch`; pass the same value so `Inherited options:` matches.
+                 `dispatch`; pass the same value so the inherited options match.
                  Per-option `:inherit true` is detected automatically.
   * `:spec`    - the dispatch-level spec, when you pass one to `dispatch`:
                  options accepted at every level, listed under
-                 `Inherited options:` since no ancestor node declares them.
+                 `Global options:` unless combined with visible inherited options
+                 from an intermediate command.
 
   Options are listed in the entry's `:order` when it has one, else in spec order
   (a vec-of-pairs `:spec` keeps its order; a map follows key order, unreliable

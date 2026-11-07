@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- [#239](https://github.com/babashka/cli/issues/239): Help labels inherited options as `Global options:` when they originate only at the root or dispatch-level spec. Visible intermediate-command options retain the `Inherited options:` heading.
+
 ## 0.12.92
 
 - [#233](https://github.com/babashka/cli/issues/233): Generated help no longer prints extra spaces when `:prog` is not specified

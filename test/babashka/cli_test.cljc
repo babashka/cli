@@ -1241,7 +1241,7 @@
       (is (= (str "Usage: example copy [options]\n\n"
                   "Copy a file\n\n"
                   "Options:\n  --dry-run  Do a dry run\n\n"
-                  "Inherited options:\n  -v, --verbose  Verbose output")
+                  "Global options:\n  -v, --verbose  Verbose output")
              (cli/format-command-help {:table table :cmds ["copy"] :prog "example"}))))
     (testing "a table or a prebuilt tree both work"
       (is (= (cli/format-command-help {:table table :cmds ["copy"] :prog "example"})
@@ -1255,7 +1255,7 @@
     (testing "the dispatch-level :spec is listed, having no ancestor to carry it"
       (is (= (str "Usage: p [options]\n\n"
                   "Options:\n  --bar  own\n\n"
-                  "Inherited options:\n  --foo  global foo")
+                  "Global options:\n  --foo  global foo")
              (cli/format-command-help {:table {:spec {:bar {:desc "own"}}}
                                        :prog "p"
                                        :spec {:foo {:desc "global foo"}}})))
@@ -1349,6 +1349,100 @@
                         {:cmds ["foo"]       :spec {:some-foo-opt {}}}
                         {:cmds ["foo" "bar"] :spec {:some-foo-bar-opt {}}}]
                 :cmds ["foo" "bar"]})))))))
+
+(deftest format-command-help-option-origin-test
+  (let [root {:cmds [] :spec {:verbose {:alias :v :inherit true :desc "Root verbose"}}}
+        middle {:cmds ["admin"]}
+        leaf {:cmds ["admin" "show"] :fn identity :spec {:local {:desc "Local"}}}
+        render (fn [table & [opts]]
+                 (cli/format-command-help
+                  (merge {:table table :cmds ["admin" "show"] :prog "p"} opts)))]
+    (testing "root-only options remain global at deeper levels, in table or tree form"
+      (let [table [root middle leaf]
+            out (render table)]
+        (is (str/includes? out "Global options:"))
+        (is (not (str/includes? out "Inherited options:")))
+        (is (re-find #"-v, --verbose\s+Root verbose" out))
+        (is (str/includes? out "Options:\n  --local  Local"))
+        (is (= out (render (cli/table->tree table))))))
+    (testing "dispatch-global options keep their aliases and order with root options"
+      (let [out (render [root middle leaf]
+                        {:spec [[:trace {:alias :t :desc "Global trace"}]
+                                [:color {:desc "Global color"}]]})]
+        (is (str/includes? out "Global options:"))
+        (is (re-find #"-t, --trace\s+Global trace" out))
+        (is (< (str/index-of out "--trace") (str/index-of out "--color")
+               (str/index-of out "--verbose")))))
+    (testing "one visible intermediate origin retains Inherited options"
+      (let [out (render [root
+                         (assoc middle :spec {:region {:inherit true :desc "Middle region"}})
+                         leaf])]
+        (is (str/includes? out "Inherited options:"))
+        (is (not (str/includes? out "Global options:")))
+        (is (str/includes? out "Middle region"))
+        (is (str/includes? out "Root verbose"))))
+    (testing "an intermediate override keeps its origin even if the key was global"
+      (let [out (render [root
+                         (assoc middle :spec {:verbose {:inherit true :desc "Middle verbose"}})
+                         leaf]
+                        {:spec {:verbose {:desc "Dispatch verbose"}}})]
+        (is (str/includes? out "Inherited options:"))
+        (is (str/includes? out "Middle verbose"))
+        (is (not (str/includes? out "Root verbose")))
+        (is (not (str/includes? out "Dispatch verbose")))))
+    (testing "hidden intermediate entries do not change the heading"
+      (let [out (render [root
+                         (assoc middle :spec {:secret {:inherit true :no-doc true :desc "Hidden middle"}})
+                         leaf])]
+        (is (str/includes? out "Global options:"))
+        (is (not (str/includes? out "Inherited options:")))
+        (is (not (str/includes? out "Hidden middle")))))
+    (testing "a hidden intermediate override removes the root version too"
+      (let [out (render [(assoc root :spec {:verbose {:inherit true :desc "Root verbose"}
+                                           :color {:inherit true :desc "Root color"}})
+                         (assoc middle :spec {:verbose {:inherit true :no-doc true :desc "Hidden override"}})
+                         leaf])]
+        (is (str/includes? out "Global options:"))
+        (is (str/includes? out "Root color"))
+        (is (not (str/includes? out "Inherited options:")))
+        (is (not (str/includes? out "verbose")))))
+    (testing "child overrides are excluded before deciding the inherited heading"
+      (doseq [hidden? [false true]]
+        (let [out (render [root
+                           (assoc middle :spec {:region {:inherit true :desc "Middle region"}})
+                           (assoc leaf :spec {:region {:no-doc hidden? :desc "Local region"}})])]
+          (is (str/includes? out "Global options:"))
+          (is (not (str/includes? out "Inherited options:")))
+          (is (not (str/includes? out "Middle region")))
+          (is (= (not hidden?) (str/includes? out "Local region"))))))
+    (testing "all hidden inherited entries produce no empty heading"
+      (let [out (render [(assoc root :spec {:verbose {:inherit true :no-doc true}})
+                         middle (dissoc leaf :spec)])]
+        (is (= "Usage: p admin show" out))))
+    (testing "a hidden child override produces neither version nor an empty section"
+      (let [out (render [root middle
+                         (assoc leaf :spec {:verbose {:no-doc true}})])]
+        (is (= "Usage: p admin show" out))))
+    (testing "dispatch-level inherit selections preserve intermediate origin"
+      (doseq [inherit [true [:verbose :region]]]
+        (let [out (render [root (assoc middle :spec {:region {:desc "Middle region"}}) leaf]
+                          {:inherit inherit})]
+          (is (str/includes? out "Inherited options:"))
+          (is (str/includes? out "Middle region")))))
+    (testing "no inherited entries leave the existing parent pointer intact"
+      (let [out (render [(assoc root :spec {:private {:desc "Root only"}}) middle leaf])]
+        (is (not (str/includes? out "Global options:")))
+        (is (not (str/includes? out "Inherited options:")))
+        (is (str/includes? out "Run \"p --help\" for global options."))))
+    (testing "dispatch help uses the same origin classification without running the command"
+      (let [ran (atom false)
+            table [root middle (assoc leaf :fn (fn [_] (reset! ran true)))]
+            {:keys [out exit]} (run-dispatch table ["admin" "show" "--help"]
+                                            {:prog "p" :help true :spec {:trace {:desc "Global trace"}}})]
+        (is (str/includes? out "Global options:"))
+        (is (str/includes? out "Global trace"))
+        (is (nil? exit))
+        (is (false? @ran))))))
 
 (deftest format-command-error-test
   (let [table [{:cmds [] :doc "tool"}
