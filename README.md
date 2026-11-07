@@ -1181,7 +1181,27 @@ the default uses:
 The function `format-command-help` is also usable on its own (without `dispatch`): pass
 `:table` (a `dispatch` [table or tree](#tree-format)), `:cmds` (the command
 path, default `[]`), `:prog`, and optional `:inherit`. It returns the help
-string.
+string. Options inherited only from the root or supplied through the
+dispatch-level `:spec` appear under `Global options:`:
+
+``` clojure
+(println
+ (cli/format-command-help
+  {:table [{:cmds [] :spec {:verbose {:inherit true :desc "Verbose output"}}}
+           {:cmds ["copy"] :fn identity}]
+   :cmds ["copy"] :prog "example"}))
+```
+Outputs:
+``` text
+Usage: example copy [options]
+
+Global options:
+  --verbose  Verbose output
+```
+
+If any visible inherited option comes from an intermediate command, the section
+is named `Inherited options:` instead. Child overrides and `:no-doc` options are
+excluded when choosing the heading.
 
 A custom `:error-fn` receives the dispatch error data
 (`{:cause :dispatch :prog :inherit :tree :msg ...}`) and is responsible for
