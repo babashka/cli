@@ -689,7 +689,7 @@
                  recur-action nil                     ;; how the previous iteration recurred
                  open-opt last-bound                  ;; the cli option keyword we are working on
                  valued-opt last-bound                ;; the cli option keyword that has been given value(s) (but not necessarily all values)
-                 mode (when no-keyword-opts :hyphens) ;; :hyphens --foo/-f else :keywords :foo
+                 mode (when no-keyword-opts :hyphens) ;; :hyphens --foo/-f or :keywords :foo before --, :args-only after
                  args (seq args)                      ;; remaining cli args
                  a->o a->o                            ;; remaining args->opts keys
                  implicit-values {}
@@ -707,16 +707,27 @@
                     (if (and (or hyphen-opt kwd-opt)
                              ;; a value bound by --foo=val or -fval is a value,
                              ;; also when it starts with a hyphen: --foo=-bar
-                             (not= :injected-bound-val recur-action))
+                             (not= :injected-bound-val recur-action)
+                             ;; after -- every arg is positional
+                             (not= :args-only mode))
                       ;; arg is -f/-foo or :foo
                       (let [long-opt? (str/starts-with? arg "--")
-                            eo-all-opts? (and long-opt? (= "--" arg))]
+                            eo-all-opts? (= "--" arg)]
                         (if eo-all-opts?
-                          ;; exit loop: only args left
-                          (let [nargs (next args)]
-                            [(cond-> acc
-                               nargs (vary-meta assoc-in [:org.babashka/cli :args] (vec nargs)))
-                             open-opt valued-opt implicit-values opt-parse-order])
+                          ;; continue loop: there are only args left
+                          (if (get-in (meta acc) [::opt->flag open-opt])
+                            (recur (maybe-close-open-opt acc open-opt valued-opt
+                                                         opt-val-collector)
+                                   :end-of-opts
+                                   nil nil
+                                   :args-only (next args) a->o
+                                   (track-ivs implicit-values open-opt valued-opt)
+                                   opt-parse-order)
+                            (recur acc
+                                   :end-of-opts
+                                   open-opt valued-opt
+                                   :args-only (next args) a->o
+                                   implicit-values opt-parse-order))
                           (let [opt-name (if long-opt?
                                            (subs arg 2)
                                            (str/replace arg #"^(:|-|)" ""))

@@ -360,6 +360,38 @@
     (cli/parse-args ["foo" "--baz" "bar"] {:args->opts [:foo :bar] :coerce {:foo :symbol :baz :boolean}})))
   (is (= {:foo [1 2]} (cli/parse-opts ["1" "2"] {:args->opts [:foo :foo] :coerce {:foo [:int]}}))))
 
+(deftest end-of-opts-args->opts-test
+  (let [coll-opts {:args->opts [:foo] :coerce {:foo [:keyword]}}
+        pair-opts {:args->opts [:a :b]}]
+    (testing "a collecting key takes positional args on both sides of --"
+      (doseq [args [["bar" "baz"] ["bar" "--" "baz"] ["--" "bar" "baz"]]]
+        (is (= {:opts {:foo [:bar :baz]}}
+               (cli/parse-args args coll-opts))
+            (pr-str args))))
+    (testing "positional args bind to keys in order on both sides of --"
+      (doseq [args [["x" "y" "z"] ["x" "--" "y" "z"] ["--" "x" "y" "z"]]]
+        (is (= {:opts {:a "x" :b "y"} :args ["z"]}
+               (cli/parse-args args pair-opts))
+            (pr-str args))))
+    (testing "a typed option before -- is closed, args after it bind"
+      (is (= {:opts {:paths ["src"] :a "x" :b "y"}}
+             (cli/parse-args ["--paths" "src" "--" "x" "y"]
+                             (assoc pair-opts :coerce {:paths []}))))
+      (is (= {:opts {:v true :a "x" :b "y"} :args ["z"]}
+             (cli/parse-args ["--v" "x" "--" "y" "z"]
+                             (assoc pair-opts :coerce {:v :boolean})))))
+    (testing "args after -- are never options"
+      (is (= {:opts {:a "-x" :b :y}}
+             (cli/parse-args ["--" "-x" ":y"] pair-opts)))
+      (is (= {:opts {:foo [:bar :baz :-- :--x]}}
+             (cli/parse-args ["bar" "--" "baz" "--" "--x"] coll-opts))))
+    (testing "without :args->opts the args after -- stay args"
+      (is (= {:opts {:paths ["src" "test"]} :args ["ssh://foo"]}
+             (cli/parse-args ["--paths" "src" "test" "--" "ssh://foo"]
+                             {:coerce {:paths []}})))
+      (is (= {:opts {:foo true} :args ["a"]}
+             (cli/parse-args ["--foo" "--" "a"]))))))
+
 (deftest variadic-args->opts-test
   (testing "a non-collecting variadic :args->opts terminates, last value wins"
     (is (= {:y "c"} (cli/parse-opts ["a" "b" "c"] {:args->opts (repeat :y)})))
