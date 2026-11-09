@@ -4,6 +4,10 @@ For breaking changes, check [here](#breaking-changes).
 
 [Babashka CLI](https://github.com/babashka/cli): turn Clojure functions into CLIs!
 
+## Unreleased
+
+- [#243](https://github.com/babashka/cli/issues/243): Throw on an unknown coercion keyword such as `:integer` instead of coercing to `nil`
+
 ## 0.12.92
 
 - [#233](https://github.com/babashka/cli/issues/233): Generated help no longer prints extra spaces when `:prog` is not specified
