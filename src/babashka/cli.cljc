@@ -116,19 +116,24 @@
                 :cljs :default) _ s))
     s))
 
+(def ^:private coercion-keywords
+  #{:boolean :bool :int :long :double :number :symbol :keyword :string :edn :auto})
+
 (defn- coerce-failure-reason
   "The reason part of a coerce failure, e.g. `cannot transform input \"x\" to long`."
   [s implicit-value f]
-  (str "cannot transform "
-       (if implicit-value
-         (str "(implicit) " implicit-value)
-         (str "input " (pr-str s)))
-       (if (keyword? f)
-         " to "
-         " with ")
-       (if (keyword? f)
-         (name f)
-         f)))
+  (if (and (keyword? f) (not (contains? coercion-keywords f)))
+    (str "unknown coercion keyword " f)
+    (str "cannot transform "
+         (if implicit-value
+           (str "(implicit) " implicit-value)
+           (str "input " (pr-str s)))
+         (if (keyword? f)
+           " to "
+           " with ")
+         (if (keyword? f)
+           (name f)
+           f))))
 
 (defn- throw-coerce [s implicit-value f e]
   (throw (ex-info (str "Coerce failure: " (coerce-failure-reason s implicit-value f))
@@ -160,9 +165,11 @@
              ;; default
              f)
         res (if (string? s)
-              (try (f* s)
-                   (catch #?(:clj Exception :cljd Object :cljs :default) e
-                     (throw-coerce s implicit-value f e)))
+              (if (keyword? f*)
+                (throw-coerce s nil f nil)
+                (try (f* s)
+                     (catch #?(:clj Exception :cljd Object :cljs :default) e
+                       (throw-coerce s implicit-value f e))))
               s)]
     (if (and (some? implicit-value) (not= implicit-value res))
       (throw-coerce s implicit-value f nil)
@@ -171,8 +178,8 @@
 (defn coerce
   "Coerce string `s` using `f`. Does not coerce when `s` is not a string.
   `f` may be a keyword (`:boolean`, `:int`, `:double`, `:symbol`,
-  `:keyword`) or a function. When `f` return `nil`, this is
-  interpreted as a parse failure and throws."
+  `:keyword`) or a function.
+  Throws if `f` throws or is an unknown coercion keyword."
   [s f]
   (coerce* s f nil))
 

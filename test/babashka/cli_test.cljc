@@ -71,6 +71,16 @@
                  :spec nil
                  :opts {}}
                 (ex-data e)))))
+  (testing "unknown coercion keyword :integer throws"
+    (is (thrown-with-msg? #?(:cljd Object :default Exception)
+                          #"Invalid value for option --a: unknown coercion keyword :integer"
+                          (cli/parse-opts ["--a" "1"] {:coerce {:a :integer}})))
+    (is (thrown-with-msg? #?(:cljd Object :default Exception)
+                          #"Invalid value for option --a: unknown coercion keyword :integer"
+                          (cli/parse-opts ["--a"] {:coerce {:a [:integer]}})))
+    (is (thrown-with-msg? #?(:cljd Object :default Exception)
+                          #"Coerce failure: unknown coercion keyword :integer"
+                          (cli/coerce "1" :integer))))
   (is (submap? {:a [1 1]}
                (cli/parse-opts ["-a" "1" "-a" "1"] {:collect {:a []} :coerce {:a :long}})))
   (is (submap? {:foo :bar
