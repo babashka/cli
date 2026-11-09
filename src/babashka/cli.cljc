@@ -116,6 +116,10 @@
                 :cljs :default) _ s))
     s))
 
+(defn- kw->str [kw]
+  #?(:squint (str kw)
+     :default (subs (str kw) 1)))
+
 (def ^:private coercion-keywords
   #{:boolean :bool :int :long :double :number :symbol :keyword :string :edn :auto})
 
@@ -123,7 +127,7 @@
   "The reason part of a coerce failure, e.g. `cannot transform input \"x\" to long`."
   [s implicit-value f]
   (if (and (keyword? f) (not (contains? coercion-keywords f)))
-    (str "unknown coercion keyword " f)
+    (str "unknown coercion keyword :" (kw->str f))
     (str "cannot transform "
          (if implicit-value
            (str "(implicit) " implicit-value)
@@ -298,10 +302,6 @@
       (assoc (if spec (merge-opts opts (spec->opts spec opts)) opts)
              ::spec-map (->spec-map spec)
              ::resolved true))))
-
-(defn- kw->str [kw]
-  #?(:squint (str kw)
-     :default (subs (str kw) 1)))
 
 (defn- option-label
   "User-facing name for option `opt` in an error message: the literal flag the
